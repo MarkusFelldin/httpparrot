@@ -1,0 +1,43 @@
+<!doctype html>
+<head>
+    <title>HTTP Parrots</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- <link rel="shortcut icon" type="image/png" href="/static/favicon.png" /> -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    <link rel="icon" href="static/favicon.ico" type="image/x-icon"/>
+    <link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon"/>
+</head>
+
+<nav class="navbar navbar-default" style="margin-bottom: 10px;">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">
+                HTTP Parrots by Markus Felldin
+            </a>
+        </div>
+    </div>
+</nav>
+
+<body style="margin-bottom: 10px;">
+    <main class="container-fluid">
+        <div class="row">
+            {% for status_code in status_code_list %}
+                <div class="col-lg-3 col-md-4 col-sm-6 col-xs-12" style="padding: 5px">
+                    <div class="parrot">
+                        <div class="img">
+                            <img src="static/{{ status_code[0] }}.jpg"/>
+                        </div>
+                        <div class="img-text">
+                            <div class="img-status-code">{{ status_code[0] }}</div>
+                            <div class="img-status-code-text">{{ status_code[1] }}</div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </main>
+</body>
