@@ -95,4 +95,5 @@ def pruned_status_codes():
         image = find_image(status_code[0])
         if image:
             working_status_codes.append(status_code + [image])
+    working_status_codes.sort(key=lambda s: int(s[0]))
     return working_status_codes
