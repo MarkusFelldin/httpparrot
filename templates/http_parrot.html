@@ -56,6 +56,44 @@
         </div>
         {% endif %}
 
+        {% if extra %}
+        <div class="detail-info">
+            {% if extra.examples %}
+            <div class="detail-section">
+                <h2>When would I see this?</h2>
+                <ul class="detail-list">
+                    {% for ex in extra.examples %}
+                    <li>{{ ex }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if extra.headers %}
+            <div class="detail-section">
+                <h2>Typical headers</h2>
+                <div class="detail-code-block">
+                    {% for h in extra.headers %}
+                    <code>{{ h }}</code><br>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if extra.code %}
+            <div class="detail-section">
+                <h2>Code examples</h2>
+                {% for lang, snippet in extra.code.items() %}
+                <div class="code-example">
+                    <div class="code-lang">{{ lang }}</div>
+                    <pre class="code-snippet">{{ snippet }}</pre>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <div class="detail-nav">
             <div class="detail-nav-side">
                 {% if prev_code %}

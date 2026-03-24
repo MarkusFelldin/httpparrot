@@ -507,6 +507,70 @@ body {
   transform: translateY(-1px);
 }
 
+.detail-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.detail-list li {
+  position: relative;
+  padding: 0.3rem 0 0.3rem 1.2rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.detail-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.75rem;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.detail-code-block {
+  background: #111114;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.code-example {
+  margin-bottom: 0.5rem;
+}
+
+.code-example:last-child {
+  margin-bottom: 0;
+}
+
+.code-lang {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 0.25rem;
+}
+
+.code-snippet {
+  background: #111114;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 /* Footer */
 .site-footer {
   text-align: center;

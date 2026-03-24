@@ -3,6 +3,7 @@ from datetime import date
 from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for, jsonify
 import os
 from status_descriptions import STATUS_INFO
+from status_extra import STATUS_EXTRA
 
 app = Flask(__name__)
 
@@ -52,6 +53,7 @@ def http_parrot(status_code):
         return send_from_directory('static', image), code
     description = next((s[1] for s in status_code_list if s[0] == status_code), '')
     info = STATUS_INFO.get(status_code, {})
+    extra = STATUS_EXTRA.get(status_code, {})
     if best == 'application/json':
         return jsonify({
             "code": status_code,
@@ -70,7 +72,8 @@ def http_parrot(status_code):
     next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
-                           prev_code=prev_code, next_code=next_code), code
+                           extra=extra, prev_code=prev_code,
+                           next_code=next_code), code
 
 
 @app.route('/<status_code>.jpg')
