@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory, abort
 import os
 
 app = Flask(__name__)
@@ -19,6 +19,14 @@ def http_parrot(status_code):
     image = find_image(status_code)
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image), code
+
+
+@app.route('/<status_code>.jpg')
+def http_parrot_image(status_code):
+    image = find_image(status_code)
+    if not image:
+        abort(404)
+    return send_from_directory('static', image)
 
 
 # Support code for setting correct codes and descriptions
