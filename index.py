@@ -28,6 +28,11 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/api-docs')
+def api_docs():
+    return render_template('api_docs.html')
+
+
 @app.route('/flowchart')
 def flowchart():
     return render_template('flowchart.html')
