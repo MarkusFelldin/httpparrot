@@ -9,19 +9,17 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 </head>
 <body>
-    <nav class="navbar navbar-dark sticky-top">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">HTTP Parrots</a>
+    <header class="site-header-compact">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="/" class="header-title">HTTP Parrots</a>
+                <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
+            </div>
+            <div class="header-right">
+                <input type="text" id="search" class="search-input" placeholder="Search..." autocomplete="off">
+            </div>
         </div>
-    </nav>
-
-    <div class="site-header">
-        <h1>HTTP Parrots</h1>
-        <p>Every HTTP status code, explained by parrots</p>
-        <div class="search-wrapper">
-            <input type="text" id="search" class="search-input" placeholder="Search by code or description..." autocomplete="off">
-        </div>
-    </div>
+    </header>
 
     <main class="container-fluid parrot-grid">
         <div class="row g-4" id="parrot-grid">
