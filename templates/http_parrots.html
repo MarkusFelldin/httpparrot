@@ -10,26 +10,22 @@
 </head>
 <body>
     <header class="site-header-compact">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
-            </div>
-            <div class="header-right">
+        <div class="header-top">
+            <a href="/" class="header-title">HTTP Parrots</a>
+            <div class="header-actions">
                 <a href="/random" class="btn-random" title="Random parrot">🎲</a>
                 <input type="text" id="search" class="search-input" placeholder="Search..." autocomplete="off">
             </div>
         </div>
+        <nav class="header-tabs">
+            <button class="tab active" data-cat="all">All</button>
+            <button class="tab tab-1xx" data-cat="1">1xx</button>
+            <button class="tab tab-2xx" data-cat="2">2xx</button>
+            <button class="tab tab-3xx" data-cat="3">3xx</button>
+            <button class="tab tab-4xx" data-cat="4">4xx</button>
+            <button class="tab tab-5xx" data-cat="5">5xx</button>
+        </nav>
     </header>
-
-    <div class="category-filters">
-        <button class="cat-pill active" data-cat="all">All</button>
-        <button class="cat-pill cat-1xx" data-cat="1">1xx <span class="cat-label">Info</span></button>
-        <button class="cat-pill cat-2xx" data-cat="2">2xx <span class="cat-label">Success</span></button>
-        <button class="cat-pill cat-3xx" data-cat="3">3xx <span class="cat-label">Redirect</span></button>
-        <button class="cat-pill cat-4xx" data-cat="4">4xx <span class="cat-label">Client</span></button>
-        <button class="cat-pill cat-5xx" data-cat="5">5xx <span class="cat-label">Server</span></button>
-    </div>
 
     <main class="container-fluid parrot-grid">
         <div class="row g-4" id="parrot-grid">
@@ -66,7 +62,7 @@
         const searchEl = document.getElementById('search');
         const cards = document.querySelectorAll('.parrot-card');
         const noResults = document.getElementById('no-results');
-        const pills = document.querySelectorAll('.cat-pill');
+        const pills = document.querySelectorAll('.tab');
 
         function filterCards() {
             const q = searchEl.value.toLowerCase().trim();
