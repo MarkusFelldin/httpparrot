@@ -31,6 +31,10 @@ def http_parrot(status_code):
         abort(404)
     if not any(s[0] == status_code for s in status_code_list):
         abort(404)
+    # Only return the actual status code for 2xx/4xx/5xx.
+    # 1xx and 3xx codes have special HTTP semantics that break the response.
+    if code < 200 or 300 <= code < 400:
+        code = 200
     image = find_image(status_code)
     best = request.accept_mimetypes.best_match(['text/html', 'image/*', 'application/json'])
     if image and best == 'image/*':
