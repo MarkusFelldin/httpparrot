@@ -120,6 +120,16 @@
                 toggleBtn.classList.remove('open');
             }
         });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement !== searchEl) {
+                e.preventDefault();
+                searchEl.focus();
+            }
+            if (e.key === 'Escape' && document.activeElement === searchEl) {
+                searchEl.blur();
+            }
+        });
     })();
     </script>
 
