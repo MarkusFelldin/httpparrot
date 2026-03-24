@@ -49,8 +49,17 @@ def http_parrot(status_code):
             "meaning": info.get("description", ""),
             "history": info.get("history", ""),
         }), code
+    codes = pruned_status_codes()
+    code_list = [c[0] for c in codes]
+    try:
+        idx = code_list.index(status_code)
+    except ValueError:
+        idx = -1
+    prev_code = code_list[idx - 1] if idx > 0 else None
+    next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
     return render_template('http_parrot.html', status_code=status_code,
-                           description=description, image=image, info=info), code
+                           description=description, image=image, info=info,
+                           prev_code=prev_code, next_code=next_code), code
 
 
 @app.route('/<status_code>.jpg')

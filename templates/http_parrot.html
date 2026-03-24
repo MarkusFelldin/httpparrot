@@ -52,8 +52,18 @@
         </div>
         {% endif %}
 
-        <div style="text-align: center; margin-top: 2rem;">
-            <a href="/" class="btn-back">&larr; All parrots</a>
+        <div class="detail-nav">
+            <div class="detail-nav-side">
+                {% if prev_code %}
+                <a href="/{{ prev_code }}" class="btn-nav">&larr; {{ prev_code }}</a>
+                {% endif %}
+            </div>
+            <a href="/" class="btn-back">All parrots</a>
+            <div class="detail-nav-side" style="text-align: right;">
+                {% if next_code %}
+                <a href="/{{ next_code }}" class="btn-nav">{{ next_code }} &rarr;</a>
+                {% endif %}
+            </div>
         </div>
     </main>
 
@@ -62,5 +72,11 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft'{% if prev_code %}) window.location.href = '/{{ prev_code }}'{% else %}) {}{% endif %};
+        if (e.key === 'ArrowRight'{% if next_code %}) window.location.href = '/{{ next_code }}'{% else %}) {}{% endif %};
+    });
+    </script>
 </body>
 </html>
