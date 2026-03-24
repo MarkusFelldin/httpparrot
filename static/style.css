@@ -99,11 +99,78 @@ body {
   background: #1a1a1f;
 }
 
+/* Search */
+.search-wrapper {
+  max-width: 420px;
+  margin: 1.25rem auto 0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a1a1f;
+  color: #ffffff;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.search-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Clickable cards */
+.parrot-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  height: 100%;
+}
+
 .img-status-code {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #00c9a7, #7b61ff);
+}
+
+/* Category colors */
+.category-1xx {
+  background: linear-gradient(135deg, #00b4d8, #48cae4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.category-2xx {
+  background: linear-gradient(135deg, #00c9a7, #2dd4a8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.category-3xx {
+  background: linear-gradient(135deg, #f9c74f, #f4a261);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.category-4xx {
+  background: linear-gradient(135deg, #e94560, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.category-5xx {
+  background: linear-gradient(135deg, #7b61ff, #a78bfa);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
