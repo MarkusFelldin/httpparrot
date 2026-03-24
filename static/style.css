@@ -77,7 +77,32 @@ body {
 
 .header-right {
   flex-shrink: 0;
-  width: 280px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 330px;
+}
+
+.btn-random {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.btn-random:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 15px rgba(0, 201, 167, 0.15);
+  transform: translateY(-1px);
 }
 
 .header-right .search-input {
