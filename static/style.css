@@ -228,6 +228,12 @@ body {
   transform: translateY(0);
 }
 
+.parrot-card.clicked .parrot {
+  transform: scale(0.95);
+  opacity: 0.6;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
 /* Grid */
 .parrot-grid {
   padding: 1rem 1.5rem 2rem;
