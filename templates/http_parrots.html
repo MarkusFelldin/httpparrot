@@ -118,6 +118,24 @@
     })();
     </script>
 
+    <script>
+    (function() {
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.parrot-card').forEach(function(card, i) {
+            card.style.transitionDelay = (i % 8) * 0.05 + 's';
+            observer.observe(card);
+        });
+    })();
+    </script>
+
     <!-- Konami Code Easter Egg -->
     <div id="party-parrot-overlay">
         <div id="party-parrot-container"></div>

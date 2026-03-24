@@ -194,6 +194,18 @@ body {
 .cat-pill.cat-4xx.active { color: #ff6b6b; background: rgba(233, 69, 96, 0.12); }
 .cat-pill.cat-5xx.active { color: #a78bfa; background: rgba(123, 97, 255, 0.12); }
 
+/* Scroll reveal */
+.parrot-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.parrot-card.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Grid */
 .parrot-grid {
   padding: 1rem 1.5rem 2rem;
