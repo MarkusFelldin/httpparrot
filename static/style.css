@@ -218,15 +218,31 @@ body {
   margin: 0;
 }
 
-.back-link {
-  color: rgba(255, 255, 255, 0.4);
-  text-decoration: none;
+.btn-back {
+  display: inline-block;
+  padding: 0.7rem 1.75rem;
+  border-radius: 50px;
   font-size: 0.9rem;
-  transition: color 0.2s ease;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.3s ease;
 }
 
-.back-link:hover {
-  color: rgba(255, 255, 255, 0.7);
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 20px rgba(0, 201, 167, 0.15), 0 0 40px rgba(123, 97, 255, 0.1);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-back:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 /* Footer */
