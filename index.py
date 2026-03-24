@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory, abort
+from flask import Flask, render_template, send_from_directory, abort, request
 import os
 
 app = Flask(__name__)
@@ -15,8 +15,10 @@ def http_parrot(status_code):
         code = int(status_code)
     except ValueError:
         code = 200
-    description = next((s[1] for s in status_code_list if s[0] == status_code), '')
     image = find_image(status_code)
+    if image and request.accept_mimetypes.best_match(['text/html', 'image/*']) == 'image/*':
+        return send_from_directory('static', image), code
+    description = next((s[1] for s in status_code_list if s[0] == status_code), '')
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image), code
 
