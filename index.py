@@ -1,5 +1,5 @@
 import random
-from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for
+from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for, jsonify
 import os
 from status_descriptions import STATUS_INFO
 
@@ -28,12 +28,23 @@ def http_parrot(status_code):
     try:
         code = int(status_code)
     except ValueError:
-        code = 200
+        abort(404)
+    if not any(s[0] == status_code for s in status_code_list):
+        abort(404)
     image = find_image(status_code)
-    if image and request.accept_mimetypes.best_match(['text/html', 'image/*']) == 'image/*':
+    best = request.accept_mimetypes.best_match(['text/html', 'image/*', 'application/json'])
+    if image and best == 'image/*':
         return send_from_directory('static', image), code
     description = next((s[1] for s in status_code_list if s[0] == status_code), '')
     info = STATUS_INFO.get(status_code, {})
+    if best == 'application/json':
+        return jsonify({
+            "code": status_code,
+            "description": description,
+            "image": f"/{image}" if image else None,
+            "meaning": info.get("description", ""),
+            "history": info.get("history", ""),
+        }), code
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info), code
 
