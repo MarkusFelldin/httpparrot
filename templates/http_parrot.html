@@ -16,7 +16,8 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 </head>
 <body>
-    <header class="site-header-compact">
+    <a href="#detail-content" class="skip-link">Skip to content</a>
+    <header class="site-header-compact" role="banner">
         <div class="header-inner">
             <div class="header-left">
                 <a href="/" class="header-title">HTTP Parrots</a>
@@ -25,7 +26,7 @@
         </div>
     </header>
 
-    <main class="container" style="max-width: 720px; padding: 2rem 1.5rem 3rem;">
+    <main id="detail-content" class="container" role="main" style="max-width: 720px; padding: 2rem 1.5rem 3rem;">
         <div class="parrot" style="margin: 0 auto;">
             {% if image %}
             <div class="img">

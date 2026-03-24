@@ -9,21 +9,24 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 </head>
 <body>
-    <header class="site-header-compact">
+    <a href="#parrot-grid" class="skip-link">Skip to content</a>
+    <header class="site-header-compact" role="banner">
         <div class="header-inner">
             <div class="header-left">
                 <a href="/" class="header-title">HTTP Parrots</a>
                 <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
             </div>
             <div class="header-right">
-                <a href="/random" class="btn-random" title="Random parrot">🎲</a>
-                <input type="text" id="search" class="search-input" placeholder="Search..." autocomplete="off">
+                <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">🎲</a>
+                <div role="search">
+                    <input type="text" id="search" class="search-input" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
+                </div>
                 <div class="filter-menu">
-                    <button class="btn-filter" id="filter-toggle" title="Filter by category">
-                        <span class="filter-icon">&#9776;</span>
-                        <span class="filter-dot"></span>
+                    <button class="btn-filter" id="filter-toggle" title="Filter by category" aria-label="Filter by category" aria-expanded="false" aria-controls="filter-dropdown">
+                        <span class="filter-icon" aria-hidden="true">&#9776;</span>
+                        <span class="filter-dot" aria-hidden="true"></span>
                     </button>
-                    <div class="filter-dropdown" id="filter-dropdown">
+                    <div class="filter-dropdown" id="filter-dropdown" role="menu">
                         <button class="cat-pill active" data-cat="all">All</button>
                         <button class="cat-pill cat-1xx" data-cat="1">1xx Informational</button>
                         <button class="cat-pill cat-2xx" data-cat="2">2xx Success</button>
@@ -36,11 +39,11 @@
         </div>
     </header>
 
-    <main class="container-fluid parrot-grid">
+    <main class="container-fluid parrot-grid" role="main">
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
                 <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}">
-                    <a href="/{{ status_code[0] }}" class="parrot-link">
+                    <a href="/{{ status_code[0] }}" class="parrot-link" aria-label="{{ status_code[0] }} {{ status_code[1] }}">
                         <div class="parrot parrot-{{ status_code[0][0] }}xx{% if status_code[0] == featured %} featured{% endif %}">
                             <div class="img">
                                 <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" loading="lazy"/>
@@ -54,7 +57,7 @@
                 </div>
             {% endfor %}
         </div>
-        <div id="no-results" style="display:none; text-align:center; padding:3rem; color:rgba(255,255,255,0.4);">
+        <div id="no-results" role="status" aria-live="polite" style="display:none; text-align:center; padding:3rem; color:rgba(255,255,255,0.4);">
             No parrots found matching your search.
         </div>
     </main>
@@ -110,14 +113,16 @@
 
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            dropdown.classList.toggle('open');
+            var isOpen = dropdown.classList.toggle('open');
             toggleBtn.classList.toggle('open');
+            toggleBtn.setAttribute('aria-expanded', isOpen);
         });
 
         document.addEventListener('click', function(e) {
             if (!dropdown.contains(e.target) && e.target !== toggleBtn) {
                 dropdown.classList.remove('open');
                 toggleBtn.classList.remove('open');
+                toggleBtn.setAttribute('aria-expanded', 'false');
             }
         });
 
