@@ -6,6 +6,11 @@ from status_descriptions import STATUS_INFO
 app = Flask(__name__)
 
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
 @app.route('/')
 def http_parrots():
     return render_template('http_parrots.html', status_code_list=pruned_status_codes())
