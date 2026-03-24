@@ -9,16 +9,21 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark mb-3">
+    <nav class="navbar navbar-dark sticky-top">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">HTTP Parrots by Markus Felldin</a>
+            <a class="navbar-brand" href="/">HTTP Parrots</a>
         </div>
     </nav>
 
-    <main class="container-fluid">
-        <div class="row">
+    <div class="site-header">
+        <h1>HTTP Parrots</h1>
+        <p>Every HTTP status code, explained by parrots</p>
+    </div>
+
+    <main class="container-fluid parrot-grid">
+        <div class="row g-4">
             {% for status_code in status_code_list %}
-                <div class="col-lg-3 col-md-4 col-sm-6 col-12" style="padding: 5px">
+                <div class="col-lg-3 col-md-4 col-sm-6 col-12">
                     <div class="parrot">
                         <div class="img">
                             <img src="/static/{{ status_code[0] }}.jpg" alt="{{ status_code[0] }} {{ status_code[1] }}"/>
@@ -32,6 +37,10 @@
             {% endfor %}
         </div>
     </main>
+
+    <footer class="site-footer">
+        HTTP Parrots by Markus Felldin
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
