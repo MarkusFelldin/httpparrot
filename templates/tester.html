@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>HTTP Tester - HTTP Parrots</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+    <style>
+        .tester-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+        .tester-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .tester-input { flex: 1; padding: 0.75rem 1.15rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a1f; color: #fff; font-size: 1rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+        .tester-input::placeholder { color: rgba(255,255,255,0.3); }
+        .tester-input:focus { border-color: rgba(255,255,255,0.25); }
+        .tester-submit { padding: 0.75rem 1.5rem; border-radius: 10px; border: 1px solid rgba(0,201,167,0.3); background: rgba(0,201,167,0.1); color: #2dd4a8; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; }
+        .tester-submit:hover { background: rgba(0,201,167,0.2); border-color: rgba(0,201,167,0.5); }
+        .tester-submit:disabled { opacity: 0.5; cursor: default; }
+        .tester-result { background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; text-align: center; }
+        .tester-result-header { padding: 1.5rem; }
+        .tester-result-code { font-size: 4rem; font-weight: 800; }
+        .tester-result-name { font-size: 1rem; color: rgba(255,255,255,0.5); margin-top: 0.25rem; }
+        .tester-result-url { font-size: 0.8rem; color: rgba(255,255,255,0.3); margin-top: 0.5rem; word-break: break-all; }
+        .tester-result img { max-width: 100%; height: 16em; object-fit: cover; }
+        .tester-result-actions { padding: 1rem; }
+        .tester-error { background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); border-radius: 12px; padding: 1.25rem; color: #ff6b6b; text-align: center; font-size: 0.9rem; }
+        .tester-loading { text-align: center; padding: 2rem; color: rgba(255,255,255,0.4); }
+    </style>
+</head>
+<body>
+    <header class="site-header-compact" role="banner">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="/" class="header-title">HTTP Parrots</a>
+                <span class="header-subtitle">HTTP Tester</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="tester-container" role="main">
+        <form class="tester-form" id="tester-form">
+            <input type="text" class="tester-input" id="url-input" placeholder="Enter a URL (e.g. example.com)" autocomplete="off" aria-label="URL to test">
+            <button type="submit" class="tester-submit" id="submit-btn">Test</button>
+        </form>
+        <div id="result"></div>
+    </main>
+
+    <footer class="site-footer">HTTP Parrots by Markus Felldin</footer>
+
+    <script>
+    (function() {
+        var codes = {
+            200:'OK',201:'Created',202:'Accepted',204:'No Content',
+            301:'Moved Permanently',302:'Found',303:'See Other',304:'Not Modified',307:'Temporary Redirect',308:'Permanent Redirect',
+            400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',405:'Method Not Allowed',
+            408:'Request Time-out',410:'Gone',429:'Too Many Requests',451:'Unavailable For Legal Reasons',
+            500:'Internal Server Error',502:'Bad Gateway',503:'Service Unavailable',504:'Gateway Time-out'
+        };
+        var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
+
+        document.getElementById('tester-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var url = document.getElementById('url-input').value.trim();
+            if (!url) return;
+
+            var result = document.getElementById('result');
+            var btn = document.getElementById('submit-btn');
+            result.innerHTML = '<div class="tester-loading">Testing...</div>';
+            btn.disabled = true;
+
+            fetch('/api/check-url?url=' + encodeURIComponent(url))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    btn.disabled = false;
+                    if (data.error) {
+                        result.innerHTML = '<div class="tester-error">' + data.error + '</div>';
+                        return;
+                    }
+                    var code = data.code;
+                    var name = codes[code] || 'Unknown';
+                    var cat = String(code)[0];
+                    var color = colors[cat] || '#fff';
+                    var hasParrot = true;
+
+                    result.innerHTML = '<div class="tester-result">' +
+                        '<div class="tester-result-header">' +
+                        '<div class="tester-result-code" style="color:' + color + '">' + code + '</div>' +
+                        '<div class="tester-result-name">' + name + '</div>' +
+                        '<div class="tester-result-url">' + data.url + '</div>' +
+                        '</div>' +
+                        '<img src="/' + code + '.jpg" alt="' + code + ' parrot" onerror="this.style.display=\'none\'">' +
+                        '<div class="tester-result-actions">' +
+                        '<a href="/' + code + '" class="btn-back" style="font-size:0.85rem;padding:0.5rem 1.25rem">Learn about ' + code + '</a>' +
+                        '</div>' +
+                        '</div>';
+                })
+                .catch(function(err) {
+                    btn.disabled = false;
+                    result.innerHTML = '<div class="tester-error">Failed to check URL: ' + err.message + '</div>';
+                });
+        });
+
+        document.getElementById('url-input').focus();
+    })();
+    </script>
+</body>
+</html>

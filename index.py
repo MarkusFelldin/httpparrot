@@ -28,6 +28,31 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/flowchart')
+def flowchart():
+    return render_template('flowchart.html')
+
+
+@app.route('/tester')
+def tester():
+    return render_template('tester.html')
+
+
+@app.route('/api/check-url')
+def check_url():
+    import requests as req
+    url = request.args.get('url', '')
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    try:
+        resp = req.head(url, allow_redirects=False, timeout=10)
+        return jsonify({"code": resp.status_code, "url": url})
+    except req.RequestException as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route('/random')
 def random_parrot():
     codes = pruned_status_codes()
