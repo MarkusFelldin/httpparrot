@@ -25,6 +25,12 @@
         .tester-result-actions { padding: 1rem; }
         .tester-error { background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); border-radius: 12px; padding: 1.25rem; color: #ff6b6b; text-align: center; font-size: 0.9rem; }
         .tester-loading { text-align: center; padding: 2rem; color: rgba(255,255,255,0.4); }
+        @media (max-width: 480px) {
+            .tester-container { padding: 1.5rem 1rem 3rem; }
+            .tester-form { flex-direction: column; }
+            .tester-result-code { font-size: 3rem; }
+            .tester-result img { height: 12em; }
+        }
     </style>
 </head>
 <body>

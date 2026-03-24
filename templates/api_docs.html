@@ -25,7 +25,12 @@
         .docs-intro { text-align: center; margin-bottom: 2.5rem; }
         .docs-intro h1 { font-size: 1.75rem; font-weight: 800; background: linear-gradient(135deg, #00c9a7, #00b4d8, #7b61ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
         .docs-intro p { color: rgba(255,255,255,0.45); font-size: 0.95rem; }
-        .docs-base { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: rgba(255,255,255,0.5); background: #111114; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block; margin-top: 0.5rem; }
+        .docs-base { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: rgba(255,255,255,0.5); background: #111114; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block; margin-top: 0.5rem; word-break: break-all; }
+        @media (max-width: 480px) {
+            .docs-container { padding: 1.5rem 1rem 3rem; }
+            .docs-code { font-size: 0.7rem; }
+            .docs-base { font-size: 0.7rem; }
+        }
     </style>
 </head>
 <body>
