@@ -1,6 +1,7 @@
 import random
 from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for
 import os
+from status_descriptions import STATUS_INFO
 
 app = Flask(__name__)
 
@@ -27,8 +28,9 @@ def http_parrot(status_code):
     if image and request.accept_mimetypes.best_match(['text/html', 'image/*']) == 'image/*':
         return send_from_directory('static', image), code
     description = next((s[1] for s in status_code_list if s[0] == status_code), '')
+    info = STATUS_INFO.get(status_code, {})
     return render_template('http_parrot.html', status_code=status_code,
-                           description=description, image=image), code
+                           description=description, image=image, info=info), code
 
 
 @app.route('/<status_code>.jpg')

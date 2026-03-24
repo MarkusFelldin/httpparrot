@@ -27,12 +27,26 @@
             </div>
             {% endif %}
             <div class="img-text" style="padding: 1.5rem;">
-                <div class="img-status-code" style="font-size: 3rem;">{{ status_code }}</div>
+                <div class="img-status-code category-{{ status_code[0] }}xx" style="font-size: 3rem;">{{ status_code }}</div>
                 <div class="img-status-code-text" style="font-size: 1rem;">{{ description }}</div>
             </div>
         </div>
+
+        {% if info %}
+        <div class="detail-info">
+            <div class="detail-section">
+                <h2>What does it mean?</h2>
+                <p>{{ info.description }}</p>
+            </div>
+            <div class="detail-section">
+                <h2>History</h2>
+                <p>{{ info.history }}</p>
+            </div>
+        </div>
+        {% endif %}
+
         <div style="text-align: center; margin-top: 1.5rem;">
-            <a href="/" style="color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.9rem;">&larr; All parrots</a>
+            <a href="/" class="back-link">&larr; All parrots</a>
         </div>
     </main>
 
