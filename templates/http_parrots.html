@@ -43,5 +43,57 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Konami Code Easter Egg -->
+    <div id="party-parrot-overlay">
+        <div id="party-parrot-container"></div>
+        <div id="party-parrot-text">PARTY PARROT MODE</div>
+    </div>
+
+    <script>
+    (function() {
+        const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+        let pos = 0;
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === konamiCode[pos]) {
+                pos++;
+                if (pos === konamiCode.length) {
+                    pos = 0;
+                    activatePartyParrot();
+                }
+            } else {
+                pos = 0;
+            }
+        });
+
+        function activatePartyParrot() {
+            const overlay = document.getElementById('party-parrot-overlay');
+            const container = document.getElementById('party-parrot-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 20; i++) {
+                const parrot = document.createElement('div');
+                parrot.className = 'flying-parrot';
+                parrot.textContent = '🦜';
+                parrot.style.left = Math.random() * 100 + 'vw';
+                parrot.style.animationDelay = Math.random() * 2 + 's';
+                parrot.style.animationDuration = (2 + Math.random() * 3) + 's';
+                parrot.style.fontSize = (2 + Math.random() * 4) + 'rem';
+                container.appendChild(parrot);
+            }
+
+            overlay.classList.add('active');
+
+            document.body.style.animation = 'rainbow-bg 0.5s infinite';
+
+            setTimeout(function() {
+                overlay.classList.remove('active');
+                document.body.style.animation = '';
+                container.innerHTML = '';
+            }, 5000);
+        }
+    })();
+    </script>
 </body>
 </html>
