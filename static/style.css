@@ -38,7 +38,7 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 1.5rem;
 }
 
 .header-inner {
@@ -58,7 +58,7 @@ body {
 
 .header-title {
   font-weight: 800;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, #00c9a7, #00b4d8, #7b61ff);
   -webkit-background-clip: text;
@@ -70,19 +70,19 @@ body {
 
 .header-subtitle {
   color: rgba(255, 255, 255, 0.35);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 400;
   white-space: nowrap;
 }
 
 .header-right {
   flex-shrink: 0;
-  width: 220px;
+  width: 280px;
 }
 
 .header-right .search-input {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.95rem;
 }
 
 @media (max-width: 640px) {
