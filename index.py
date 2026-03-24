@@ -52,9 +52,21 @@ status_code_list = [
 ]
 
 
+IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.JPG', '.png', '.gif']
+
+
+def find_image(code):
+    for ext in IMAGE_EXTENSIONS:
+        path = os.path.join('static', code + ext)
+        if os.path.exists(path):
+            return code + ext
+    return None
+
+
 def pruned_status_codes():
     working_status_codes = []
     for status_code in status_code_list:
-        if os.path.exists(os.path.join('static', status_code[0] + '.jpg')):
-            working_status_codes.append(status_code)
+        image = find_image(status_code[0])
+        if image:
+            working_status_codes.append(status_code + [image])
     return working_status_codes
