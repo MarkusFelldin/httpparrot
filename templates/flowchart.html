@@ -8,19 +8,235 @@
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
     <style>
-        .flow-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-        .flow-question { background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
-        .flow-question h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: #fff; }
-        .flow-options { display: flex; flex-direction: column; gap: 0.5rem; }
-        .flow-btn { padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.75); font-size: 0.9rem; font-family: inherit; cursor: pointer; text-align: left; transition: all 0.2s ease; }
-        .flow-btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); color: #fff; }
-        .flow-result { background: #1a1a1f; border: 1px solid rgba(0,201,167,0.3); border-radius: 12px; padding: 1.5rem; text-align: center; }
-        .flow-result-code { font-size: 3rem; font-weight: 800; margin-bottom: 0.25rem; }
-        .flow-result-name { font-size: 1rem; color: rgba(255,255,255,0.5); margin-bottom: 1rem; }
-        .flow-result-why { font-size: 0.9rem; color: rgba(255,255,255,0.65); line-height: 1.6; margin-bottom: 1.25rem; }
-        .flow-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; font-size: 0.75rem; color: rgba(255,255,255,0.3); }
-        .flow-breadcrumbs span { background: rgba(255,255,255,0.04); padding: 0.2rem 0.5rem; border-radius: 4px; }
-        .flow-actions { display: flex; gap: 0.75rem; justify-content: center; margin-top: 1rem; }
+        .flow-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 3rem;
+        }
+
+        /* History trail */
+        .flow-history {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .flow-past-node {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 0.6rem 1rem;
+            text-align: center;
+            width: 100%;
+            max-width: 420px;
+            opacity: 0.5;
+        }
+
+        .flow-past-q {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .flow-past-answer {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #2dd4a8;
+            margin-top: 0.15rem;
+        }
+
+        /* Connector line */
+        .flow-connector {
+            width: 2px;
+            height: 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+            margin: 0 auto;
+        }
+
+        /* Current question node */
+        .flow-node {
+            background: #1a1a1f;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 1.5rem;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            animation: flow-fade-in 0.3s ease;
+        }
+
+        .flow-node h2 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 1.25rem;
+            line-height: 1.4;
+        }
+
+        /* Diamond shape indicator */
+        .flow-diamond {
+            width: 10px;
+            height: 10px;
+            background: rgba(0,201,167,0.6);
+            transform: rotate(45deg);
+            margin: 0 auto 1rem;
+            border-radius: 2px;
+        }
+
+        /* Yes/No buttons side by side */
+        .flow-yesno {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .flow-yesno .flow-btn {
+            flex: 1;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .flow-yesno .flow-btn-yes {
+            border-color: rgba(0,201,167,0.2);
+            color: #2dd4a8;
+        }
+
+        .flow-yesno .flow-btn-yes:hover {
+            background: rgba(0,201,167,0.08);
+            border-color: rgba(0,201,167,0.4);
+            box-shadow: 0 0 15px rgba(0,201,167,0.1);
+        }
+
+        .flow-yesno .flow-btn-no {
+            border-color: rgba(233,69,96,0.2);
+            color: #ff6b6b;
+        }
+
+        .flow-yesno .flow-btn-no:hover {
+            background: rgba(233,69,96,0.08);
+            border-color: rgba(233,69,96,0.4);
+            box-shadow: 0 0 15px rgba(233,69,96,0.1);
+        }
+
+        /* Option buttons (vertical) */
+        .flow-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .flow-btn {
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.02);
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s ease;
+        }
+
+        .flow-btn:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.15);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Result node */
+        .flow-result {
+            background: #1a1a1f;
+            border-radius: 14px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            animation: flow-fade-in 0.3s ease;
+        }
+
+        .flow-result-image {
+            background: #111114;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .flow-result-image img {
+            max-width: 100%;
+            height: 14em;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .flow-result-body {
+            padding: 1.25rem 1.5rem 1.5rem;
+            text-align: center;
+        }
+
+        .flow-result-code {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .flow-result-name {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.45);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+        }
+
+        .flow-result-why {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.6;
+            margin-top: 1rem;
+            text-align: left;
+        }
+
+        .flow-result-border {
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .flow-actions {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: center;
+            margin-top: 1.25rem;
+        }
+
+        .flow-actions .btn-back {
+            font-size: 0.85rem;
+            padding: 0.5rem 1.25rem;
+        }
+
+        /* Start over (shown at bottom when history exists) */
+        .flow-restart {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .flow-restart button {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.3);
+            font-size: 0.8rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .flow-restart button:hover {
+            color: rgba(255,255,255,0.6);
+        }
+
+        @keyframes flow-fade-in {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -124,76 +340,119 @@
             }
         };
 
-        var breadcrumbs = [];
+        var history = [];
+        var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
 
         function render(node) {
             var el = document.getElementById('flow');
             el.innerHTML = '';
 
-            var bc = document.createElement('div');
-            bc.className = 'flow-breadcrumbs';
-            breadcrumbs.forEach(function(b) {
-                var s = document.createElement('span');
-                s.textContent = b;
-                bc.appendChild(s);
-            });
-            if (breadcrumbs.length) el.appendChild(bc);
+            // Render history trail
+            if (history.length > 0) {
+                var trail = document.createElement('div');
+                trail.className = 'flow-history';
+                history.forEach(function(h, i) {
+                    var past = document.createElement('div');
+                    past.className = 'flow-past-node';
+                    past.innerHTML = '<div class="flow-past-q">' + h.q + '</div>' +
+                        '<div class="flow-past-answer">' + h.answer + '</div>';
+                    trail.appendChild(past);
 
+                    var conn = document.createElement('div');
+                    conn.className = 'flow-connector';
+                    trail.appendChild(conn);
+                });
+                el.appendChild(trail);
+            }
+
+            // Render result
             if (node.result) {
+                var cat = node.result[0];
+                var color = colors[cat] || '#fff';
+
                 var d = document.createElement('div');
                 d.className = 'flow-result';
-                var cat = node.result[0];
-                var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
-                d.innerHTML = '<div class="flow-result-code" style="color:' + (colors[cat]||'#fff') + '">' + node.result + '</div>' +
+                d.style.borderColor = color.replace(')', ',0.3)').replace('rgb', 'rgba');
+                d.style.border = '1px solid ' + color + '33';
+                d.innerHTML =
+                    '<div class="flow-result-border" style="background:' + color + '"></div>' +
+                    '<div class="flow-result-image"><img src="/' + node.result + '.jpg" alt="' + node.result + ' parrot" onerror="this.parentElement.style.display=\'none\'"></div>' +
+                    '<div class="flow-result-body">' +
+                    '<div class="flow-result-code" style="color:' + color + '">' + node.result + '</div>' +
                     '<div class="flow-result-name">' + node.name + '</div>' +
                     '<div class="flow-result-why">' + node.why + '</div>' +
                     '<div class="flow-actions">' +
-                    '<a href="/' + node.result + '" class="btn-back" style="font-size:0.85rem;padding:0.5rem 1.25rem">View parrot</a> ' +
-                    '<button class="btn-back" style="font-size:0.85rem;padding:0.5rem 1.25rem" onclick="location.reload()">Start over</button>' +
+                    '<a href="/' + node.result + '" class="btn-back">View parrot</a>' +
+                    '<button class="btn-back" onclick="location.reload()">Start over</button>' +
+                    '</div>' +
                     '</div>';
                 el.appendChild(d);
+                el.querySelector('.flow-result').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
+            // Render current question
             var box = document.createElement('div');
-            box.className = 'flow-question';
-            var h = document.createElement('h2');
-            h.textContent = node.q;
-            box.appendChild(h);
+            box.className = 'flow-node';
 
-            var opts = document.createElement('div');
-            opts.className = 'flow-options';
+            var diamond = document.createElement('div');
+            diamond.className = 'flow-diamond';
+            box.appendChild(diamond);
+
+            var h2 = document.createElement('h2');
+            h2.textContent = node.q;
+            box.appendChild(h2);
 
             if (node.options) {
+                var opts = document.createElement('div');
+                opts.className = 'flow-options';
                 Object.keys(node.options).forEach(function(label) {
                     var btn = document.createElement('button');
                     btn.className = 'flow-btn';
                     btn.textContent = label;
                     btn.addEventListener('click', function() {
-                        breadcrumbs.push(label);
+                        history.push({ q: node.q, answer: label });
                         render(node.options[label]);
                     });
                     opts.appendChild(btn);
                 });
+                box.appendChild(opts);
             } else {
-                if (node.yes) {
-                    var y = document.createElement('button');
-                    y.className = 'flow-btn';
-                    y.textContent = 'Yes';
-                    y.addEventListener('click', function() { breadcrumbs.push('Yes'); render(node.yes); });
-                    opts.appendChild(y);
-                }
-                if (node.no) {
-                    var n = document.createElement('button');
-                    n.className = 'flow-btn';
-                    n.textContent = 'No';
-                    n.addEventListener('click', function() { breadcrumbs.push('No'); render(node.no); });
-                    opts.appendChild(n);
-                }
+                var yesno = document.createElement('div');
+                yesno.className = 'flow-yesno';
+
+                var yBtn = document.createElement('button');
+                yBtn.className = 'flow-btn flow-btn-yes';
+                yBtn.textContent = 'Yes';
+                yBtn.addEventListener('click', function() {
+                    history.push({ q: node.q, answer: 'Yes' });
+                    render(node.yes);
+                });
+                yesno.appendChild(yBtn);
+
+                var nBtn = document.createElement('button');
+                nBtn.className = 'flow-btn flow-btn-no';
+                nBtn.textContent = 'No';
+                nBtn.addEventListener('click', function() {
+                    history.push({ q: node.q, answer: 'No' });
+                    render(node.no);
+                });
+                yesno.appendChild(nBtn);
+
+                box.appendChild(yesno);
             }
 
-            box.appendChild(opts);
             el.appendChild(box);
+
+            // Start over link when there's history
+            if (history.length > 0) {
+                var restart = document.createElement('div');
+                restart.className = 'flow-restart';
+                restart.innerHTML = '<button onclick="location.reload()">Start over</button>';
+                el.appendChild(restart);
+            }
+
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         render(tree);
