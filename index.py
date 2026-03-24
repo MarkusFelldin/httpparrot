@@ -20,6 +20,13 @@ def http_parrots():
     return render_template('http_parrots.html', status_code_list=codes, featured=featured)
 
 
+@app.route('/quiz')
+def quiz():
+    codes = pruned_status_codes()
+    quiz_data = [{"code": c[0], "name": c[1], "image": c[2]} for c in codes]
+    return render_template('quiz.html', quiz_data=quiz_data)
+
+
 @app.route('/random')
 def random_parrot():
     codes = pruned_status_codes()

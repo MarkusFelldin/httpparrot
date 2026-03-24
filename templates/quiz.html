@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Quiz - HTTP Parrots</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+    <style>
+        .quiz-container { max-width: 600px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+        .quiz-image { border-radius: 12px; overflow: hidden; background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 1.5rem; text-align: center; }
+        .quiz-image img { max-width: 100%; height: 20em; object-fit: cover; border-radius: 8px; margin: 1rem; }
+        .quiz-choices { display: flex; flex-direction: column; gap: 0.5rem; }
+        .quiz-btn { padding: 0.75rem 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a1f; color: rgba(255,255,255,0.8); font-size: 0.95rem; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.2s ease; text-align: left; }
+        .quiz-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
+        .quiz-btn.correct { background: rgba(0,201,167,0.15); border-color: rgba(0,201,167,0.4); color: #2dd4a8; }
+        .quiz-btn.wrong { background: rgba(233,69,96,0.15); border-color: rgba(233,69,96,0.4); color: #ff6b6b; }
+        .quiz-btn:disabled { cursor: default; opacity: 0.6; }
+        .quiz-btn.correct:disabled { opacity: 1; }
+        .quiz-score { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; }
+        .score-item { text-align: center; }
+        .score-value { font-size: 2rem; font-weight: 800; }
+        .score-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; }
+        .score-correct .score-value { color: #2dd4a8; }
+        .score-streak .score-value { color: #f9c74f; }
+        .score-total .score-value { color: rgba(255,255,255,0.5); }
+        .quiz-next { text-align: center; margin-top: 1.25rem; }
+        .quiz-feedback { text-align: center; margin-top: 1rem; font-size: 0.95rem; min-height: 1.5em; }
+        .quiz-feedback.right { color: #2dd4a8; }
+        .quiz-feedback.nope { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <header class="site-header-compact" role="banner">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="/" class="header-title">HTTP Parrots</a>
+                <span class="header-subtitle">Quiz Mode</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="quiz-container" role="main">
+        <div class="quiz-score">
+            <div class="score-item score-correct">
+                <div class="score-value" id="score">0</div>
+                <div class="score-label">Correct</div>
+            </div>
+            <div class="score-item score-streak">
+                <div class="score-value" id="streak">0</div>
+                <div class="score-label">Streak</div>
+            </div>
+            <div class="score-item score-total">
+                <div class="score-value" id="total">0</div>
+                <div class="score-label">Total</div>
+            </div>
+        </div>
+
+        <div class="quiz-image">
+            <img id="quiz-img" src="" alt="Guess this HTTP status code">
+        </div>
+
+        <div class="quiz-choices" id="choices"></div>
+        <div class="quiz-feedback" id="feedback"></div>
+        <div class="quiz-next" id="next-wrap" style="display:none;">
+            <button class="btn-back" id="next-btn">Next parrot</button>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        HTTP Parrots by Markus Felldin
+    </footer>
+
+    <script>
+    (function() {
+        var allCodes = {{ quiz_data | tojson }};
+        var score = 0, streak = 0, total = 0;
+        var answered = false;
+
+        function shuffle(arr) {
+            for (var i = arr.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+            }
+            return arr;
+        }
+
+        function pickChoices(correct) {
+            var others = allCodes.filter(function(c) { return c.code !== correct.code; });
+            shuffle(others);
+            var choices = [correct].concat(others.slice(0, 3));
+            return shuffle(choices);
+        }
+
+        function nextRound() {
+            answered = false;
+            var correct = allCodes[Math.floor(Math.random() * allCodes.length)];
+            var choices = pickChoices(correct);
+
+            document.getElementById('quiz-img').src = '/static/' + correct.image;
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('feedback').className = 'quiz-feedback';
+            document.getElementById('next-wrap').style.display = 'none';
+
+            var container = document.getElementById('choices');
+            container.innerHTML = '';
+            choices.forEach(function(c) {
+                var btn = document.createElement('button');
+                btn.className = 'quiz-btn';
+                btn.textContent = c.code + ' ' + c.name;
+                btn.dataset.code = c.code;
+                btn.addEventListener('click', function() {
+                    if (answered) return;
+                    answered = true;
+                    total++;
+
+                    var btns = container.querySelectorAll('.quiz-btn');
+                    btns.forEach(function(b) {
+                        b.disabled = true;
+                        if (b.dataset.code === correct.code) b.classList.add('correct');
+                    });
+
+                    var fb = document.getElementById('feedback');
+                    if (c.code === correct.code) {
+                        score++;
+                        streak++;
+                        fb.textContent = 'Correct!';
+                        fb.className = 'quiz-feedback right';
+                    } else {
+                        btn.classList.add('wrong');
+                        streak = 0;
+                        fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
+                        fb.className = 'quiz-feedback nope';
+                    }
+
+                    document.getElementById('score').textContent = score;
+                    document.getElementById('streak').textContent = streak;
+                    document.getElementById('total').textContent = total;
+                    document.getElementById('next-wrap').style.display = '';
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        document.getElementById('next-btn').addEventListener('click', nextRound);
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && answered) nextRound();
+            if (!answered && e.key >= '1' && e.key <= '4') {
+                var btns = document.querySelectorAll('.quiz-btn');
+                if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
+            }
+        });
+
+        nextRound();
+    })();
+    </script>
+</body>
+</html>
