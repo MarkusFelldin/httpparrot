@@ -11,7 +11,11 @@ def http_parrots():
 
 @app.route('/<status_code>')
 def http_parrot(status_code):
-    return render_template('http_parrot.html', status_code=status_code)
+    try:
+        code = int(status_code)
+    except ValueError:
+        code = 200
+    return render_template('http_parrot.html', status_code=status_code), code
 
 
 # Support code for setting correct codes and descriptions
