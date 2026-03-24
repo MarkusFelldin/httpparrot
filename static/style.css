@@ -124,6 +124,7 @@ body {
 }
 
 .btn-filter {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -143,6 +144,27 @@ body {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.8);
 }
+
+.btn-filter .filter-dot {
+  display: none;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00c9a7;
+}
+
+.btn-filter.has-filter .filter-dot {
+  display: block;
+}
+
+.btn-filter.has-filter.cat-active-1 .filter-dot { background: #00b4d8; }
+.btn-filter.has-filter.cat-active-2 .filter-dot { background: #00c9a7; }
+.btn-filter.has-filter.cat-active-3 .filter-dot { background: #f9c74f; }
+.btn-filter.has-filter.cat-active-4 .filter-dot { background: #e94560; }
+.btn-filter.has-filter.cat-active-5 .filter-dot { background: #7b61ff; }
 
 .filter-dropdown {
   display: none;

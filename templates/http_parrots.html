@@ -21,6 +21,7 @@
                 <div class="filter-menu">
                     <button class="btn-filter" id="filter-toggle" title="Filter by category">
                         <span class="filter-icon">&#9776;</span>
+                        <span class="filter-dot"></span>
                     </button>
                     <div class="filter-dropdown" id="filter-dropdown">
                         <button class="cat-pill active" data-cat="all">All</button>
@@ -97,6 +98,10 @@
                 filterCards();
                 dropdown.classList.remove('open');
                 toggleBtn.classList.remove('open');
+                toggleBtn.className = 'btn-filter';
+                if (activeCat !== 'all') {
+                    toggleBtn.classList.add('has-filter', 'cat-active-' + activeCat);
+                }
             });
         });
 
