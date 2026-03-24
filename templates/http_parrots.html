@@ -22,6 +22,15 @@
         </div>
     </header>
 
+    <div class="category-filters">
+        <button class="cat-pill active" data-cat="all">All</button>
+        <button class="cat-pill cat-1xx" data-cat="1">1xx <span class="cat-label">Info</span></button>
+        <button class="cat-pill cat-2xx" data-cat="2">2xx <span class="cat-label">Success</span></button>
+        <button class="cat-pill cat-3xx" data-cat="3">3xx <span class="cat-label">Redirect</span></button>
+        <button class="cat-pill cat-4xx" data-cat="4">4xx <span class="cat-label">Client</span></button>
+        <button class="cat-pill cat-5xx" data-cat="5">5xx <span class="cat-label">Server</span></button>
+    </div>
+
     <main class="container-fluid parrot-grid">
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
@@ -52,19 +61,39 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-    document.getElementById('search').addEventListener('input', function() {
-        const q = this.value.toLowerCase().trim();
+    (function() {
+        let activeCat = 'all';
+        const searchEl = document.getElementById('search');
         const cards = document.querySelectorAll('.parrot-card');
-        let visible = 0;
-        cards.forEach(function(card) {
-            const code = card.dataset.code;
-            const name = card.dataset.name;
-            const match = !q || code.includes(q) || name.includes(q);
-            card.style.display = match ? '' : 'none';
-            if (match) visible++;
+        const noResults = document.getElementById('no-results');
+        const pills = document.querySelectorAll('.cat-pill');
+
+        function filterCards() {
+            const q = searchEl.value.toLowerCase().trim();
+            let visible = 0;
+            cards.forEach(function(card) {
+                const code = card.dataset.code;
+                const name = card.dataset.name;
+                const catMatch = activeCat === 'all' || code[0] === activeCat;
+                const searchMatch = !q || code.includes(q) || name.includes(q);
+                const show = catMatch && searchMatch;
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            noResults.style.display = visible ? 'none' : 'block';
+        }
+
+        searchEl.addEventListener('input', filterCards);
+
+        pills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                pills.forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                activeCat = pill.dataset.cat;
+                filterCards();
+            });
         });
-        document.getElementById('no-results').style.display = visible ? 'none' : 'block';
-    });
+    })();
     </script>
 
     <!-- Konami Code Easter Egg -->
