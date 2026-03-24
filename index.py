@@ -1,4 +1,5 @@
 import random
+from datetime import date
 from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for, jsonify
 import os
 from status_descriptions import STATUS_INFO
@@ -13,7 +14,10 @@ def page_not_found(e):
 
 @app.route('/')
 def http_parrots():
-    return render_template('http_parrots.html', status_code_list=pruned_status_codes())
+    codes = pruned_status_codes()
+    day_index = date.today().toordinal() % len(codes)
+    featured = codes[day_index][0]
+    return render_template('http_parrots.html', status_code_list=codes, featured=featured)
 
 
 @app.route('/random')

@@ -41,7 +41,7 @@
             {% for status_code in status_code_list %}
                 <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}">
                     <a href="/{{ status_code[0] }}" class="parrot-link">
-                        <div class="parrot parrot-{{ status_code[0][0] }}xx">
+                        <div class="parrot parrot-{{ status_code[0][0] }}xx{% if status_code[0] == featured %} featured{% endif %}">
                             <div class="img">
                                 <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" loading="lazy"/>
                             </div>

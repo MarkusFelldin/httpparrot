@@ -228,6 +228,27 @@ body {
   transform: translateY(0);
 }
 
+/* Featured parrot of the day */
+.parrot.featured {
+  border-color: rgba(0, 201, 167, 0.2);
+}
+
+.parrot.featured::before {
+  content: 'Parrot of the day';
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(0, 201, 167, 0.85);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  z-index: 2;
+}
+
 .parrot-card.clicked .parrot {
   transform: scale(0.95);
   opacity: 0.6;
@@ -241,6 +262,7 @@ body {
 
 /* Cards */
 .parrot {
+  position: relative;
   background: #1a1a1f;
   border-radius: 12px;
   overflow: hidden;
