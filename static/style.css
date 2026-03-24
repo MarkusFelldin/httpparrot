@@ -204,16 +204,20 @@ body {
   background: #1a1a1f;
   border-radius: 12px;
   overflow: hidden;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   border: 1px solid rgba(255, 255, 255, 0.06);
   height: 100%;
 }
 
 .parrot:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.1);
 }
+
+.parrot-1xx:hover { border-color: rgba(0, 180, 216, 0.3); box-shadow: 0 8px 30px rgba(0, 180, 216, 0.1); }
+.parrot-2xx:hover { border-color: rgba(0, 201, 167, 0.3); box-shadow: 0 8px 30px rgba(0, 201, 167, 0.1); }
+.parrot-3xx:hover { border-color: rgba(249, 199, 79, 0.3); box-shadow: 0 8px 30px rgba(249, 199, 79, 0.1); }
+.parrot-4xx:hover { border-color: rgba(233, 69, 96, 0.3); box-shadow: 0 8px 30px rgba(233, 69, 96, 0.1); }
+.parrot-5xx:hover { border-color: rgba(123, 97, 255, 0.3); box-shadow: 0 8px 30px rgba(123, 97, 255, 0.1); }
 
 .img {
   background-color: #111114;
