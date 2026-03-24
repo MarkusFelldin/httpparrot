@@ -1,4 +1,5 @@
-from flask import Flask, render_template, send_from_directory, abort, request
+import random
+from flask import Flask, render_template, send_from_directory, abort, request, redirect, url_for
 import os
 
 app = Flask(__name__)
@@ -7,6 +8,13 @@ app = Flask(__name__)
 @app.route('/')
 def http_parrots():
     return render_template('http_parrots.html', status_code_list=pruned_status_codes())
+
+
+@app.route('/random')
+def random_parrot():
+    codes = pruned_status_codes()
+    choice = random.choice(codes)
+    return redirect(url_for('http_parrot', status_code=choice[0]))
 
 
 @app.route('/<status_code>')
