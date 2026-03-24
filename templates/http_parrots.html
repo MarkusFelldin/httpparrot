@@ -16,16 +16,21 @@
                 <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
             </div>
             <div class="header-right">
+                <div class="filter-menu">
+                    <button class="btn-filter" id="filter-toggle" title="Filter by category">
+                        <span class="filter-icon">&#9776;</span>
+                    </button>
+                    <div class="filter-dropdown" id="filter-dropdown">
+                        <button class="cat-pill active" data-cat="all">All</button>
+                        <button class="cat-pill cat-1xx" data-cat="1">1xx Informational</button>
+                        <button class="cat-pill cat-2xx" data-cat="2">2xx Success</button>
+                        <button class="cat-pill cat-3xx" data-cat="3">3xx Redirection</button>
+                        <button class="cat-pill cat-4xx" data-cat="4">4xx Client Error</button>
+                        <button class="cat-pill cat-5xx" data-cat="5">5xx Server Error</button>
+                    </div>
+                </div>
                 <a href="/random" class="btn-random" title="Random parrot">🎲</a>
                 <input type="text" id="search" class="search-input" placeholder="Search..." autocomplete="off">
-            </div>
-            <div class="header-filters">
-                <button class="cat-pill active" data-cat="all">All</button>
-                <button class="cat-pill cat-1xx" data-cat="1">1xx</button>
-                <button class="cat-pill cat-2xx" data-cat="2">2xx</button>
-                <button class="cat-pill cat-3xx" data-cat="3">3xx</button>
-                <button class="cat-pill cat-4xx" data-cat="4">4xx</button>
-                <button class="cat-pill cat-5xx" data-cat="5">5xx</button>
             </div>
         </div>
     </header>
@@ -90,7 +95,25 @@
                 pill.classList.add('active');
                 activeCat = pill.dataset.cat;
                 filterCards();
+                dropdown.classList.remove('open');
+                toggleBtn.classList.remove('open');
             });
+        });
+
+        var toggleBtn = document.getElementById('filter-toggle');
+        var dropdown = document.getElementById('filter-dropdown');
+
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+            toggleBtn.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && e.target !== toggleBtn) {
+                dropdown.classList.remove('open');
+                toggleBtn.classList.remove('open');
+            }
         });
     })();
     </script>
