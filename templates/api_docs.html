@@ -46,6 +46,7 @@
                     <a href="/quiz">Quiz</a>
                     <a href="/flowchart">Flowchart</a>
                     <a href="/tester">Tester</a>
+                    <a href="/cheatsheet">Cheat Sheet</a>
                     <a href="/api-docs">API</a>
                 </nav>
             </div>
@@ -146,6 +147,153 @@
   "code": 200,
   "url": "https://example.com"
 }</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Return a specific status code</h2>
+
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/return/{code}</span>
+                <div class="docs-desc">
+                    Returns an actual HTTP response with the given status code and a JSON body. Useful for testing HTTP clients, error handling, and retry logic.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl -i {{ request.url_root }}return/503</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response (HTTP 503)</div>
+                    <div class="docs-code">{
+  "code": 503,
+  "description": "Service Unavailable",
+  "message": "This response was returned with HTTP status 503."
+}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06);">
+            <h2 style="font-size: 1.3rem;">Bot integrations</h2>
+            <p>Use the HTTP Parrots API to build Slack or Discord bots that respond with parrot images for status codes.</p>
+        </div>
+
+        <div class="docs-section">
+            <h2>Slack bot (Python)</h2>
+
+            <div class="docs-endpoint">
+                <div class="docs-desc">
+                    A simple Slack slash command that responds with a parrot image. When a user types <code>/httpstatus 404</code>, the bot replies with the 404 parrot.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Flask handler for Slack slash command</div>
+                    <div class="docs-code">from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+PARROT_BASE = "{{ request.url_root }}"
+
+@app.route("/slack/httpstatus", methods=["POST"])
+def slash_httpstatus():
+    code = request.form.get("text", "").strip()
+    if not code.isdigit():
+        return jsonify({"text": "Usage: /httpstatus 404"})
+    return jsonify({
+        "response_type": "in_channel",
+        "blocks": [{
+            "type": "image",
+            "image_url": f"{PARROT_BASE}{code}.jpg",
+            "alt_text": f"HTTP {code} parrot",
+            "title": {
+                "type": "plain_text",
+                "text": f"HTTP {code}"
+            }
+        }]
+    })</div>
+                </div>
+                <div class="docs-example" style="margin-top: 1rem;">
+                    <div class="docs-example-label">Slack app setup</div>
+                    <div class="docs-desc" style="font-size: 0.85rem; line-height: 1.6;">
+                        1. Create a Slack app at <strong>api.slack.com/apps</strong><br>
+                        2. Add a Slash Command: <code>/httpstatus</code> pointing to your server's <code>/slack/httpstatus</code> URL<br>
+                        3. Install the app to your workspace<br>
+                        4. Type <code>/httpstatus 404</code> in any channel
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Discord bot (Python)</h2>
+
+            <div class="docs-endpoint">
+                <div class="docs-desc">
+                    A Discord bot using discord.py that responds to <code>!http 404</code> with the matching parrot.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">discord.py bot</div>
+                    <div class="docs-code">import discord, aiohttp
+from discord.ext import commands
+
+bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
+PARROT_BASE = "{{ request.url_root }}"
+
+@bot.command()
+async def http(ctx, code: str):
+    """Show the HTTP parrot for a status code."""
+    # Fetch status info
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{PARROT_BASE}{code}",
+            headers={"Accept": "application/json"}
+        ) as resp:
+            if resp.status != 200:
+                await ctx.send(f"Unknown status code: {code}")
+                return
+            data = await resp.json()
+
+    embed = discord.Embed(
+        title=f"{data['code']} {data['description']}",
+        description=data.get("meaning", ""),
+        color=0x00c9a7,
+        url=f"{PARROT_BASE}{code}"
+    )
+    embed.set_image(url=f"{PARROT_BASE}{code}.jpg")
+    await ctx.send(embed=embed)
+
+bot.run("YOUR_BOT_TOKEN")</div>
+                </div>
+                <div class="docs-example" style="margin-top: 1rem;">
+                    <div class="docs-example-label">Discord bot setup</div>
+                    <div class="docs-desc" style="font-size: 0.85rem; line-height: 1.6;">
+                        1. Create a bot at <strong>discord.com/developers/applications</strong><br>
+                        2. Enable the Message Content intent<br>
+                        3. Install: <code>pip install discord.py aiohttp</code><br>
+                        4. Run the bot and type <code>!http 404</code> in any channel
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Quick embed examples</h2>
+
+            <div class="docs-endpoint">
+                <div class="docs-desc">Embed parrots anywhere that supports images:</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Markdown (GitHub, README)</div>
+                    <div class="docs-code">![404 Not Found]({{ request.url_root }}404.jpg)</div>
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">HTML</div>
+                    <div class="docs-code">&lt;img src="{{ request.url_root }}404.jpg" alt="404 parrot"&gt;</div>
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Slack message (via webhook)</div>
+                    <div class="docs-code">curl -X POST https://hooks.slack.com/services/YOUR/WEBHOOK/URL \
+  -H "Content-Type: application/json" \
+  -d '{"blocks":[{"type":"image","image_url":"{{ request.url_root }}404.jpg","alt_text":"404 parrot"}]}'</div>
                 </div>
             </div>
         </div>
