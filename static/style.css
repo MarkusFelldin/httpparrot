@@ -883,7 +883,7 @@ body {
 .flow-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.15); color: #fff; transform: translateY(-1px); }
 .flow-result { background: #1a1a1f; border-radius: 14px; overflow: hidden; width: 100%; max-width: 480px; margin: 0 auto; animation: flow-fade-in 0.3s ease; }
 .flow-result-image { background: #111114; text-align: center; padding: 1rem; }
-.flow-result-image img { max-width: 100%; height: 14em; object-fit: cover; border-radius: 8px; }
+.flow-result-image img { max-width: 100%; height: auto; border-radius: 8px; }
 .flow-result-body { padding: 1.25rem 1.5rem 1.5rem; text-align: center; }
 .flow-result-code { font-size: 3rem; font-weight: 800; line-height: 1; }
 .flow-result-name { font-size: 0.95rem; color: rgba(255,255,255,0.45); margin-top: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
