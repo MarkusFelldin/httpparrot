@@ -200,10 +200,12 @@
             document.body.appendChild(overlay);
         }
 
-        document.getElementById('next-btn').addEventListener('click', nextRound);
+        document.getElementById('next-btn').addEventListener('click', function() {
+            if (total < 10) nextRound();
+        });
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && answered) nextRound();
+            if (e.key === 'Enter' && answered && total < 10) nextRound();
             if (!answered && e.key >= '1' && e.key <= '4') {
                 const btns = document.querySelectorAll('.quiz-btn');
                 if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();

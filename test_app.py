@@ -239,33 +239,39 @@ class TestSSRFProtection:
         assert result is None
 
     def test_blocks_private_10(self):
-        with patch('socket.gethostbyname', return_value='10.0.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('10.0.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_private_172(self):
-        with patch('socket.gethostbyname', return_value='172.16.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('172.16.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_private_192(self):
-        with patch('socket.gethostbyname', return_value='192.168.1.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_metadata(self):
-        with patch('socket.gethostbyname', return_value='169.254.169.254'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('169.254.169.254', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://metadata.example.com/')
             assert result is None
 
     def test_allows_public_ip(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, hostname = resolve_and_validate('http://example.com/')
             assert result is not None
             assert hostname == 'example.com'
 
     def test_returns_original_url(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://example.com/path')
             assert result == 'http://example.com/path'
 
