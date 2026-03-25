@@ -9,7 +9,7 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 **Browse** - Gallery of 72 HTTP status codes with search, category filtering, and a "parrot of the day"
 
 **Learn** - Each status code has:
-- Description and history
+- Description and history with clickable RFC links
 - Real-world examples ("When would I see this?")
 - Code snippets in Python, Node.js, and Go
 - Example HTTP request/response exchange
@@ -30,6 +30,32 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 
 Full API documentation at `/api-docs`, including Slack and Discord bot integration guides.
 
+## Keyboard shortcuts
+
+| Key | Page | Action |
+|-----|------|--------|
+| `/` | Homepage | Focus search |
+| `Escape` | Homepage | Blur search |
+| Arrow keys | Homepage | Navigate the grid |
+| `Enter` | Homepage | Open focused card |
+| `←` `→` | Detail page | Previous / next status code |
+| `1`-`4` | Quiz | Select answer |
+| `Enter` | Quiz | Next question |
+
+## CLI
+
+Look up HTTP status codes from the terminal:
+
+```bash
+./cli/httpparrot 404        # Look up a code
+./cli/httpparrot 4xx        # List a category
+./cli/httpparrot all        # List all codes
+./cli/httpparrot teapot     # Search by keyword
+./cli/httpparrot redirect   # Search descriptions
+```
+
+No dependencies required — just Python 3.
+
 ## Setup
 
 ```bash
@@ -43,7 +69,7 @@ flask --app index run
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest test_app.py -v
+python -m pytest test_app.py test_cli.py -v
 ```
 
 ## Tech stack
@@ -56,7 +82,8 @@ python -m pytest test_app.py -v
 ## Security
 
 - SSRF protection with IP validation and DNS rebinding prevention
-- Content Security Policy, HSTS, X-Frame-Options, and other security headers
+- Content Security Policy with per-request nonces (no unsafe-inline)
+- HSTS, X-Frame-Options, and other security headers
 - XSS-safe templates (Jinja2 auto-escaping, safe DOM APIs in JavaScript)
 - Rate limiting on outbound request endpoints
 - No external JavaScript dependencies
@@ -66,7 +93,7 @@ python -m pytest test_app.py -v
 The included `Procfile` runs the app with gunicorn:
 
 ```
-web: gunicorn index:app
+web: gunicorn index:app --preload --workers 2
 ```
 
 Set the `SECRET_KEY` environment variable in production.

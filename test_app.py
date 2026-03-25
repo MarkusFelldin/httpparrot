@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from index import app, _rate_limit, is_rate_limited, resolve_and_validate
+from index import app, _rate_limit, is_rate_limited, linkify_rfcs, resolve_and_validate
 
 
 @pytest.fixture
@@ -449,3 +449,75 @@ class TestRateLimiterPruning:
         is_rate_limited('fresh-ip')
         assert 'stale-ip' not in _rate_limit
         index._rate_limit_last_prune = old_prune
+
+
+# --- RFC link filter ---
+
+class TestRFCLinks:
+    def test_single_rfc(self):
+        result = str(linkify_rfcs('Defined in RFC 1945.'))
+        assert 'href="https://datatracker.ietf.org/doc/html/rfc1945"' in result
+        assert 'RFC 1945</a>' in result
+        assert 'Defined in' in result
+
+    def test_multiple_rfcs(self):
+        result = str(linkify_rfcs('See RFC 2068 and RFC 6455.'))
+        assert 'rfc2068' in result
+        assert 'rfc6455' in result
+        assert result.count('<a ') == 2
+
+    def test_no_rfcs(self):
+        text = 'No references here.'
+        result = str(linkify_rfcs(text))
+        assert result == text
+        assert '<a ' not in result
+
+    def test_html_escaping(self):
+        """Surrounding text with HTML chars should be escaped."""
+        result = str(linkify_rfcs('<script>alert("xss")</script> RFC 1945'))
+        assert '<script>' not in result
+        assert '&lt;script&gt;' in result
+        assert 'rfc1945' in result
+
+    def test_rfc_links_in_rendered_page(self, client):
+        """Detail pages should contain clickable RFC links."""
+        resp = client.get('/404')  # 404 history references RFC 1945
+        html = resp.data.decode()
+        assert 'datatracker.ietf.org/doc/html/rfc' in html
+        assert 'class="rfc-link"' in html
+        assert 'target="_blank"' in html
+        assert 'rel="noopener"' in html
+
+    def test_rfc_links_open_externally(self, client):
+        """RFC links should open in new tab with noopener."""
+        resp = client.get('/404')
+        html = resp.data.decode()
+        rfc_link = re.search(r'<a href="https://datatracker[^"]*"[^>]*>', html)
+        assert rfc_link is not None
+        assert 'target="_blank"' in rfc_link.group()
+        assert 'rel="noopener"' in rfc_link.group()
+
+
+# --- Keyboard navigation ---
+
+class TestKeyboardNavigation:
+    def test_homepage_has_grid_nav_script(self, client):
+        """Homepage should contain the keyboard grid navigation code."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'getVisibleCards' in html
+        assert 'getColumns' in html
+        assert 'grid-focus' in html
+
+    def test_detail_page_has_arrow_nav(self, client):
+        """Detail pages should have arrow key navigation."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'ArrowLeft' in html
+        assert 'ArrowRight' in html
+
+    def test_grid_focus_css_exists(self, client):
+        """The grid-focus CSS class should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-card.grid-focus' in css
