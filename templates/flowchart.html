@@ -5,7 +5,12 @@
 
 {% block content %}
     <main class="flow-container" role="main">
+        <div class="flow-mode-toggle">
+            <button class="flow-mode-btn active" id="mode-interactive">Interactive</button>
+            <button class="flow-mode-btn" id="mode-full">Full Tree</button>
+        </div>
         <div id="flow"></div>
+        <div id="flow-full" style="display:none"></div>
     </main>
 {% endblock %}
 
@@ -274,6 +279,148 @@
         }
 
         render(tree);
+
+        /* --- Full tree view --- */
+        var flowEl = document.getElementById('flow');
+        var fullEl = document.getElementById('flow-full');
+        var modeInteractive = document.getElementById('mode-interactive');
+        var modeFull = document.getElementById('mode-full');
+
+        function buildFullTree(node, depth) {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'ft-node ft-depth-' + Math.min(depth, 4);
+
+            if (node.result) {
+                var cat = node.result[0];
+                var color = colors[cat] || '#fff';
+                var card = document.createElement('a');
+                card.href = '/' + node.result;
+                card.className = 'ft-result';
+                card.style.borderColor = color + '30';
+
+                var img = document.createElement('img');
+                img.src = '/' + node.result + '.jpg';
+                img.alt = node.result + ' ' + node.name;
+                img.width = 600;
+                img.height = 450;
+                img.loading = 'lazy';
+                img.onerror = function() { this.style.display = 'none'; };
+                card.appendChild(img);
+
+                var info = document.createElement('div');
+                info.className = 'ft-result-info';
+                var codeEl = document.createElement('span');
+                codeEl.className = 'ft-result-code';
+                codeEl.style.color = color;
+                codeEl.textContent = node.result;
+                info.appendChild(codeEl);
+                var nameEl = document.createElement('span');
+                nameEl.className = 'ft-result-name';
+                nameEl.textContent = node.name;
+                info.appendChild(nameEl);
+                card.appendChild(info);
+
+                wrapper.appendChild(card);
+                return wrapper;
+            }
+
+            var question = document.createElement('div');
+            question.className = 'ft-question';
+            var diamond = document.createElement('div');
+            diamond.className = 'flow-diamond';
+            question.appendChild(diamond);
+            var qText = document.createElement('div');
+            qText.className = 'ft-question-text';
+            qText.textContent = node.q;
+            question.appendChild(qText);
+            wrapper.appendChild(question);
+
+            var conn = document.createElement('div');
+            conn.className = 'ft-connector';
+            wrapper.appendChild(conn);
+
+            var branches = document.createElement('div');
+            branches.className = 'ft-branches';
+
+            if (node.options) {
+                var optKeys = Object.keys(node.options);
+                optKeys.forEach(function(label) {
+                    var branch = document.createElement('div');
+                    branch.className = 'ft-branch';
+                    var lbl = document.createElement('div');
+                    lbl.className = 'ft-branch-label';
+                    lbl.textContent = label;
+                    branch.appendChild(lbl);
+                    branch.appendChild(buildFullTree(node.options[label], depth + 1));
+                    branches.appendChild(branch);
+                });
+            } else {
+                var yesBranch = document.createElement('div');
+                yesBranch.className = 'ft-branch';
+                var yesLbl = document.createElement('div');
+                yesLbl.className = 'ft-branch-label ft-label-yes';
+                yesLbl.textContent = 'Yes';
+                yesBranch.appendChild(yesLbl);
+                yesBranch.appendChild(buildFullTree(node.yes, depth + 1));
+                branches.appendChild(yesBranch);
+
+                var noBranch = document.createElement('div');
+                noBranch.className = 'ft-branch';
+                var noLbl = document.createElement('div');
+                noLbl.className = 'ft-branch-label ft-label-no';
+                noLbl.textContent = 'No';
+                noBranch.appendChild(noLbl);
+                noBranch.appendChild(buildFullTree(node.no, depth + 1));
+                branches.appendChild(noBranch);
+            }
+
+            wrapper.appendChild(branches);
+            return wrapper;
+        }
+
+        var fullTreeBuilt = false;
+
+        modeInteractive.addEventListener('click', function() {
+            modeInteractive.classList.add('active');
+            modeFull.classList.remove('active');
+            flowEl.style.display = '';
+            fullEl.style.display = 'none';
+        });
+
+        modeFull.addEventListener('click', function() {
+            modeFull.classList.add('active');
+            modeInteractive.classList.remove('active');
+            flowEl.style.display = 'none';
+            fullEl.style.display = '';
+            if (!fullTreeBuilt) {
+                fullEl.appendChild(buildFullTree(tree, 0));
+                fullTreeBuilt = true;
+                /* Add horizontal connector bars after layout */
+                /* Align vertical connector lines to branch centers */
+                requestAnimationFrame(function() {
+                    fullEl.querySelectorAll('.ft-branches').forEach(function(br) {
+                        var children = Array.from(br.querySelectorAll(':scope > .ft-branch'));
+                        if (children.length < 2) {
+                            br.style.setProperty('--vline-display', 'none');
+                            return;
+                        }
+                        var brRect = br.getBoundingClientRect();
+                        var firstRect = children[0].getBoundingClientRect();
+                        var lastRect = children[children.length - 1].getBoundingClientRect();
+                        var firstCenter = firstRect.top + firstRect.height / 2 - brRect.top;
+                        var lastCenter = lastRect.top + lastRect.height / 2 - brRect.top;
+                        var pseudo = br.querySelector('.ft-vline');
+                        if (!pseudo) {
+                            pseudo = document.createElement('div');
+                            pseudo.className = 'ft-vline';
+                            br.appendChild(pseudo);
+                        }
+                        pseudo.style.top = firstCenter + 'px';
+                        pseudo.style.height = (lastCenter - firstCenter) + 'px';
+                    });
+                });
+            }
+        });
     })();
     </script>
 {% endblock %}
