@@ -4,6 +4,9 @@
     <title>HTTP Tester - HTTP Parrots</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
@@ -70,6 +73,18 @@
         };
         var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
 
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        function showError(container, msg) {
+            container.innerHTML = '';
+            container.appendChild(el('div', 'tester-error', msg));
+        }
+
         document.getElementById('tester-form').addEventListener('submit', function(e) {
             e.preventDefault();
             var url = document.getElementById('url-input').value.trim();
@@ -77,7 +92,8 @@
 
             var result = document.getElementById('result');
             var btn = document.getElementById('submit-btn');
-            result.innerHTML = '<div class="tester-loading">Testing...</div>';
+            result.innerHTML = '';
+            result.appendChild(el('div', 'tester-loading', 'Testing...'));
             btn.disabled = true;
 
             fetch('/api/check-url?url=' + encodeURIComponent(url))
@@ -85,30 +101,43 @@
                 .then(function(data) {
                     btn.disabled = false;
                     if (data.error) {
-                        result.innerHTML = '<div class="tester-error">' + data.error + '</div>';
+                        showError(result, data.error);
                         return;
                     }
                     var code = data.code;
                     var name = codes[code] || 'Unknown';
                     var cat = String(code)[0];
                     var color = colors[cat] || '#fff';
-                    var hasParrot = true;
 
-                    result.innerHTML = '<div class="tester-result">' +
-                        '<div class="tester-result-header">' +
-                        '<div class="tester-result-code" style="color:' + color + '">' + code + '</div>' +
-                        '<div class="tester-result-name">' + name + '</div>' +
-                        '<div class="tester-result-url">' + data.url + '</div>' +
-                        '</div>' +
-                        '<img src="/' + code + '.jpg" alt="' + code + ' parrot" onerror="this.style.display=\'none\'">' +
-                        '<div class="tester-result-actions">' +
-                        '<a href="/' + code + '" class="btn-back" style="font-size:0.85rem;padding:0.5rem 1.25rem">Learn about ' + code + '</a>' +
-                        '</div>' +
-                        '</div>';
+                    result.innerHTML = '';
+                    var card = el('div', 'tester-result');
+                    var header = el('div', 'tester-result-header');
+                    var codeEl = el('div', 'tester-result-code', String(code));
+                    codeEl.style.color = color;
+                    header.appendChild(codeEl);
+                    header.appendChild(el('div', 'tester-result-name', name));
+                    header.appendChild(el('div', 'tester-result-url', data.url));
+                    card.appendChild(header);
+
+                    var img = document.createElement('img');
+                    img.src = '/' + code + '.jpg';
+                    img.alt = code + ' parrot';
+                    img.onerror = function() { this.style.display = 'none'; };
+                    card.appendChild(img);
+
+                    var actions = el('div', 'tester-result-actions');
+                    var link = document.createElement('a');
+                    link.href = '/' + code;
+                    link.className = 'btn-back';
+                    link.style.cssText = 'font-size:0.85rem;padding:0.5rem 1.25rem';
+                    link.textContent = 'Learn about ' + code;
+                    actions.appendChild(link);
+                    card.appendChild(actions);
+                    result.appendChild(card);
                 })
-                .catch(function(err) {
+                .catch(function() {
                     btn.disabled = false;
-                    result.innerHTML = '<div class="tester-error">Failed to check URL: ' + err.message + '</div>';
+                    showError(result, 'Could not connect to the provided URL');
                 });
         });
 
