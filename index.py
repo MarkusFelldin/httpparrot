@@ -141,10 +141,11 @@ def set_security_headers(response):
         "connect-src 'self'"
     )
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=86400'
-    else:
-        response.headers['Cache-Control'] = 'public, max-age=60'
+    if 'Cache-Control' not in response.headers:
+        if request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=86400'
+        else:
+            response.headers['Cache-Control'] = 'public, max-age=60'
     return response
 
 
@@ -579,7 +580,9 @@ def random_parrot():
     """Redirect to a random status code detail page."""
     codes = pruned_status_codes()
     choice = random.choice(codes)
-    return redirect(url_for('http_parrot', status_code=choice.code))
+    response = redirect(url_for('http_parrot', status_code=choice.code))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @app.route('/<status_code>')

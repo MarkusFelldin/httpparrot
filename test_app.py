@@ -159,6 +159,10 @@ class TestRandom:
         assert resp.status_code == 302
         assert resp.location is not None
 
+    def test_random_not_cached(self, client):
+        resp = client.get('/random')
+        assert resp.headers.get('Cache-Control') == 'no-store'
+
 
 # --- Status code returner ---
 
