@@ -1096,3 +1096,147 @@ class TestCORSChecker:
         """robots.txt should block /api/check-cors."""
         resp = client.get('/robots.txt')
         assert b'Disallow: /api/check-cors' in resp.data
+
+
+# --- Collection (Parrotdex) ---
+
+class TestCollection:
+    def test_collection_page_renders(self, client):
+        """Collection page should return 200 with expected content."""
+        resp = client.get('/collection')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Parrotdex' in html
+        assert 'collection-grid' in html
+        assert 'collect-count' in html
+
+    def test_collection_contains_all_pruned_codes(self, client):
+        """Collection page should list every status code that has an image."""
+        from index import pruned_status_codes
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        for sc in pruned_status_codes():
+            assert f'data-code="{sc.code}"' in html, f"Collection missing code {sc.code}"
+
+    def test_collection_has_progress_bar(self, client):
+        """Collection page should have a progress bar element."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'collection-progress-bar' in html
+        assert 'id="progress-bar"' in html
+
+    def test_collection_has_parrotdex_script(self, client):
+        """Collection page should have localStorage parrotdex script."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'parrotdex' in html
+        assert 'uncollected' in html
+
+    def test_collection_nav_link(self, client):
+        """Navigation should contain a link to the Parrotdex page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/collection"' in html
+
+    def test_collection_in_sitemap(self, client):
+        """Sitemap should include the collection page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/collection' in resp.data
+
+    def test_collection_has_nonce(self, client):
+        """Collection script tag should have a nonce."""
+        resp = client.get('/collection')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_collection_secrets_section(self, client):
+        """Collection page should have the easter egg secrets section."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'Secret Parrots' in html
+        assert 'egg-card' in html
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+
+    def test_collection_eggs_found_script(self, client):
+        """Collection page should check eggs_found in localStorage."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+        assert 'egg-found' in html
+
+
+# --- Detail page parrotdex tracking ---
+
+class TestParrotdexTracking:
+    def test_detail_page_has_parrotdex_tracking(self, client):
+        """Detail pages should include localStorage parrotdex tracking script."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'parrotdex' in html
+        assert "localStorage.getItem('parrotdex')" in html
+
+
+# --- Quiz shareable results ---
+
+class TestQuizResults:
+    def test_quiz_has_history_array(self, client):
+        """Quiz should declare a history array for tracking answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'let history = []' in html
+
+    def test_quiz_tracks_correct_answers(self, client):
+        """Quiz should push true to history on correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'history.push(true)' in html
+
+    def test_quiz_tracks_wrong_answers(self, client):
+        """Quiz should push false to history on wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'history.push(false)' in html
+
+    def test_quiz_shows_results_at_10(self, client):
+        """Quiz should show results overlay after 10 questions."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'total === 10' in html
+        assert 'showResults' in html
+
+    def test_quiz_results_has_copy_and_replay(self, client):
+        """Quiz results function should have copy and play again buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-results-overlay' in html
+        assert 'quiz-results-card' in html
+        assert 'Copy Result' in html
+        assert 'Play Again' in html
+
+    def test_quiz_results_generates_emoji_grid(self, client):
+        """Quiz results should generate a Wordle-style emoji grid."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-results-grid' in html
+        assert 'httpparrots.com/quiz' in html
+
+
+# --- Easter egg tracking on homepage ---
+
+class TestEasterEggTracking:
+    def test_homepage_tracks_easter_eggs(self, client):
+        """Homepage should save discovered easter eggs to localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+
+    def test_homepage_tracks_konami_easter_egg(self, client):
+        """Homepage konami code should save to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('konami')" in html
