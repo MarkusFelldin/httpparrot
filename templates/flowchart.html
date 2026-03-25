@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preload" href="/static/style.css" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
     <style>
@@ -358,8 +358,14 @@
                 history.forEach(function(h, i) {
                     var past = document.createElement('div');
                     past.className = 'flow-past-node';
-                    past.innerHTML = '<div class="flow-past-q">' + h.q + '</div>' +
-                        '<div class="flow-past-answer">' + h.answer + '</div>';
+                    var pastQ = document.createElement('div');
+                    pastQ.className = 'flow-past-q';
+                    pastQ.textContent = h.q;
+                    var pastA = document.createElement('div');
+                    pastA.className = 'flow-past-answer';
+                    pastA.textContent = h.answer;
+                    past.appendChild(pastQ);
+                    past.appendChild(pastA);
                     trail.appendChild(past);
 
                     var conn = document.createElement('div');
@@ -376,22 +382,55 @@
 
                 var d = document.createElement('div');
                 d.className = 'flow-result';
-                d.style.borderColor = color.replace(')', ',0.3)').replace('rgb', 'rgba');
                 d.style.border = '1px solid ' + color + '33';
-                d.innerHTML =
-                    '<div class="flow-result-border" style="background:' + color + '"></div>' +
-                    '<div class="flow-result-image"><img src="/' + node.result + '.jpg" alt="' + node.result + ' parrot" onerror="this.parentElement.style.display=\'none\'"></div>' +
-                    '<div class="flow-result-body">' +
-                    '<div class="flow-result-code" style="color:' + color + '">' + node.result + '</div>' +
-                    '<div class="flow-result-name">' + node.name + '</div>' +
-                    '<div class="flow-result-why">' + node.why + '</div>' +
-                    '<div class="flow-actions">' +
-                    '<a href="/' + node.result + '" class="btn-back">View parrot</a>' +
-                    '<button class="btn-back" onclick="location.reload()">Start over</button>' +
-                    '</div>' +
-                    '</div>';
+
+                var border = document.createElement('div');
+                border.className = 'flow-result-border';
+                border.style.background = color;
+                d.appendChild(border);
+
+                var imgWrap = document.createElement('div');
+                imgWrap.className = 'flow-result-image';
+                var img = document.createElement('img');
+                img.src = '/' + node.result + '.jpg';
+                img.alt = node.result + ' parrot';
+                img.onerror = function() { this.parentElement.style.display = 'none'; };
+                imgWrap.appendChild(img);
+                d.appendChild(imgWrap);
+
+                var body = document.createElement('div');
+                body.className = 'flow-result-body';
+                var codeEl = document.createElement('div');
+                codeEl.className = 'flow-result-code';
+                codeEl.style.color = color;
+                codeEl.textContent = node.result;
+                body.appendChild(codeEl);
+                var nameEl = document.createElement('div');
+                nameEl.className = 'flow-result-name';
+                nameEl.textContent = node.name;
+                body.appendChild(nameEl);
+                var whyEl = document.createElement('div');
+                whyEl.className = 'flow-result-why';
+                whyEl.textContent = node.why;
+                body.appendChild(whyEl);
+
+                var actions = document.createElement('div');
+                actions.className = 'flow-actions';
+                var viewLink = document.createElement('a');
+                viewLink.href = '/' + node.result;
+                viewLink.className = 'btn-back';
+                viewLink.textContent = 'View parrot';
+                actions.appendChild(viewLink);
+                var restartBtn = document.createElement('button');
+                restartBtn.className = 'btn-back';
+                restartBtn.textContent = 'Start over';
+                restartBtn.addEventListener('click', function() { location.reload(); });
+                actions.appendChild(restartBtn);
+                body.appendChild(actions);
+                d.appendChild(body);
+
                 el.appendChild(d);
-                el.querySelector('.flow-result').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                d.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 

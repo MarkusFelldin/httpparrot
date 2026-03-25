@@ -2,8 +2,9 @@ import ipaddress
 import os
 import random
 import socket
+import time
 from datetime import date
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import requests as req
 from flask import (Flask, abort, jsonify, redirect, render_template, request,
@@ -32,27 +33,67 @@ BLOCKED_NETWORKS = [
 ]
 
 
-def is_safe_url(url):
-    """Validate that a URL doesn't point to internal/private networks."""
+def resolve_and_validate(url):
+    """Resolve hostname to IP, validate it's not private, return IP-based URL.
+
+    Returns (safe_url, resolved_ip) or (None, None) if blocked.
+    Resolves once and rewrites the URL to use the IP directly,
+    preventing DNS rebinding attacks.
+    """
     parsed = urlparse(url)
     hostname = parsed.hostname
     if not hostname:
-        return False
+        return None, None
     try:
-        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        resolved_ip = socket.gethostbyname(hostname)
+        ip = ipaddress.ip_address(resolved_ip)
     except (socket.gaierror, ValueError):
-        return False
-    return not any(ip in net for net in BLOCKED_NETWORKS)
+        return None, None
+    if any(ip in net for net in BLOCKED_NETWORKS):
+        return None, None
+    # Rewrite URL to use resolved IP, preventing DNS rebinding
+    safe_parsed = parsed._replace(netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip)
+    return urlunparse(safe_parsed), hostname
+
+
+# Simple in-memory rate limiter
+_rate_limit = {}
+RATE_LIMIT_MAX = 10  # requests per window
+RATE_LIMIT_WINDOW = 60  # seconds
+
+
+def is_rate_limited(client_ip):
+    now = time.time()
+    if client_ip not in _rate_limit:
+        _rate_limit[client_ip] = []
+    # Clean old entries
+    _rate_limit[client_ip] = [t for t in _rate_limit[client_ip] if now - t < RATE_LIMIT_WINDOW]
+    if len(_rate_limit[client_ip]) >= RATE_LIMIT_MAX:
+        return True
+    _rate_limit[client_ip].append(now)
+    return False
 
 
 @app.after_request
 def set_security_headers(response):
+    response.headers.pop('Server', None)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src 'self'; "
+        "connect-src 'self'"
+    )
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     if request.path.startswith('/static/'):
         response.headers['Cache-Control'] = 'public, max-age=86400'
+    else:
+        response.headers['Cache-Control'] = 'public, max-age=60'
     return response
 
 
@@ -98,7 +139,7 @@ status_code_list = [
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.JPG', '.png', '.gif']
 
 
-def find_image(code):
+def _find_image(code):
     for ext in IMAGE_EXTENSIONS:
         path = os.path.join('static', code + ext)
         if os.path.exists(path):
@@ -106,22 +147,28 @@ def find_image(code):
     return None
 
 
-# Cache pruned status codes at startup (images are static, no need to rescan)
-def _build_pruned_status_codes():
-    working = []
+# Build caches at startup
+def _build_caches():
+    pruned = []
+    image_map = {}
     for status_code in status_code_list:
-        image = find_image(status_code[0])
+        image = _find_image(status_code[0])
         if image:
-            working.append(status_code + [image])
-    working.sort(key=lambda s: int(s[0]))
-    return working
+            pruned.append(status_code + [image])
+            image_map[status_code[0]] = image
+    pruned.sort(key=lambda s: int(s[0]))
+    return pruned, image_map
 
 
-_pruned_cache = _build_pruned_status_codes()
+_pruned_cache, _image_cache = _build_caches()
 
 
 def pruned_status_codes():
     return _pruned_cache
+
+
+def find_image(code):
+    return _image_cache.get(code)
 
 
 # --- Routes ---
@@ -163,15 +210,19 @@ def tester():
 
 @app.route('/api/check-url')
 def check_url():
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
     url = request.args.get('url', '')
     if not url:
         return jsonify({"error": "No URL provided"}), 400
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
-    if not is_safe_url(url):
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
         return jsonify({"error": "URL not allowed"}), 403
     try:
-        resp = req.head(url, allow_redirects=False, timeout=10)
+        resp = req.head(safe_url, headers={"Host": hostname},
+                        allow_redirects=False, timeout=10)
         return jsonify({"code": resp.status_code, "url": url})
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
