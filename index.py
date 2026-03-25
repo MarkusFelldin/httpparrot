@@ -199,6 +199,19 @@ def api_docs():
     return render_template('api_docs.html')
 
 
+@app.route('/cheatsheet')
+def cheatsheet():
+    codes = pruned_status_codes()
+    categories = [
+        ("1xx", "Informational", [c for c in codes if c[0].startswith('1')]),
+        ("2xx", "Success", [c for c in codes if c[0].startswith('2')]),
+        ("3xx", "Redirection", [c for c in codes if c[0].startswith('3')]),
+        ("4xx", "Client Error", [c for c in codes if c[0].startswith('4')]),
+        ("5xx", "Server Error", [c for c in codes if c[0].startswith('5')]),
+    ]
+    return render_template('cheatsheet.html', categories=categories)
+
+
 @app.route('/flowchart')
 def flowchart():
     return render_template('flowchart.html')
