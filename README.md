@@ -14,12 +14,21 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Code snippets in Python, Node.js, and Go
 - Example HTTP request/response exchange
 - Typical response headers
+- "Commonly confused with" links to related status codes
+- Copy-as-curl button for the `/return/<code>` endpoint
 
 **Interactive tools**
 - **Quiz** (`/quiz`) - Guess the status code from the parrot image
 - **Flowchart** (`/flowchart`) - Interactive decision tree to pick the right status code
+- **Compare** (`/compare`) - Pick two status codes and see them side by side
 - **HTTP Tester** (`/tester`) - Enter a URL and see what status code it returns
-- **Cheat Sheet** (`/cheatsheet`) - Printable single-page reference
+- **Cheat Sheet** (`/cheatsheet`) - Printable single-page reference with parrot thumbnails
+
+**Interactive details**
+- Category-themed hover effects: 1xx pulses, 2xx glows, 3xx slides sideways, 4xx shakes, 5xx glitches
+- Speech bubbles with typewriter effect — each parrot has a witty one-liner
+- Easter eggs on specific cards: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins
+- Konami code party mode on the homepage
 
 **API** - Programmatic access to all data:
 - `GET /<code>` with `Accept: application/json` returns JSON

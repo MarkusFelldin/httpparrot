@@ -14,6 +14,7 @@ import requests as req
 from flask import (Flask, abort, g, jsonify, redirect, render_template,
                    request, send_from_directory, url_for)
 from flask_compress import Compress
+from markupsafe import Markup, escape
 
 from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
@@ -32,7 +33,6 @@ _RFC_RE = re.compile(r'(RFC\s+(\d+))')
 @app.template_filter('linkify_rfcs')
 def linkify_rfcs(text):
     """Convert 'RFC XXXX' references to clickable IETF links."""
-    from markupsafe import Markup, escape
     parts = []
     last = 0
     for m in _RFC_RE.finditer(text):
@@ -69,13 +69,16 @@ BLOCKED_NETWORKS = [
 def resolve_and_validate(url):
     """Resolve hostname to IP, validate it's not private, return IP-based URL.
 
-    Returns (safe_url, resolved_ip) or (None, None) if blocked.
+    Returns (safe_url, original_hostname) or (None, None) if blocked.
     Resolves once and rewrites the URL to use the IP directly,
-    preventing DNS rebinding attacks.
+    preventing DNS rebinding attacks. The original hostname is returned
+    for use in the Host header.
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
     if not hostname:
+        return None, None
+    if parsed.username or parsed.password:
         return None, None
     try:
         resolved_ip = socket.gethostbyname(hostname)
@@ -229,6 +232,251 @@ def find_image(code):
     return _image_cache.get(code)
 
 
+# --- Related codes ---
+
+RELATED_CODES = {
+    "100": [
+        ("102", "Server is actively processing, not just acknowledging the request"),
+        ("417", "Server rejected the Expect header that would have triggered 100"),
+    ],
+    "101": [
+        ("426", "Server demands an upgrade — 101 means it accepted one"),
+    ],
+    "102": [
+        ("100", "Simple acknowledgement vs. still actively processing"),
+    ],
+    "103": [
+        ("200", "Final response with the actual content — 103 just sends early headers"),
+    ],
+    "200": [
+        ("201", "Resource was created, not just retrieved"),
+        ("204", "Success but intentionally no body"),
+        ("304", "Resource hasn't changed — use your cached copy"),
+    ],
+    "201": [
+        ("200", "Success but nothing new was created"),
+        ("202", "Request accepted but creation hasn't happened yet"),
+    ],
+    "202": [
+        ("201", "Already created vs. still pending"),
+        ("200", "Completed successfully vs. just queued"),
+    ],
+    "203": [
+        ("200", "Response came directly from the origin server, unmodified"),
+    ],
+    "204": [
+        ("200", "Success with a body vs. intentionally empty"),
+        ("205", "Also no body, but tells the client to reset its form/view"),
+    ],
+    "205": [
+        ("204", "No content either, but doesn't ask the client to reset anything"),
+    ],
+    "206": [
+        ("200", "Full resource vs. only the requested byte range"),
+        ("416", "The requested range was invalid or unsatisfiable"),
+    ],
+    "207": [
+        ("200", "Single status for the whole request vs. per-item statuses in the body"),
+        ("208", "Sub-resource already enumerated in a previous 207 response"),
+    ],
+    "208": [
+        ("207", "Multi-status container — 208 avoids repeating members already listed"),
+    ],
+    "226": [
+        ("200", "Full representation vs. result of applying instance-manipulations"),
+    ],
+    "300": [
+        ("301", "Server chose for you (permanent) vs. offering multiple options"),
+        ("302", "Server chose for you (temporary) vs. offering multiple options"),
+    ],
+    "301": [
+        ("302", "Temporary, not permanent — browsers may change POST to GET"),
+        ("307", "Temporary and preserves the HTTP method"),
+        ("308", "Permanent like 301, but preserves the HTTP method"),
+    ],
+    "302": [
+        ("301", "Permanent, not temporary"),
+        ("303", "Always redirects as GET — the standard Post/Redirect/Get pattern"),
+        ("307", "Temporary like 302, but guarantees the method is preserved"),
+    ],
+    "303": [
+        ("302", "Similar but method preservation is ambiguous"),
+        ("307", "Temporary redirect that preserves the method instead of forcing GET"),
+    ],
+    "304": [
+        ("200", "Full response — 304 means your cached version is still valid"),
+        ("412", "Precondition failed vs. precondition confirmed (cache is fresh)"),
+    ],
+    "305": [
+        ("407", "Proxy auth required vs. must use a specific proxy"),
+    ],
+    "306": [
+        ("305", "Closely related deprecated proxy directive — 306 is reserved/unused"),
+    ],
+    "307": [
+        ("302", "Similar but doesn't guarantee method preservation"),
+        ("301", "Permanent redirect — browsers may change POST to GET"),
+        ("308", "Permanent version of 307"),
+    ],
+    "308": [
+        ("301", "Also permanent, but may change POST to GET"),
+        ("307", "Temporary version of 308"),
+    ],
+    "400": [
+        ("422", "Request is well-formed but semantically invalid (e.g. validation errors)"),
+        ("405", "The URL is right but the HTTP method is wrong"),
+    ],
+    "401": [
+        ("403", "Authenticated but not authorized — re-authenticating won't help"),
+        ("407", "Same concept but for proxy authentication"),
+    ],
+    "402": [
+        ("401", "Missing credentials vs. missing payment"),
+        ("403", "Forbidden for authorization reasons, not payment"),
+    ],
+    "403": [
+        ("401", "Not authenticated at all — credentials are missing or invalid"),
+        ("404", "Sometimes used instead of 403 to hide that the resource exists"),
+    ],
+    "404": [
+        ("410", "Resource existed but was intentionally and permanently removed"),
+        ("403", "Resource exists but you're not allowed to see it"),
+    ],
+    "405": [
+        ("400", "The method is fine but the request data is malformed"),
+        ("501", "The server doesn't support this method at all, not just this endpoint"),
+    ],
+    "406": [
+        ("415", "Client sent the wrong content type vs. can't get an acceptable one back"),
+    ],
+    "407": [
+        ("401", "Origin server auth vs. proxy auth"),
+        ("403", "Proxy refuses the request outright, not asking for credentials"),
+    ],
+    "408": [
+        ("504", "Upstream server timed out vs. the client was too slow"),
+        ("429", "Client sent too many requests vs. took too long on one"),
+    ],
+    "409": [
+        ("412", "Precondition check failed vs. general state conflict"),
+        ("422", "Semantically invalid vs. conflicts with current resource state"),
+    ],
+    "410": [
+        ("404", "Resource might exist later — 410 means it's gone for good"),
+    ],
+    "411": [
+        ("413", "Content-Length header is missing vs. the body is too large"),
+    ],
+    "412": [
+        ("304", "Cache is still valid vs. precondition failed on a write"),
+        ("409", "Resource state conflict vs. explicit precondition mismatch"),
+    ],
+    "413": [
+        ("411", "Content-Length missing vs. body confirmed too large"),
+        ("431", "Headers too large vs. body too large"),
+    ],
+    "414": [
+        ("431", "Request headers too large vs. URI specifically too long"),
+    ],
+    "415": [
+        ("406", "Server can't return an acceptable format vs. client sent the wrong format"),
+    ],
+    "416": [
+        ("206", "Successful partial content vs. the range was unsatisfiable"),
+    ],
+    "417": [
+        ("100", "Server would have sent Continue but rejects the expectation instead"),
+    ],
+    "418": [
+        ("406", "Not Acceptable is the serious version of refusing a request"),
+    ],
+    "421": [
+        ("400", "Bad request in general vs. request was routed to the wrong server"),
+    ],
+    "422": [
+        ("400", "Request itself is malformed (bad JSON, missing fields)"),
+    ],
+    "423": [
+        ("409", "Resource conflict vs. resource explicitly locked"),
+        ("424", "This resource is locked vs. a dependency is the problem"),
+    ],
+    "424": [
+        ("423", "This resource is locked vs. failed because a prerequisite request failed"),
+    ],
+    "425": [
+        ("421", "Misdirected vs. too early — both reject seemingly valid requests"),
+        ("428", "Missing precondition vs. replay risk from early data"),
+    ],
+    "426": [
+        ("101", "Client accepted the upgrade vs. server demands one"),
+        ("505", "HTTP version not supported vs. protocol upgrade required"),
+    ],
+    "428": [
+        ("412", "Precondition was present but failed vs. precondition is missing entirely"),
+    ],
+    "429": [
+        ("503", "Server is overloaded in general, not specifically rate-limiting you"),
+    ],
+    "431": [
+        ("413", "Body too large vs. headers too large"),
+        ("414", "URI too long — a specific case of oversized request metadata"),
+    ],
+    "444": [
+        ("204", "Intentionally no content vs. connection dropped with no response at all"),
+    ],
+    "451": [
+        ("403", "Forbidden for access-control reasons vs. censored for legal reasons"),
+    ],
+    "498": [
+        ("401", "Standard missing/invalid credentials vs. specifically an invalid token"),
+    ],
+    "499": [
+        ("498", "Token is invalid vs. token is missing entirely"),
+        ("401", "Standard missing credentials vs. specifically a missing token"),
+    ],
+    "500": [
+        ("502", "The upstream server sent a bad response, not this server's bug"),
+        ("503", "Temporary overload or maintenance — it'll be back"),
+    ],
+    "501": [
+        ("405", "This endpoint doesn't allow that method vs. the server never implements it"),
+        ("505", "HTTP version not supported vs. method/feature not implemented"),
+    ],
+    "502": [
+        ("500", "This server's own bug, not an upstream problem"),
+        ("504", "Upstream didn't respond at all (timeout) vs. responded badly"),
+    ],
+    "503": [
+        ("500", "Unexpected bug vs. expected downtime"),
+        ("429", "Client is being rate-limited vs. server is overwhelmed"),
+    ],
+    "504": [
+        ("502", "Upstream responded with garbage vs. didn't respond at all"),
+        ("408", "Client was too slow, not the upstream server"),
+    ],
+    "505": [
+        ("426", "Upgrade to a different protocol vs. HTTP version not supported"),
+        ("501", "Feature not implemented vs. HTTP version not supported"),
+    ],
+    "506": [
+        ("500", "Server bug vs. broken content negotiation creating a circular reference"),
+    ],
+    "507": [
+        ("413", "Client payload too large vs. server has no storage left"),
+        ("508", "Storage loop vs. simply out of space"),
+    ],
+    "508": [
+        ("507", "Out of storage vs. infinite loop detected in the resource"),
+    ],
+    "510": [
+        ("501", "Not implemented vs. request needs an extension the server lacks"),
+    ],
+    "511": [
+        ("401", "Origin server auth vs. network-level auth (e.g. captive portal)"),
+        ("407", "Proxy auth vs. network-level auth"),
+    ],
+}
+
 # --- Routes ---
 
 @app.errorhandler(404)
@@ -242,7 +490,8 @@ def http_parrots():
     codes = pruned_status_codes()
     day_index = date.today().toordinal() % len(codes)
     featured = codes[day_index].code
-    return render_template('http_parrots.html', status_code_list=codes, featured=featured)
+    return render_template('http_parrots.html', status_code_list=codes, featured=featured,
+                           status_info=STATUS_INFO)
 
 
 @app.route('/quiz')
@@ -275,6 +524,15 @@ def cheatsheet():
 @app.route('/flowchart')
 def flowchart():
     return render_template('flowchart.html')
+
+
+@app.route('/compare')
+def compare():
+    """Render the side-by-side status code comparison tool."""
+    codes = pruned_status_codes()
+    code_list = [{"code": c.code, "name": c.name} for c in codes]
+    return render_template('compare.html', code_list=code_list,
+                           status_info=STATUS_INFO, status_extra=STATUS_EXTRA)
 
 
 @app.route('/tester')
@@ -365,10 +623,13 @@ def http_parrot(status_code):
         idx = -1
     prev_code = code_list[idx - 1] if idx > 0 else None
     next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
+    related = RELATED_CODES.get(status_code, [])
+    curl_cmd = f"curl -i {request.host_url}return/{status_code}"
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
-                           prev_code=prev_code, next_code=next_code), code
+                           prev_code=prev_code, next_code=next_code,
+                           related=related, curl_cmd=curl_cmd), code
 
 
 @app.route('/<status_code>.jpg')

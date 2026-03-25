@@ -5,10 +5,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% block meta %}{% endblock %}
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
     {% block head %}{% endblock %}
@@ -23,21 +24,54 @@
                 <nav class="header-nav" aria-label="Site navigation">
                     <a href="/quiz">Quiz</a>
                     <a href="/flowchart">Flowchart</a>
+                    <a href="/compare">Compare</a>
                     <a href="/tester">Tester</a>
                     <a href="/cheatsheet">Cheat Sheet</a>
                     <a href="/api-docs">API</a>
                 </nav>
             </div>
-            {% block header_right %}{% endblock %}
+            {% block header_right %}
+            <div class="header-right">
+                <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
+                <div role="search">
+                    <input type="text" id="global-search" class="search-input search-input-sm" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
+                </div>
+            </div>
+            {% endblock %}
         </div>
     </header>
 
     {% block content %}{% endblock %}
 
     <footer class="site-footer">
-        HTTP Parrots by Markus Felldin
+        <div class="footer-inner">
+            <span>Made by <a href="https://github.com/MarkusFelldin" class="footer-link" target="_blank" rel="noopener">Markus Felldin</a></span>
+            <span class="footer-sep">&middot;</span>
+            <a href="https://github.com/MarkusFelldin/httpparrot" class="footer-github" target="_blank" rel="noopener" aria-label="View on GitHub">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                <span>GitHub</span>
+            </a>
+        </div>
     </footer>
 
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var gs = document.getElementById('global-search');
+        if (!gs) return;
+        gs.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                var q = gs.value.trim();
+                if (q) window.location.href = '/?q=' + encodeURIComponent(q);
+            }
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement !== gs && document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                gs.focus();
+            }
+        });
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

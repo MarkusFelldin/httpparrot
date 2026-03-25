@@ -20,6 +20,7 @@
             <table class="cheat-table">
                 {% for code in codes %}
                 <tr>
+                    <td class="cheat-thumb"><a href="/{{ code[0] }}"><img src="/static/{{ code[2] }}" alt="" width="60" height="50" loading="lazy"></a></td>
                     <td class="cheat-code category-{{ code[0][0] }}xx"><a href="/{{ code[0] }}">{{ code[0] }}</a></td>
                     <td class="cheat-name"><a href="/{{ code[0] }}" class="cheat-link">{{ code[1] }}</a></td>
                 </tr>

@@ -88,6 +88,19 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusAccepted)",
         },
     },
+    "203": {
+        "examples": [
+            "A proxy modifying response headers or body before forwarding to the client",
+            "A CDN returning cached content that may have been transformed from the origin",
+            "A middleware stripping internal headers before returning the response",
+        ],
+        "headers": ["Content-Type: application/json"],
+        "code": {
+            "python": 'return jsonify(data), 203',
+            "node": "res.status(203).json(transformedData);",
+            "go": "w.WriteHeader(http.StatusNonAuthoritativeInfo)",
+        },
+    },
     "204": {
         "examples": [
             "Successfully deleting a resource — DELETE /api/users/123",
@@ -99,6 +112,82 @@ STATUS_EXTRA = {
             "python": 'return "", 204',
             "node": "res.status(204).end();",
             "go": "w.WriteHeader(http.StatusNoContent)",
+        },
+    },
+    "205": {
+        "examples": [
+            "A form submission where the server wants the browser to clear the form fields",
+            "Resetting a search filter UI after clearing saved filters on the server",
+            "A chat app telling the client to clear the message input after sending",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return "", 205',
+            "node": "res.status(205).end();",
+            "go": "w.WriteHeader(http.StatusResetContent)",
+        },
+    },
+    "206": {
+        "examples": [
+            "Streaming a video — the browser requests byte ranges so you can seek without downloading the whole file",
+            "Resuming a large file download that was interrupted",
+            "A download manager fetching a file in parallel chunks",
+        ],
+        "headers": ["Content-Range: bytes 0-999/8000", "Accept-Ranges: bytes", "Content-Length: 1000"],
+        "code": {
+            "python": "# Flask: use send_file with range support or flask-rangeresponse",
+            "node": "res.status(206).set('Content-Range', 'bytes 0-999/8000').send(chunk);",
+            "go": "http.ServeContent(w, r, name, modtime, content) // handles ranges automatically",
+        },
+    },
+    "207": {
+        "examples": [
+            "A WebDAV PROPFIND returning status for multiple files in a directory",
+            "A batch API where some operations succeed and others fail",
+            "CalDAV/CardDAV syncing multiple contacts or events at once",
+        ],
+        "headers": ["Content-Type: application/xml"],
+        "code": {
+            "python": 'return multi_status_xml, 207',
+            "node": "res.status(207).type('application/xml').send(multiStatusXml);",
+            "go": "w.WriteHeader(207) // http.StatusMultiStatus",
+        },
+    },
+    "208": {
+        "examples": [
+            "WebDAV reporting that members of a collection have already been listed in a previous part of the response",
+            "Avoiding infinite loops when a DAV binding points to a resource already enumerated",
+        ],
+        "headers": ["Content-Type: application/xml"],
+        "code": {
+            "python": 'return already_reported_xml, 208',
+            "node": "res.status(208).type('application/xml').send(alreadyReportedXml);",
+            "go": "w.WriteHeader(208) // http.StatusAlreadyReported",
+        },
+    },
+    "226": {
+        "examples": [
+            "A server applying delta encoding — sending only the changes since the client's cached version",
+            "Using the A-IM (Accept-Instance-Manipulation) header to request a diff instead of the full resource",
+        ],
+        "headers": ["IM: feed", "Delta-Base: \"abc123\""],
+        "code": {
+            "python": 'return delta_content, 226',
+            "node": "res.status(226).set('IM', 'feed').send(delta);",
+            "go": "w.WriteHeader(226) // http.StatusIMUsed",
+        },
+    },
+    "300": {
+        "examples": [
+            "A URL that has multiple representations — e.g., a document available in English and French",
+            "Content negotiation where the server offers several media types and lets the client choose",
+            "A resource available in different formats like JSON, XML, and CSV",
+        ],
+        "headers": ["Content-Type: application/json", "Location: /resource.en"],
+        "code": {
+            "python": 'return jsonify({"choices": ["/resource.en", "/resource.fr"]}), 300',
+            "node": "res.status(300).json({ choices: ['/resource.en', '/resource.fr'] });",
+            "go": 'w.WriteHeader(http.StatusMultipleChoices)',
         },
     },
     "301": {
@@ -127,6 +216,19 @@ STATUS_EXTRA = {
             "go": "http.Redirect(w, r, \"/login\", http.StatusFound)",
         },
     },
+    "303": {
+        "examples": [
+            "Redirecting to a confirmation page after a POST form submission (Post/Redirect/Get pattern)",
+            "After creating a resource via POST, redirecting to the new resource's GET URL",
+            "OAuth callback redirecting the user back to the app after authorization",
+        ],
+        "headers": ["Location: /order/123/confirmation"],
+        "code": {
+            "python": "return redirect('/order/123/confirmation', code=303)",
+            "node": "res.redirect(303, '/order/123/confirmation');",
+            "go": 'http.Redirect(w, r, "/order/123/confirmation", http.StatusSeeOther)',
+        },
+    },
     "304": {
         "examples": [
             "Browser requests a page it already has cached — server says 'use your cache'",
@@ -138,6 +240,56 @@ STATUS_EXTRA = {
             "python": "# Flask handles this automatically with ETags",
             "node": "res.status(304).end();",
             "go": "w.WriteHeader(http.StatusNotModified)",
+        },
+    },
+    "305": {
+        "examples": [
+            "A server telling the client it must access the resource through a specific proxy",
+            "Corporate networks requiring requests to go through an internal proxy for certain resources",
+        ],
+        "headers": ["Location: http://proxy.example.com:8080"],
+        "code": {
+            "python": 'return "", 305, {"Location": "http://proxy.example.com:8080"}',
+            "node": "res.status(305).set('Location', 'http://proxy.example.com:8080').end();",
+            "go": '// Deprecated — most clients ignore 305 for security reasons',
+        },
+    },
+    "306": {
+        "examples": [
+            "Originally meant for 'Switch Proxy' — telling the client to use a different proxy for subsequent requests",
+            "No longer used in practice; reserved in the HTTP spec as a historical artifact",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# 306 is unused/reserved — don't return it in production",
+            "node": "// 306 is reserved and no longer used",
+            "go": "// 306 Switch Proxy is deprecated and unused",
+        },
+    },
+    "307": {
+        "examples": [
+            "HSTS (HTTP Strict Transport Security) redirecting HTTP to HTTPS while preserving the request method",
+            "Temporarily redirecting a POST request — unlike 302, the client must keep using POST",
+            "An API endpoint temporarily moved but the client should resend with the same method and body",
+        ],
+        "headers": ["Location: https://example.com/api/resource"],
+        "code": {
+            "python": "return redirect('/new-endpoint', code=307)",
+            "node": "res.redirect(307, '/new-endpoint');",
+            "go": 'http.Redirect(w, r, "/new-endpoint", http.StatusTemporaryRedirect)',
+        },
+    },
+    "308": {
+        "examples": [
+            "Permanently moving an API endpoint while preserving the HTTP method (POST stays POST)",
+            "Google APIs using 308 for resumable upload redirects",
+            "A REST API changing its URL structure permanently but needing to keep POST/PUT intact",
+        ],
+        "headers": ["Location: https://api.example.com/v2/resource"],
+        "code": {
+            "python": "return redirect('/v2/resource', code=308)",
+            "node": "res.redirect(308, '/v2/resource');",
+            "go": 'http.Redirect(w, r, "/v2/resource", http.StatusPermanentRedirect)',
         },
     },
     "400": {
@@ -164,6 +316,19 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"error": "Unauthorized"}), 401',
             "node": "res.status(401).json({ error: 'Unauthorized' });",
             "go": 'http.Error(w, "Unauthorized", http.StatusUnauthorized)',
+        },
+    },
+    "402": {
+        "examples": [
+            "A SaaS API returning this when the user's subscription has expired",
+            "Hitting a paywall on a news site or content platform",
+            "Stripe or payment APIs indicating a payment is required before proceeding",
+        ],
+        "headers": ["Content-Type: application/json"],
+        "code": {
+            "python": 'return jsonify({"error": "Payment required"}), 402',
+            "node": "res.status(402).json({ error: 'Payment required' });",
+            "go": 'http.Error(w, "Payment Required", http.StatusPaymentRequired)',
         },
     },
     "403": {
@@ -204,6 +369,44 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)',
         },
     },
+    "406": {
+        "examples": [
+            "Requesting application/xml from an API that only serves JSON",
+            "Sending an Accept header the server can't satisfy",
+            "A client asking for a language the server doesn't support via Accept-Language",
+        ],
+        "headers": ["Content-Type: application/json"],
+        "code": {
+            "python": 'return jsonify({"error": "Not Acceptable"}), 406',
+            "node": "res.status(406).json({ error: 'Not Acceptable' });",
+            "go": 'http.Error(w, "Not Acceptable", http.StatusNotAcceptable)',
+        },
+    },
+    "407": {
+        "examples": [
+            "A corporate proxy requiring authentication before allowing outbound requests",
+            "Squid or other forward proxies demanding credentials",
+        ],
+        "headers": ["Proxy-Authenticate: Basic realm=\"proxy\""],
+        "code": {
+            "python": 'return "", 407, {"Proxy-Authenticate": "Basic"}',
+            "node": "res.status(407).set('Proxy-Authenticate', 'Basic').end();",
+            "go": 'w.Header().Set("Proxy-Authenticate", "Basic")\nhttp.Error(w, "Proxy Auth Required", 407)',
+        },
+    },
+    "408": {
+        "examples": [
+            "A client opens a connection but takes too long to send the request",
+            "A slow mobile client on a flaky network that doesn't finish sending headers in time",
+            "Server closing an idle keep-alive connection that sat too long without a new request",
+        ],
+        "headers": ["Connection: close"],
+        "code": {
+            "python": 'return jsonify({"error": "Request Timeout"}), 408',
+            "node": "res.status(408).json({ error: 'Request Timeout' });",
+            "go": 'http.Error(w, "Request Timeout", http.StatusRequestTimeout)',
+        },
+    },
     "409": {
         "examples": [
             "Two users trying to edit the same document at the same time",
@@ -215,6 +418,108 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"error": "Conflict"}), 409',
             "node": "res.status(409).json({ error: 'Username already exists' });",
             "go": 'http.Error(w, "Conflict", http.StatusConflict)',
+        },
+    },
+    "410": {
+        "examples": [
+            "An API endpoint that was intentionally removed and won't come back",
+            "A social media post that was permanently deleted",
+            "A deprecated API version that has been shut down",
+        ],
+        "headers": [],
+        "code": {
+            "python": "abort(410)",
+            "node": "res.status(410).json({ error: 'Gone' });",
+            "go": 'http.Error(w, "Gone", http.StatusGone)',
+        },
+    },
+    "411": {
+        "examples": [
+            "Sending a POST/PUT request without a Content-Length header",
+            "A server or proxy that requires Content-Length and rejects chunked transfer encoding",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Length Required"}), 411',
+            "node": "res.status(411).json({ error: 'Length Required' });",
+            "go": 'http.Error(w, "Length Required", http.StatusLengthRequired)',
+        },
+    },
+    "412": {
+        "examples": [
+            "Using If-Match with an ETag that no longer matches — the resource was modified",
+            "Conditional update failing because If-Unmodified-Since check didn't pass",
+            "Optimistic concurrency control rejecting a stale update",
+        ],
+        "headers": ["ETag: \"current-etag\""],
+        "code": {
+            "python": 'return jsonify({"error": "Precondition Failed"}), 412',
+            "node": "res.status(412).json({ error: 'Precondition Failed' });",
+            "go": 'http.Error(w, "Precondition Failed", http.StatusPreconditionFailed)',
+        },
+    },
+    "413": {
+        "examples": [
+            "Uploading a file that exceeds the server's size limit",
+            "Sending a JSON body larger than the API allows",
+            "Nginx returning this when client_max_body_size is exceeded",
+        ],
+        "headers": ["Retry-After: 3600"],
+        "code": {
+            "python": "# Flask: set MAX_CONTENT_LENGTH = 16 * 1024 * 1024",
+            "node": "// Express: app.use(express.json({ limit: '10mb' }))",
+            "go": 'http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)',
+        },
+    },
+    "414": {
+        "examples": [
+            "A search query with so many parameters the URL exceeds the server's limit",
+            "Accidentally putting a huge base64 blob in a GET query string",
+            "Browsers or servers rejecting URLs longer than ~8KB",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "URI Too Long"}), 414',
+            "node": "res.status(414).json({ error: 'URI Too Long' });",
+            "go": 'http.Error(w, "URI Too Long", http.StatusRequestURITooLong)',
+        },
+    },
+    "415": {
+        "examples": [
+            "Sending text/plain to an endpoint that only accepts application/json",
+            "Uploading a .exe file to an endpoint that only accepts images",
+            "Missing Content-Type header on a POST request with a body",
+        ],
+        "headers": ["Accept: application/json"],
+        "code": {
+            "python": 'return jsonify({"error": "Unsupported Media Type"}), 415',
+            "node": "res.status(415).json({ error: 'Unsupported Media Type' });",
+            "go": 'http.Error(w, "Unsupported Media Type", http.StatusUnsupportedMediaType)',
+        },
+    },
+    "416": {
+        "examples": [
+            "Requesting bytes 9000-9999 of a file that's only 5000 bytes long",
+            "A broken download resumption sending an invalid Range header",
+            "A video player seeking past the end of a file",
+        ],
+        "headers": ["Content-Range: bytes */5000"],
+        "code": {
+            "python": 'return "", 416, {"Content-Range": "bytes */5000"}',
+            "node": "res.status(416).set('Content-Range', 'bytes */5000').end();",
+            "go": 'http.Error(w, "Range Not Satisfiable", http.StatusRequestedRangeNotSatisfiable)',
+        },
+    },
+    "417": {
+        "examples": [
+            "Sending Expect: 100-continue but the server doesn't support that expectation",
+            "A proxy rejecting an Expect header it can't fulfill",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Expectation Failed"}), 417',
+            "node": "res.status(417).json({ error: 'Expectation Failed' });",
+            "go": 'http.Error(w, "Expectation Failed", http.StatusExpectationFailed)',
         },
     },
     "418": {
@@ -230,6 +535,44 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "I\'m a teapot", 418)',
         },
     },
+    "419": {
+        "examples": [
+            "Laravel returning this when a CSRF token is missing or expired on a form submission",
+            "A session timeout in a PHP framework — the user's login session expired mid-action",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Not a standard code — used by Laravel for expired CSRF tokens",
+            "node": "// Non-standard; Laravel uses 419 for CSRF/session expiry",
+            "go": '// Non-standard; consider using 403 or 440 instead',
+        },
+    },
+    "420": {
+        "examples": [
+            "Twitter's old API used this for rate limiting before 429 was standardized",
+            "Sometimes used as a humorous 'Enhance Your Calm' response",
+            "Spring Framework using this as a custom 'Method Failure' status",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Non-standard — use 429 for rate limiting instead",
+            "node": "// Non-standard; Twitter's old 'Enhance Your Calm' code",
+            "go": '// Non-standard; prefer 429 Too Many Requests',
+        },
+    },
+    "421": {
+        "examples": [
+            "An HTTP/2 request routed to a server that can't produce a response for that host",
+            "A TLS connection being reused for a domain the certificate doesn't cover",
+            "A reverse proxy forwarding a request to the wrong backend server",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Misdirected Request"}), 421',
+            "node": "res.status(421).json({ error: 'Misdirected Request' });",
+            "go": 'http.Error(w, "Misdirected Request", http.StatusMisdirectedRequest)',
+        },
+    },
     "422": {
         "examples": [
             "A form with valid JSON but failing business logic validation",
@@ -241,6 +584,69 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"errors": {"email": "invalid"}}), 422',
             "node": "res.status(422).json({ errors: { email: 'invalid' } });",
             "go": "w.WriteHeader(http.StatusUnprocessableEntity)",
+        },
+    },
+    "423": {
+        "examples": [
+            "A WebDAV resource that is locked by another user for editing",
+            "Trying to modify a file in SharePoint that someone else has checked out",
+            "A collaborative editing system preventing concurrent writes",
+        ],
+        "headers": ["Content-Type: application/xml"],
+        "code": {
+            "python": 'return jsonify({"error": "Resource is locked"}), 423',
+            "node": "res.status(423).json({ error: 'Locked' });",
+            "go": 'http.Error(w, "Locked", 423)',
+        },
+    },
+    "424": {
+        "examples": [
+            "A WebDAV batch operation where one action failed, causing dependent actions to fail too",
+            "A multi-step transaction where step 2 fails because step 1 didn't complete",
+        ],
+        "headers": ["Content-Type: application/xml"],
+        "code": {
+            "python": 'return jsonify({"error": "Failed Dependency"}), 424',
+            "node": "res.status(424).json({ error: 'Failed Dependency' });",
+            "go": 'http.Error(w, "Failed Dependency", 424)',
+        },
+    },
+    "425": {
+        "examples": [
+            "A server rejecting a request sent in TLS early data (0-RTT) to prevent replay attacks",
+            "An API refusing to process a request that arrived before the TLS handshake completed",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Too Early"}), 425',
+            "node": "res.status(425).json({ error: 'Too Early' });",
+            "go": 'http.Error(w, "Too Early", 425)',
+        },
+    },
+    "426": {
+        "examples": [
+            "A server requiring the client to switch to HTTPS or HTTP/2",
+            "An endpoint that only works over WebSocket telling a plain HTTP client to upgrade",
+            "A server refusing HTTP/1.0 and requiring at least HTTP/1.1",
+        ],
+        "headers": ["Upgrade: h2c", "Connection: Upgrade"],
+        "code": {
+            "python": 'return "", 426, {"Upgrade": "TLS/1.2", "Connection": "Upgrade"}',
+            "node": "res.status(426).set('Upgrade', 'TLS/1.2').json({ error: 'Upgrade Required' });",
+            "go": 'w.Header().Set("Upgrade", "TLS/1.2")\nhttp.Error(w, "Upgrade Required", 426)',
+        },
+    },
+    "428": {
+        "examples": [
+            "An API requiring If-Match or If-Unmodified-Since headers to prevent lost updates",
+            "A PUT endpoint that mandates conditional requests for concurrency safety",
+            "GitHub's API requiring conditional requests for certain update operations",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Precondition Required"}), 428',
+            "node": "res.status(428).json({ error: 'Precondition Required' });",
+            "go": 'http.Error(w, "Precondition Required", 428)',
         },
     },
     "429": {
@@ -256,6 +662,94 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Retry-After", "60")\nhttp.Error(w, "Too Many Requests", 429)',
         },
     },
+    "431": {
+        "examples": [
+            "Sending too many or too large cookies causing the request headers to exceed the server limit",
+            "A request with a massive Authorization header or a ridiculous number of custom headers",
+            "Nginx returning this when large_client_header_buffers is exceeded",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Request Header Fields Too Large"}), 431',
+            "node": "res.status(431).json({ error: 'Request Header Fields Too Large' });",
+            "go": 'http.Error(w, "Request Header Fields Too Large", 431)',
+        },
+    },
+    "444": {
+        "examples": [
+            "Nginx silently closing the connection without sending any response — used to block malicious clients",
+            "Dropping connections from bots or scanners without wasting bandwidth on a response",
+            "Nginx deny rules that just kill the connection",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Nginx-specific: return 444; in nginx.conf closes the connection",
+            "node": "// Nginx-only; req.socket.destroy() is the closest equivalent",
+            "go": "// Nginx-specific; in Go you'd use conn.Close() or hijack the connection",
+        },
+    },
+    "450": {
+        "examples": [
+            "Microsoft's 'Blocked by Windows Parental Controls' — a child's account is prevented from accessing content",
+            "Windows family safety features blocking a website for a managed account",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Non-standard Microsoft code — not used in general web development",
+            "node": "// Microsoft-specific; 450 Blocked by Parental Controls",
+            "go": "// Non-standard; only relevant to Microsoft/Windows environments",
+        },
+    },
+    "451": {
+        "examples": [
+            "A website blocked in a country due to government censorship",
+            "Content removed due to a DMCA takedown notice",
+            "A page unavailable due to court-ordered legal restrictions (named after Fahrenheit 451)",
+        ],
+        "headers": ["Link: <https://example.com/legal>; rel=\"blocked-by\""],
+        "code": {
+            "python": 'return jsonify({"error": "Unavailable For Legal Reasons"}), 451',
+            "node": "res.status(451).json({ error: 'Unavailable For Legal Reasons' });",
+            "go": 'http.Error(w, "Unavailable For Legal Reasons", 451)',
+        },
+    },
+    "494": {
+        "examples": [
+            "Nginx rejecting a request because a header exceeded the configured size limit",
+            "A client sending a single header line that's unreasonably large",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Nginx-specific: returned when a request header is too large",
+            "node": "// Nginx-only code; Node has --max-http-header-size for similar limits",
+            "go": "// Nginx-specific; Go's default MaxHeaderBytes is 1MB",
+        },
+    },
+    "498": {
+        "examples": [
+            "ArcGIS Server returning this when an expired or invalid token is provided",
+            "Esri APIs rejecting a request because the authentication token has expired",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Non-standard; used by ArcGIS/Esri for invalid tokens",
+            "node": "// Esri-specific; prefer 401 for token issues in standard APIs",
+            "go": "// Non-standard; specific to ArcGIS Server",
+        },
+    },
+    "499": {
+        "examples": [
+            "Nginx logging this when the client closes the connection before the server finishes responding",
+            "A user navigating away or cancelling a slow page load",
+            "A load balancer timing out and closing the connection to the backend",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Nginx-specific log code — you'll see this in access logs, not in app code",
+            "node": "// Nginx logs 499 when client disconnects; handle 'close' event on req",
+            "go": "// Check r.Context().Done() to detect client disconnection",
+        },
+    },
     "500": {
         "examples": [
             "An unhandled exception in your application code",
@@ -267,6 +761,19 @@ STATUS_EXTRA = {
             "python": "# Don't return 500 intentionally — Flask does it on unhandled exceptions",
             "node": "// Express returns 500 automatically on unhandled errors",
             "go": 'http.Error(w, "Internal Server Error", http.StatusInternalServerError)',
+        },
+    },
+    "501": {
+        "examples": [
+            "A server receiving a PATCH request it doesn't know how to handle",
+            "An HTTP method like PROPFIND hitting a server that doesn't support WebDAV",
+            "A minimal server that only implements GET and POST",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Not Implemented"}), 501',
+            "node": "res.status(501).json({ error: 'Not Implemented' });",
+            "go": 'http.Error(w, "Not Implemented", http.StatusNotImplemented)',
         },
     },
     "502": {
@@ -306,6 +813,105 @@ STATUS_EXTRA = {
             "python": "# Returned by reverse proxies when upstream times out",
             "node": "// Configure proxy timeout: proxy_read_timeout 60s;",
             "go": "// Set http.Server.ReadTimeout and WriteTimeout",
+        },
+    },
+    "505": {
+        "examples": [
+            "A server that only supports HTTP/1.1 receiving an HTTP/2 request it can't handle",
+            "An ancient client sending an HTTP/0.9 request to a modern server",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "HTTP Version Not Supported"}), 505',
+            "node": "res.status(505).json({ error: 'HTTP Version Not Supported' });",
+            "go": 'http.Error(w, "HTTP Version Not Supported", http.StatusHTTPVersionNotSupported)',
+        },
+    },
+    "506": {
+        "examples": [
+            "A server misconfigured so the chosen content variant itself tries to negotiate, creating a loop",
+            "Transparent content negotiation resulting in a circular reference",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Variant Also Negotiates"}), 506',
+            "node": "res.status(506).json({ error: 'Variant Also Negotiates' });",
+            "go": 'http.Error(w, "Variant Also Negotiates", 506)',
+        },
+    },
+    "507": {
+        "examples": [
+            "A WebDAV server running out of disk space while trying to store a resource",
+            "A cloud storage service hitting its quota limit",
+            "A mail server rejecting an upload because the user's mailbox is full",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Insufficient Storage"}), 507',
+            "node": "res.status(507).json({ error: 'Insufficient Storage' });",
+            "go": 'http.Error(w, "Insufficient Storage", http.StatusInsufficientStorage)',
+        },
+    },
+    "508": {
+        "examples": [
+            "A WebDAV operation detecting an infinite loop in a collection of resources with internal bindings",
+            "A server following resource references that eventually point back to themselves",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Loop Detected"}), 508',
+            "node": "res.status(508).json({ error: 'Loop Detected' });",
+            "go": 'http.Error(w, "Loop Detected", http.StatusLoopDetected)',
+        },
+    },
+    "509": {
+        "examples": [
+            "A shared hosting provider shutting down a site that used too much bandwidth",
+            "A web host enforcing a monthly traffic limit on a plan",
+            "cPanel/WHM returning this when a site exceeds its allocated bandwidth",
+        ],
+        "headers": ["Retry-After: 86400"],
+        "code": {
+            "python": "# Non-standard; used by some hosting providers for bandwidth limits",
+            "node": "// Non-standard; Apache/cPanel use 509 for bandwidth exceeded",
+            "go": "// Non-standard; prefer 429 or 503 with Retry-After in standard APIs",
+        },
+    },
+    "510": {
+        "examples": [
+            "A server requiring additional extensions in the request to fulfill it",
+            "An HTTP Extension Framework response indicating the client needs to extend the request",
+        ],
+        "headers": [],
+        "code": {
+            "python": 'return jsonify({"error": "Not Extended"}), 510',
+            "node": "res.status(510).json({ error: 'Not Extended' });",
+            "go": 'http.Error(w, "Not Extended", http.StatusNotExtended)',
+        },
+    },
+    "511": {
+        "examples": [
+            "A Wi-Fi captive portal (hotel, airport, coffee shop) intercepting your request to show a login page",
+            "A network requiring you to accept terms of service before granting internet access",
+            "Corporate guest networks redirecting to an authentication page",
+        ],
+        "headers": ["Content-Type: text/html"],
+        "code": {
+            "python": 'return render_template("captive_portal.html"), 511',
+            "node": "res.status(511).send('<html>Please log in to the network</html>');",
+            "go": 'http.Error(w, "Network Authentication Required", http.StatusNetworkAuthenticationRequired)',
+        },
+    },
+    "530": {
+        "examples": [
+            "Cloudflare returning this when the origin server returns an unexpected error and the site is frozen",
+            "A hosting provider using this to indicate the site is suspended or frozen",
+        ],
+        "headers": [],
+        "code": {
+            "python": "# Non-standard; Cloudflare/hosting-specific frozen site indicator",
+            "node": "// Non-standard; Cloudflare uses 530 alongside a 1XXX error code",
+            "go": "// Non-standard; check Cloudflare's error documentation for details",
         },
     },
 }

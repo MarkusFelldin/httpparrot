@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Status Codes - HTTP Parrots{% endblock %}
+{% block subtitle %}Compare two HTTP status codes side by side{% endblock %}
+
+{% block content %}
+    <main class="compare-container" role="main">
+        <div class="compare-intro">
+            <h1 class="compare-headline">Compare Status Codes</h1>
+            <p class="compare-subtext">Pick two HTTP status codes to see how they differ.</p>
+        </div>
+
+        <div class="compare-selectors">
+            <div class="compare-select-wrap">
+                <label for="select-a" class="compare-select-label">Code A</label>
+                <select id="select-a" class="compare-select" aria-label="Select first status code">
+                    <option value="">Choose a code...</option>
+                    {% for c in code_list %}
+                    <option value="{{ c.code }}">{{ c.code }} {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="compare-vs">vs</div>
+            <div class="compare-select-wrap">
+                <label for="select-b" class="compare-select-label">Code B</label>
+                <select id="select-b" class="compare-select" aria-label="Select second status code">
+                    <option value="">Choose a code...</option>
+                    {% for c in code_list %}
+                    <option value="{{ c.code }}">{{ c.code }} {{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <noscript>
+            <p class="compare-noscript">JavaScript is required to use the interactive comparison. You can still browse individual status code pages from the homepage.</p>
+        </noscript>
+
+        <div id="compare-result" class="compare-result" aria-live="polite"></div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var codeList = {{ code_list | tojson }};
+        var statusInfo = {{ status_info | tojson }};
+        var statusExtra = {{ status_extra | tojson }};
+
+        var catColors = {
+            '1': {color: '#48cae4', bg: 'rgba(72,202,228,0.10)', label: '1xx Informational'},
+            '2': {color: '#2dd4a8', bg: 'rgba(45,212,168,0.10)', label: '2xx Success'},
+            '3': {color: '#f9c74f', bg: 'rgba(249,199,79,0.10)', label: '3xx Redirection'},
+            '4': {color: '#ff6b6b', bg: 'rgba(255,107,107,0.10)', label: '4xx Client Error'},
+            '5': {color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', label: '5xx Server Error'}
+        };
+
+        var codeMap = {};
+        codeList.forEach(function(c) { codeMap[c.code] = c; });
+
+        var selA = document.getElementById('select-a');
+        var selB = document.getElementById('select-b');
+        var result = document.getElementById('compare-result');
+
+        function el(tag, className, textContent) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (textContent) node.textContent = textContent;
+            return node;
+        }
+
+        function buildCard(code) {
+            var entry = codeMap[code];
+            if (!entry) return null;
+            var info = statusInfo[code] || {};
+            var extra = statusExtra[code] || {};
+            var cat = code[0];
+            var catInfo = catColors[cat] || {color: '#fff', bg: 'rgba(255,255,255,0.05)', label: 'Unknown'};
+
+            var card = el('div', 'compare-card');
+
+            /* Header */
+            var header = el('div', 'compare-card-header');
+            header.style.borderColor = catInfo.color;
+
+            var badge = el('span', 'compare-card-badge', catInfo.label);
+            badge.style.background = catInfo.bg;
+            badge.style.color = catInfo.color;
+            header.appendChild(badge);
+
+            var codeEl = el('div', 'compare-card-code', code);
+            codeEl.style.color = catInfo.color;
+            header.appendChild(codeEl);
+
+            header.appendChild(el('div', 'compare-card-name', entry.name));
+            card.appendChild(header);
+
+            /* Body */
+            var body = el('div', 'compare-card-body');
+
+            /* Parrot image */
+            var imgWrap = el('div', 'compare-card-image');
+            var img = document.createElement('img');
+            img.src = '/' + code + '.jpg';
+            img.alt = code + ' parrot';
+            img.loading = 'lazy';
+            img.onerror = function() { this.parentElement.style.display = 'none'; };
+            imgWrap.appendChild(img);
+            body.appendChild(imgWrap);
+
+            /* Description */
+            if (info.description) {
+                var sec = el('div', 'compare-section');
+                sec.appendChild(el('h3', 'compare-section-title', 'Description'));
+                sec.appendChild(el('p', 'compare-section-text', info.description));
+                body.appendChild(sec);
+            }
+
+            /* History */
+            if (info.history) {
+                var sec2 = el('div', 'compare-section');
+                sec2.appendChild(el('h3', 'compare-section-title', 'History'));
+                sec2.appendChild(el('p', 'compare-section-text', info.history));
+                body.appendChild(sec2);
+            }
+
+            /* Examples */
+            if (extra.examples && extra.examples.length > 0) {
+                var sec3 = el('div', 'compare-section');
+                sec3.appendChild(el('h3', 'compare-section-title', 'When would I see this?'));
+                var ul = el('ul', 'compare-list');
+                extra.examples.forEach(function(ex) {
+                    ul.appendChild(el('li', null, ex));
+                });
+                sec3.appendChild(ul);
+                body.appendChild(sec3);
+            }
+
+            /* Typical headers */
+            if (extra.headers && extra.headers.length > 0) {
+                var sec4 = el('div', 'compare-section');
+                sec4.appendChild(el('h3', 'compare-section-title', 'Typical headers'));
+                var hdrs = el('div', 'compare-headers');
+                extra.headers.forEach(function(h) {
+                    hdrs.appendChild(el('code', 'compare-header-tag', h));
+                });
+                sec4.appendChild(hdrs);
+                body.appendChild(sec4);
+            }
+
+            /* Code snippets */
+            if (extra.code) {
+                var sec5 = el('div', 'compare-section');
+                sec5.appendChild(el('h3', 'compare-section-title', 'Code snippets'));
+                var langs = ['python', 'node', 'go'];
+                var langLabels = {python: 'Python', node: 'Node.js', go: 'Go'};
+                langs.forEach(function(lang) {
+                    if (extra.code[lang]) {
+                        var snip = el('div', 'compare-snippet');
+                        snip.appendChild(el('span', 'compare-snippet-lang', langLabels[lang]));
+                        snip.appendChild(el('pre', 'compare-snippet-code', extra.code[lang]));
+                        sec5.appendChild(snip);
+                    }
+                });
+                body.appendChild(sec5);
+            }
+
+            /* Footer with link */
+            var footer = el('div', 'compare-card-footer');
+            var link = document.createElement('a');
+            link.href = '/' + code;
+            link.className = 'compare-detail-link';
+            link.textContent = 'View full details';
+            footer.appendChild(link);
+            body.appendChild(footer);
+
+            card.appendChild(body);
+            return card;
+        }
+
+        function buildPlaceholder(label) {
+            var card = el('div', 'compare-card compare-card-placeholder');
+            var body = el('div', 'compare-card-body');
+            body.appendChild(el('p', 'compare-empty-card', label));
+            card.appendChild(body);
+            return card;
+        }
+
+        function update() {
+            var a = selA.value;
+            var b = selB.value;
+
+            /* Update URL params without reloading */
+            if (a || b) {
+                var params = new URLSearchParams();
+                if (a) params.set('a', a);
+                if (b) params.set('b', b);
+                history.replaceState(null, '', '/compare?' + params.toString());
+            } else {
+                history.replaceState(null, '', '/compare');
+            }
+
+            /* Clear previous result */
+            while (result.firstChild) result.removeChild(result.firstChild);
+
+            if (!a && !b) {
+                result.appendChild(el('div', 'compare-empty', 'Select two status codes above to compare them.'));
+                return;
+            }
+
+            var columns = el('div', 'compare-columns');
+            columns.appendChild(a ? buildCard(a) : buildPlaceholder('Select Code A'));
+            columns.appendChild(b ? buildCard(b) : buildPlaceholder('Select Code B'));
+            result.appendChild(columns);
+        }
+
+        /* Pre-populate from URL params */
+        var params = new URLSearchParams(window.location.search);
+        var initA = params.get('a');
+        var initB = params.get('b');
+        if (initA && codeMap[initA]) selA.value = initA;
+        if (initB && codeMap[initB]) selB.value = initB;
+
+        selA.addEventListener('change', update);
+        selB.addEventListener('change', update);
+
+        /* Initial render */
+        update();
+    })();
+    </script>
+{% endblock %}

@@ -72,6 +72,27 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Which Status Code' in resp.data
 
+    def test_compare_page(self, client):
+        resp = client.get('/compare')
+        assert resp.status_code == 200
+
+    def test_compare_page_contains_expected_elements(self, client):
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'Compare Status Codes' in html
+        assert 'select-a' in html
+        assert 'select-b' in html
+        assert 'compare-result' in html
+        assert '<option value="200">' in html
+        assert '<option value="404">' in html
+        assert 'noscript' in html
+
+    def test_compare_page_with_params(self, client):
+        resp = client.get('/compare?a=301&b=308')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'select-a' in html
+
     def test_tester_page(self, client):
         resp = client.get('/tester')
         assert resp.status_code == 200
@@ -422,6 +443,15 @@ class TestResolveValidateEdgeCases:
         result, _ = resolve_and_validate('http://[::1]/')
         assert result is None
 
+    def test_blocks_url_with_credentials(self):
+        """URLs with embedded user:password should be rejected."""
+        result, _ = resolve_and_validate('http://admin:secret@example.com/')
+        assert result is None
+
+    def test_blocks_url_with_username_only(self):
+        result, _ = resolve_and_validate('http://admin@example.com/')
+        assert result is None
+
 
 # --- Rate limiter pruning ---
 
@@ -521,3 +551,151 @@ class TestKeyboardNavigation:
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         assert '.parrot-card.grid-focus' in css
+
+
+# --- Related codes ---
+
+class TestRelatedCodes:
+    def test_detail_page_with_related_shows_section(self, client):
+        """Detail pages that have related codes should show 'Commonly confused with'."""
+        from index import RELATED_CODES
+        # Pick a code that has related codes
+        code = next(iter(RELATED_CODES))
+        resp = client.get(f'/{code}')
+        html = resp.data.decode()
+        assert 'Commonly confused with' in html
+
+    def test_detail_page_without_related_hides_section(self, client):
+        """Detail pages without related codes should not show the section."""
+        from index import RELATED_CODES, status_code_list
+        # Find a code that is NOT in RELATED_CODES
+        code_without = None
+        for sc in status_code_list:
+            if sc.code not in RELATED_CODES:
+                code_without = sc.code
+                break
+        assert code_without is not None, "All codes have related codes, cannot test"
+        resp = client.get(f'/{code_without}')
+        html = resp.data.decode()
+        assert 'Commonly confused with' not in html
+
+    def test_related_code_links_point_to_valid_status_codes(self):
+        """Every code referenced in related links should be a valid status code."""
+        from index import RELATED_CODES, status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for source_code, related_list in RELATED_CODES.items():
+            for target_code, _desc in related_list:
+                assert target_code in valid_codes, (
+                    f"Related code {target_code} (from {source_code}) "
+                    f"not in status_code_list"
+                )
+
+    def test_related_codes_source_codes_exist(self):
+        """All keys in RELATED_CODES should be codes that exist in status_code_list."""
+        from index import RELATED_CODES, status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for code in RELATED_CODES:
+            assert code in valid_codes, (
+                f"RELATED_CODES key {code} not found in status_code_list"
+            )
+
+
+# --- STATUS_EXTRA data ---
+
+class TestStatusExtra:
+    def test_all_entries_have_required_keys(self):
+        """Every STATUS_EXTRA entry must have examples, headers, and code keys."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            assert 'examples' in data, f"{code} missing 'examples'"
+            assert 'headers' in data, f"{code} missing 'headers'"
+            assert 'code' in data, f"{code} missing 'code'"
+
+    def test_code_snippets_have_language_keys(self):
+        """Code snippets dict should have python, node, and go keys."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            snippets = data['code']
+            assert 'python' in snippets, f"{code} code missing 'python'"
+            assert 'node' in snippets, f"{code} code missing 'node'"
+            assert 'go' in snippets, f"{code} code missing 'go'"
+
+    def test_examples_lists_are_non_empty(self):
+        """Every STATUS_EXTRA entry should have at least one example."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            assert len(data['examples']) > 0, f"{code} has empty examples list"
+
+
+# --- HTTP_EXAMPLES data ---
+
+class TestHTTPExamples:
+    def test_all_entries_have_request_and_response(self):
+        """Every HTTP_EXAMPLES entry must have request and response keys."""
+        from http_examples import HTTP_EXAMPLES
+        for code, data in HTTP_EXAMPLES.items():
+            assert 'request' in data, f"{code} missing 'request'"
+            assert 'response' in data, f"{code} missing 'response'"
+
+    def test_response_contains_status_code_number(self):
+        """Response strings should contain the correct status code number."""
+        from http_examples import HTTP_EXAMPLES
+        for code, data in HTTP_EXAMPLES.items():
+            assert code in data['response'], (
+                f"Response for {code} does not contain the status code number"
+            )
+
+    def test_all_entries_are_non_empty_strings(self):
+        """Request and response values must be non-empty strings."""
+        from http_examples import HTTP_EXAMPLES
+        for code, data in HTTP_EXAMPLES.items():
+            assert isinstance(data['request'], str) and len(data['request']) > 0, (
+                f"{code} request is empty or not a string"
+            )
+            assert isinstance(data['response'], str) and len(data['response']) > 0, (
+                f"{code} response is empty or not a string"
+            )
+
+
+# --- Detail page completeness ---
+
+class TestDetailPageCompleteness:
+    def test_200_has_all_sections(self, client):
+        """The 200 detail page should render all major content sections."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'What does it mean?' in html
+        assert 'History' in html
+        assert 'When would I see this?' in html
+        assert 'Typical headers' in html
+        assert 'Code examples' in html
+        assert 'Example HTTP exchange' in html
+        assert 'Commonly confused with' in html
+
+    def test_curl_copy_button_present(self, client):
+        """Detail pages should contain the curl copy button."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="copy-curl"' in html
+        assert 'curl -i' in html
+
+
+# --- Cheat sheet ---
+
+class TestCheatsheet:
+    def test_cheatsheet_contains_thumbnails(self, client):
+        """The cheat sheet page should contain thumbnail images."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert '<img src="/static/' in html
+        assert 'cheat-thumb' in html
+
+    def test_cheatsheet_has_all_five_categories(self, client):
+        """The cheat sheet should include all five HTTP status code categories."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'Informational' in html
+        assert 'Success' in html
+        assert 'Redirection' in html
+        assert 'Client Error' in html
+        assert 'Server Error' in html

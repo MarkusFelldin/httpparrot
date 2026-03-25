@@ -5,10 +5,23 @@
 
 {% block content %}
     <main class="tester-container" role="main">
-        <form class="tester-form" id="tester-form">
-            <input type="text" class="tester-input" id="url-input" placeholder="Enter a URL (e.g. example.com)" autocomplete="off" aria-label="URL to test">
-            <button type="submit" class="tester-submit" id="submit-btn">Test</button>
-        </form>
+        <div class="tester-hero" id="tester-hero">
+            <div class="tester-hero-content">
+                <h1 class="tester-headline">Test any URL</h1>
+                <p class="tester-hero-text">Enter a URL and this parrot will fetch it for you</p>
+                <form class="tester-form" id="tester-form">
+                    <div class="tester-input-wrap">
+                        <span class="tester-input-icon" aria-hidden="true">&#x1F50D;</span>
+                        <input type="text" class="tester-input" id="url-input" placeholder="example.com" autocomplete="off" aria-label="URL to test">
+                        <button type="submit" class="tester-submit" id="submit-btn">Ping</button>
+                    </div>
+                </form>
+            </div>
+            <div class="tester-hero-parrot">
+                <div class="tester-hero-glow"></div>
+                <img src="/static/tester.jpg" alt="Parrot waiting to test a URL" width="600" height="450" id="hero-img">
+            </div>
+        </div>
         <div id="result"></div>
     </main>
 {% endblock %}
@@ -43,26 +56,36 @@
             if (!url) return;
 
             const result = document.getElementById('result');
+            const heroImg = document.getElementById('hero-img');
             const btn = document.getElementById('submit-btn');
-            result.innerHTML = '';
-            result.appendChild(el('div', 'tester-loading', 'Testing...'));
+            heroImg.classList.add('pinging');
+            while (result.firstChild) result.removeChild(result.firstChild);
+            result.appendChild(el('div', 'tester-loading', 'Pinging...'));
             btn.disabled = true;
+            btn.textContent = 'Pinging...';
 
             fetch('/api/check-url?url=' + encodeURIComponent(url))
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     btn.disabled = false;
+                    btn.textContent = 'Ping';
+                    heroImg.classList.remove('pinging');
                     if (data.error) {
+                        heroImg.src = '/static/tester.jpg';
                         showError(result, data.error);
                         return;
                     }
+                    heroImg.src = '/' + data.code + '.jpg';
+                    heroImg.onerror = function() { this.src = '/static/tester.jpg'; };
                     const code = data.code;
                     const name = codes[code] || 'Unknown';
                     const cat = String(code)[0];
                     const color = colors[cat] || '#fff';
 
-                    result.innerHTML = '';
+                    while (result.firstChild) result.removeChild(result.firstChild);
                     const card = el('div', 'tester-result');
+                    card.style.borderColor = color + '30';
+                    card.style.boxShadow = '0 8px 40px ' + color + '15, 0 0 80px ' + color + '08';
                     const header = el('div', 'tester-result-header');
                     const codeEl = el('div', 'tester-result-code', String(code));
                     codeEl.style.color = color;
@@ -70,14 +93,6 @@
                     header.appendChild(el('div', 'tester-result-name', name));
                     header.appendChild(el('div', 'tester-result-url', data.url));
                     card.appendChild(header);
-
-                    const img = document.createElement('img');
-                    img.src = '/' + code + '.jpg';
-                    img.alt = code + ' parrot';
-                    img.width = 600;
-                    img.height = 500;
-                    img.onerror = function() { this.style.display = 'none'; };
-                    card.appendChild(img);
 
                     const actions = el('div', 'tester-result-actions');
                     const link = document.createElement('a');
@@ -90,6 +105,9 @@
                 })
                 .catch(function() {
                     btn.disabled = false;
+                    btn.textContent = 'Ping';
+                    heroImg.classList.remove('pinging');
+                    heroImg.src = '/static/tester.jpg';
                     showError(result, 'Could not connect to the provided URL');
                 });
         });

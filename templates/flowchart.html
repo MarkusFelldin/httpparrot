@@ -93,6 +93,21 @@
         const history = [];
         const colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
 
+        function goBack() {
+            if (history.length === 0) return;
+            history.pop();
+            var node = tree;
+            for (var i = 0; i < history.length; i++) {
+                var h = history[i];
+                if (node.options) {
+                    node = node.options[h.answer];
+                } else {
+                    node = h.answer === 'Yes' ? node.yes : node.no;
+                }
+            }
+            render(node);
+        }
+
         function render(node) {
             const el = document.getElementById('flow');
             el.innerHTML = '';
@@ -162,13 +177,20 @@
 
                 const actions = document.createElement('div');
                 actions.className = 'flow-actions';
+                if (history.length > 0) {
+                    const backBtn = document.createElement('button');
+                    backBtn.className = 'flow-action-back';
+                    backBtn.textContent = 'Back';
+                    backBtn.addEventListener('click', goBack);
+                    actions.appendChild(backBtn);
+                }
                 const viewLink = document.createElement('a');
                 viewLink.href = '/' + node.result;
-                viewLink.className = 'btn-back';
+                viewLink.className = 'flow-action-primary';
                 viewLink.textContent = 'View parrot';
                 actions.appendChild(viewLink);
                 const restartBtn = document.createElement('button');
-                restartBtn.className = 'btn-back';
+                restartBtn.className = 'flow-action-secondary';
                 restartBtn.textContent = 'Start over';
                 restartBtn.addEventListener('click', function() { location.reload(); });
                 actions.appendChild(restartBtn);
@@ -234,8 +256,14 @@
 
             if (history.length > 0) {
                 const restart = document.createElement('div');
-                restart.className = 'flow-restart';
+                restart.className = 'flow-actions';
+                const backBtn = document.createElement('button');
+                backBtn.className = 'flow-action-back';
+                backBtn.textContent = 'Back';
+                backBtn.addEventListener('click', goBack);
+                restart.appendChild(backBtn);
                 const restartBtn = document.createElement('button');
+                restartBtn.className = 'flow-action-secondary';
                 restartBtn.textContent = 'Start over';
                 restartBtn.addEventListener('click', function() { location.reload(); });
                 restart.appendChild(restartBtn);

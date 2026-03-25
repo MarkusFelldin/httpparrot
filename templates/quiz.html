@@ -65,11 +65,19 @@
             document.getElementById('next-wrap').style.display = 'none';
 
             const container = document.getElementById('choices');
-            container.innerHTML = '';
-            choices.forEach(function(c) {
+            while (container.firstChild) container.removeChild(container.firstChild);
+            var labels = ['A', 'B', 'C', 'D'];
+            choices.forEach(function(c, i) {
                 const btn = document.createElement('button');
                 btn.className = 'quiz-btn';
-                btn.textContent = c.code + ' ' + c.name;
+                var label = document.createElement('span');
+                label.className = 'quiz-btn-label';
+                label.textContent = labels[i];
+                var text = document.createElement('span');
+                text.className = 'quiz-btn-text';
+                text.textContent = c.code + ' ' + c.name;
+                btn.appendChild(label);
+                btn.appendChild(text);
                 btn.dataset.code = c.code;
                 btn.addEventListener('click', function() {
                     if (answered) return;

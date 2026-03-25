@@ -15,7 +15,6 @@
 
 {% block head %}
     <link rel="prefetch" href="/quiz">
-    <link rel="prefetch" href="/random">
 {% endblock %}
 
 {% block skip_link %}<a href="#parrot-grid" class="skip-link">Skip to content</a>{% endblock %}
@@ -32,12 +31,12 @@
                         <span class="filter-dot" aria-hidden="true"></span>
                     </button>
                     <div class="filter-dropdown" id="filter-dropdown" role="menu">
-                        <button class="cat-pill active" data-cat="all">All</button>
-                        <button class="cat-pill cat-1xx" data-cat="1">1xx Informational</button>
-                        <button class="cat-pill cat-2xx" data-cat="2">2xx Success</button>
-                        <button class="cat-pill cat-3xx" data-cat="3">3xx Redirection</button>
-                        <button class="cat-pill cat-4xx" data-cat="4">4xx Client Error</button>
-                        <button class="cat-pill cat-5xx" data-cat="5">5xx Server Error</button>
+                        <button class="cat-pill active" data-cat="all" role="menuitem">All</button>
+                        <button class="cat-pill cat-1xx" data-cat="1" role="menuitem">1xx Informational</button>
+                        <button class="cat-pill cat-2xx" data-cat="2" role="menuitem">2xx Success</button>
+                        <button class="cat-pill cat-3xx" data-cat="3" role="menuitem">3xx Redirection</button>
+                        <button class="cat-pill cat-4xx" data-cat="4" role="menuitem">4xx Client Error</button>
+                        <button class="cat-pill cat-5xx" data-cat="5" role="menuitem">5xx Server Error</button>
                     </div>
                 </div>
             </div>
@@ -47,7 +46,7 @@
     <main class="container-fluid parrot-grid" role="main">
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
-                <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}">
+                <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}" data-desc="{{ status_info.get(status_code[0], {}).get('description', '')|lower }}">
                     <a href="/{{ status_code[0] }}" class="parrot-link" aria-label="{{ status_code[0] }} {{ status_code[1] }}">
                         <div class="parrot parrot-{{ status_code[0][0] }}xx{% if status_code[0] == featured %} featured{% endif %}">
                             <div class="img">
@@ -86,12 +85,39 @@
                 const code = card.dataset.code;
                 const name = card.dataset.name;
                 const catMatch = activeCat === 'all' || code[0] === activeCat;
-                const searchMatch = !q || code.includes(q) || name.includes(q);
+                const desc = card.dataset.desc || '';
+                const searchMatch = !q || code.includes(q) || name.includes(q) || desc.includes(q);
                 const show = catMatch && searchMatch;
                 card.style.display = show ? '' : 'none';
                 if (show) visible++;
             });
             noResults.style.display = visible ? 'none' : 'block';
+            updateURL();
+        }
+
+        function updateURL() {
+            var params = new URLSearchParams();
+            var q = searchEl.value.trim();
+            if (q) params.set('q', q);
+            if (activeCat !== 'all') params.set('cat', activeCat);
+            var str = params.toString();
+            history.replaceState(null, '', str ? '?' + str : '/');
+        }
+
+        function loadFromURL() {
+            var params = new URLSearchParams(window.location.search);
+            var q = params.get('q');
+            var cat = params.get('cat');
+            if (q) searchEl.value = q;
+            if (cat) {
+                activeCat = cat;
+                pills.forEach(function(p) {
+                    p.classList.toggle('active', p.dataset.cat === cat);
+                });
+                toggleBtn.className = 'btn-filter';
+                toggleBtn.classList.add('has-filter', 'cat-active-' + cat);
+            }
+            if (q || cat) filterCards();
         }
 
         searchEl.addEventListener('input', filterCards);
@@ -110,6 +136,8 @@
                 }
             });
         });
+
+        loadFromURL();
 
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -208,6 +236,221 @@
         document.querySelectorAll('.parrot-card').forEach(function(card, i) {
             card.style.transitionDelay = (i % 8) * 0.05 + 's';
             observer.observe(card);
+        });
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        /* --- Speech bubbles --- */
+        var quotes = {
+            '100': "Go on, I'm listening...",
+            '101': 'Upgrading to something better!',
+            '102': "Still working on it, hold on...",
+            '103': 'Heads up, stuff is coming!',
+            '200': "Nailed it. You're welcome.",
+            '201': 'Look what I made!',
+            '202': "I'll get to it eventually.",
+            '203': "Don't shoot the messenger.",
+            '204': '...',
+            '205': 'Now forget everything.',
+            '206': "Here's a piece. Want more?",
+            '207': "It's complicated.",
+            '208': "Didn't I already tell you this?",
+            '226': "I'm used, but not useless!",
+            '300': "Pick one, any one.",
+            '301': "I moved. Update your bookmarks.",
+            '302': "I'm over here right now!",
+            '303': "Look over there instead.",
+            '304': "Nothing new. You already have it.",
+            '305': "Talk to my proxy first.",
+            '306': "I'm deprecated. Don't ask.",
+            '307': "Go there, but keep your method!",
+            '308': "Moved forever. Keep your POST.",
+            '400': "I have no idea what you just said.",
+            '401': "Who are you again?",
+            '402': "That'll be $4.99.",
+            '403': "You shall not pass!",
+            '404': "Have you tried the other URL?",
+            '405': "You can't do that here.",
+            '406': "I can't give you what you want.",
+            '407': "Talk to the proxy first.",
+            '408': "Hello? Anyone still there?",
+            '409': "We have a disagreement.",
+            '410': "It's gone. Let it go.",
+            '411': "How big is this thing?",
+            '412': "You didn't meet my conditions.",
+            '413': "Whoa, that's way too big.",
+            '414': "That URL is a novel.",
+            '415': "I can't read that format.",
+            '416': "That range makes no sense.",
+            '417': "I'm not what you expected.",
+            '418': "Do I look like a server to you?",
+            '419': "What does the fox say?",
+            '420': "Take a deep breath.",
+            '421': "Wrong server, buddy.",
+            '422': "I understood it, but... no.",
+            '423': "Don't touch! It's locked.",
+            '424': "My friend failed, so I fail too.",
+            '425': "Too soon! Try again later.",
+            '426': "You need an upgrade.",
+            '428': "Read the fine print first.",
+            '429': "SLOW. DOWN.",
+            '431': "Your headers are ridiculous.",
+            '444': "I'm just going to ignore you.",
+            '450': "Ask your parents.",
+            '451': "Redacted by legal.",
+            '494': "Your headers are STILL too big.",
+            '498': "That token is garbage.",
+            '499': "You left before I finished!",
+            '500': "Look, I panicked, okay?",
+            '501': "I literally can't even.",
+            '502': "Upstream said something weird.",
+            '503': "BRB, on fire.",
+            '504': "Upstream ghosted me.",
+            '505': "I don't speak that version.",
+            '506': "It's negotiating with itself.",
+            '507': "I'm completely full.",
+            '508': "Not this again... not this again...",
+            '509': "Bandwidth machine broke.",
+            '510': "You need to extend further.",
+            '511': "Log in to the network first.",
+            '530': "Everything is frozen solid."
+        };
+
+        /* --- Easter eggs --- */
+        var easterEggs = {
+            '204': function(card) {
+                var img = card.querySelector('.img img');
+                if (img) img.classList.add('easter-204');
+            },
+            '508': function(card) {
+                var img = card.querySelector('.img img');
+                if (img) img.classList.add('easter-508');
+            },
+            '418': function(card) {
+                var imgDiv = card.querySelector('.img');
+                if (!imgDiv) return;
+                var c = document.createElement('div');
+                c.className = 'steam-container';
+                for (var i = 0; i < 6; i++) {
+                    var p = document.createElement('div');
+                    p.className = 'steam-particle';
+                    p.style.left = (25 + Math.random() * 50) + '%';
+                    p.style.animationDelay = (Math.random() * 1.5) + 's';
+                    p.style.animationDuration = (1 + Math.random() * 1) + 's';
+                    c.appendChild(p);
+                }
+                imgDiv.appendChild(c);
+            },
+            '429': function(card) {
+                var imgDiv = card.querySelector('.img');
+                if (!imgDiv) return;
+                var c = document.createElement('div');
+                c.className = 'tiny-parrots-container';
+                for (var i = 0; i < 8; i++) {
+                    var p = document.createElement('div');
+                    p.className = 'tiny-parrot';
+                    p.textContent = '\uD83E\uDD9C';
+                    p.style.left = (10 + Math.random() * 70) + '%';
+                    p.style.top = (20 + Math.random() * 50) + '%';
+                    p.style.setProperty('--tx', (Math.random() * 60 - 30) + 'px');
+                    p.style.setProperty('--ty', (-20 - Math.random() * 50) + 'px');
+                    p.style.setProperty('--dur', (0.8 + Math.random() * 1.2) + 's');
+                    p.style.setProperty('--delay', (Math.random() * 1.5) + 's');
+                    c.appendChild(p);
+                }
+                imgDiv.appendChild(c);
+            }
+        };
+
+        document.querySelectorAll('.parrot-card').forEach(function(card) {
+            var code = card.dataset.code;
+            var parrot = card.querySelector('.parrot');
+            var imgDiv = card.querySelector('.img');
+
+            /* speech banner with typewriter */
+            if (quotes[code] && imgDiv) {
+                (function(p, container, text) {
+                    var banner = document.createElement('div');
+                    banner.className = 'parrot-speech';
+                    var textSpan = document.createElement('span');
+                    textSpan.className = 'speech-text';
+                    var cursor = document.createElement('span');
+                    cursor.className = 'speech-cursor';
+                    banner.appendChild(textSpan);
+                    banner.appendChild(cursor);
+                    container.appendChild(banner);
+
+                    var typeTimer = null;
+                    var delayTimer = null;
+                    var idx = 0;
+
+                    p.addEventListener('mouseenter', function() {
+                        idx = 0;
+                        textSpan.textContent = '';
+                        cursor.style.display = '';
+                        /* wait for slide-up to finish before typing */
+                        delayTimer = setTimeout(function() {
+                            typeTimer = setInterval(function() {
+                                if (idx < text.length) {
+                                    textSpan.textContent += text[idx];
+                                    idx++;
+                                } else {
+                                    clearInterval(typeTimer);
+                                    typeTimer = null;
+                                    setTimeout(function() { cursor.style.display = 'none'; }, 800);
+                                }
+                            }, 45);
+                        }, 300);
+                    });
+
+                    p.addEventListener('mouseleave', function() {
+                        if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+                        if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+                        textSpan.textContent = '';
+                        idx = 0;
+                        cursor.style.display = '';
+                    });
+
+                    /* Mobile tap toggle */
+                    var tapOpen = false;
+                    p.addEventListener('touchstart', function(e) {
+                        if (!tapOpen) {
+                            e.preventDefault();
+                            tapOpen = true;
+                            banner.style.transform = 'translateY(0)';
+                            idx = 0;
+                            textSpan.textContent = '';
+                            cursor.style.display = '';
+                            delayTimer = setTimeout(function() {
+                                typeTimer = setInterval(function() {
+                                    if (idx < text.length) {
+                                        textSpan.textContent += text[idx];
+                                        idx++;
+                                    } else {
+                                        clearInterval(typeTimer);
+                                        typeTimer = null;
+                                        setTimeout(function() { cursor.style.display = 'none'; }, 800);
+                                    }
+                                }, 45);
+                            }, 200);
+                        } else {
+                            tapOpen = false;
+                            banner.style.transform = '';
+                            if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+                            if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+                            textSpan.textContent = '';
+                            idx = 0;
+                        }
+                    }, { passive: false });
+                })(parrot, imgDiv, quotes[code]);
+            }
+
+            /* easter eggs */
+            if (easterEggs[code]) {
+                easterEggs[code](card);
+            }
         });
     })();
     </script>

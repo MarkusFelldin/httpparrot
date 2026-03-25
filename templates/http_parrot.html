@@ -22,10 +22,10 @@
 
 {% block content %}
     <main id="detail-content" class="container detail-container" role="main">
-        <div class="parrot detail-parrot">
+        <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
-                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500">
+                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high">
             </div>
             {% else %}
             <div class="img detail-img-empty">
@@ -36,6 +36,13 @@
                 <div class="img-status-code category-{{ status_code[0] }}xx">{{ status_code }}</div>
                 <div class="img-status-code-text">{{ description }}</div>
             </div>
+        </div>
+
+        <div class="detail-actions">
+            <button class="btn-copy-curl" id="copy-curl" title="Copy curl command">
+                <span class="copy-curl-text">{{ curl_cmd }}</span>
+                <span class="copy-curl-icon" id="copy-curl-icon">Copy</span>
+            </button>
         </div>
 
         {% if info %}
@@ -80,7 +87,10 @@
                 <h2>Code examples</h2>
                 {% for lang, snippet in extra.code.items() %}
                 <div class="code-example">
-                    <div class="code-lang">{{ lang }}</div>
+                    <div class="code-example-header">
+                        <div class="code-lang">{{ lang }}</div>
+                        <button class="code-copy-btn" data-snippet="{{ snippet|e }}" title="Copy">Copy</button>
+                    </div>
                     <pre class="code-snippet">{{ snippet }}</pre>
                 </div>
                 {% endfor %}
@@ -108,6 +118,22 @@
         </div>
         {% endif %}
 
+        {% if related %}
+        <div class="detail-info">
+            <div class="detail-section">
+                <h2>Commonly confused with</h2>
+                <div class="related-codes">
+                    {% for code, diff in related %}
+                    <a href="/{{ code }}" class="related-code-card">
+                        <span class="related-code-num category-{{ code[0] }}xx">{{ code }}</span>
+                        <span class="related-code-diff">{{ diff }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="detail-nav">
             <div class="detail-nav-side">
                 {% if prev_code %}
@@ -126,7 +152,29 @@
 
 {% block scripts %}
     <script nonce="{{ csp_nonce }}">
+    document.getElementById('copy-curl').addEventListener('click', function() {
+        var text = {{ curl_cmd|tojson }};
+        navigator.clipboard.writeText(text).then(function() {
+            var icon = document.getElementById('copy-curl-icon');
+            icon.textContent = 'Copied!';
+            setTimeout(function() { icon.textContent = 'Copy'; }, 2000);
+        });
+    });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    document.querySelectorAll('.code-copy-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var snippet = btn.closest('.code-example').querySelector('.code-snippet').textContent;
+            navigator.clipboard.writeText(snippet).then(function() {
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+            });
+        });
+    });
+    </script>
+    <script nonce="{{ csp_nonce }}">
     document.addEventListener('keydown', function(e) {
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
         if (e.key === 'ArrowLeft'{% if prev_code %}) window.location.href = '/{{ prev_code }}'{% else %}) {}{% endif %};
         if (e.key === 'ArrowRight'{% if next_code %}) window.location.href = '/{{ next_code }}'{% else %}) {}{% endif %};
     });
