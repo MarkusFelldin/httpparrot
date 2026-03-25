@@ -239,33 +239,39 @@ class TestSSRFProtection:
         assert result is None
 
     def test_blocks_private_10(self):
-        with patch('socket.gethostbyname', return_value='10.0.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('10.0.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_private_172(self):
-        with patch('socket.gethostbyname', return_value='172.16.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('172.16.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_private_192(self):
-        with patch('socket.gethostbyname', return_value='192.168.1.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://internal.example.com/')
             assert result is None
 
     def test_blocks_metadata(self):
-        with patch('socket.gethostbyname', return_value='169.254.169.254'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('169.254.169.254', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://metadata.example.com/')
             assert result is None
 
     def test_allows_public_ip(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, hostname = resolve_and_validate('http://example.com/')
             assert result is not None
             assert hostname == 'example.com'
 
     def test_returns_original_url(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://example.com/path')
             assert result == 'http://example.com/path'
 
@@ -345,19 +351,27 @@ class TestCheckURLSuccess:
         """Test successful external URL check with mocked request."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        mock_resp.headers = {'Content-Type': 'text/html'}
+        mock_resp.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
             resp = client.get('/api/check-url?url=https://example.com')
             assert resp.status_code == 200
             data = resp.get_json()
             assert data['code'] == 200
             assert data['url'] == 'https://example.com'
+            assert 'headers' in data
+            assert 'time_ms' in data
 
     def test_check_url_auto_prefix(self, client):
         """URLs without scheme should get https:// prepended."""
         mock_resp = MagicMock()
         mock_resp.status_code = 301
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        mock_resp.headers = {'Location': 'https://www.example.com'}
+        mock_resp.elapsed.total_seconds.return_value = 0.1
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
             resp = client.get('/api/check-url?url=example.com')
             assert resp.status_code == 200
@@ -367,7 +381,8 @@ class TestCheckURLSuccess:
 
     def test_check_url_connection_error(self, client):
         """Test that connection errors return 502."""
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', side_effect=requests.RequestException):
             resp = client.get('/api/check-url?url=https://example.com')
             assert resp.status_code == 502
@@ -427,24 +442,46 @@ class TestCSPNonce:
 
 class TestResolveValidateEdgeCases:
     def test_url_with_port(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, hostname = resolve_and_validate('http://example.com:8080/path')
             assert result == 'http://example.com:8080/path'
             assert hostname == 'example.com'
 
     def test_unresolvable_hostname(self):
-        with patch('socket.gethostbyname', side_effect=socket.gaierror):
+        with patch('index.socket.getaddrinfo', side_effect=socket.gaierror):
             result, _ = resolve_and_validate('http://nonexistent.invalid/')
             assert result is None
 
     def test_blocks_zero_network(self):
-        with patch('socket.gethostbyname', return_value='0.0.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('0.0.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://zero.example.com/')
             assert result is None
 
-    def test_blocks_ipv6_loopback(self):
-        result, _ = resolve_and_validate('http://[::1]/')
-        assert result is None
+    def test_blocks_ipv6_loopback_direct(self):
+        """IPv6 loopback address in URL should be blocked."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://evil.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_private(self):
+        """IPv6 unique local addresses should be blocked."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('fd00::1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://evil.example.com/')
+            assert result is None
+
+    def test_blocks_mixed_ipv4_ipv6_with_private(self):
+        """If any resolved address is private, the URL should be blocked."""
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::1', 0, 0, 0)),
+        ]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://dual.example.com/')
+            assert result is None
 
     def test_blocks_url_with_credentials(self):
         """URLs with embedded user:password should be rejected."""
@@ -702,3 +739,510 @@ class TestCheatsheet:
         assert 'Redirection' in html
         assert 'Client Error' in html
         assert 'Server Error' in html
+
+
+# --- Quiz data integrity ---
+
+class TestQuizDataIntegrity:
+    def test_quiz_embeds_valid_data(self, client):
+        """Quiz page should contain valid quiz data with required fields."""
+        resp = client.get('/quiz')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'allCodes' in html
+        assert '"code"' in html
+        assert '"name"' in html
+        assert '"image"' in html
+
+    def test_quiz_has_all_pruned_codes(self, client):
+        """Quiz data should include all status codes that have images."""
+        from index import pruned_status_codes
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        codes = pruned_status_codes()
+        for sc in codes:
+            assert f'"{sc.code}"' in html, f"Quiz missing code {sc.code}"
+
+
+# --- Flowchart tree validation ---
+
+class TestFlowchartTree:
+    def test_flowchart_result_codes_are_valid(self, client):
+        """All status codes referenced in the flowchart should exist in the app."""
+        resp = client.get('/flowchart')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        result_codes = re.findall(r'result:\s*["\'](\d{3})["\']', html)
+        assert len(result_codes) > 0, "No result codes found in flowchart"
+        from index import status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for code in result_codes:
+            assert code in valid_codes, f"Flowchart references invalid code: {code}"
+
+
+# --- Data consistency (reverse check) ---
+
+class TestDataConsistency:
+    def test_extra_data_keys_are_valid_codes(self):
+        """STATUS_EXTRA and HTTP_EXAMPLES should only contain valid status codes."""
+        from status_extra import STATUS_EXTRA
+        from http_examples import HTTP_EXAMPLES
+        from index import status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for code in STATUS_EXTRA:
+            assert code in valid_codes, f"STATUS_EXTRA has orphan key: {code}"
+        for code in HTTP_EXAMPLES:
+            assert code in valid_codes, f"HTTP_EXAMPLES has orphan key: {code}"
+
+
+# --- Check-URL redirect behavior ---
+
+class TestCheckURLRedirectBehavior:
+    def test_does_not_follow_redirects(self, client):
+        """URL tester should report first-hop status, not follow redirects."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 301
+        mock_resp.headers = {'Location': 'http://example.com/new'}
+        mock_resp.elapsed.total_seconds.return_value = 0.1
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp) as mock_head:
+            resp = client.get('/api/check-url?url=http://example.com')
+            data = resp.get_json()
+            assert data['code'] == 301
+            call_kwargs = mock_head.call_args
+            assert call_kwargs[1].get('allow_redirects') is False
+
+
+# --- Return status various codes ---
+
+class TestReturnStatusCodes:
+    def test_return_various_codes(self, client):
+        """Verify /return/ endpoint returns correct status codes."""
+        for code in [200, 201, 301, 404, 500]:
+            resp = client.get(f'/return/{code}')
+            assert resp.status_code == code, f"/return/{code} returned {resp.status_code}"
+
+
+class TestSEO:
+    def test_sitemap_xml(self, client):
+        resp = client.get('/sitemap.xml')
+        assert resp.status_code == 200
+        assert b'<urlset' in resp.data
+        assert b'/200' in resp.data
+        assert b'/404' in resp.data
+
+    def test_robots_txt(self, client):
+        resp = client.get('/robots.txt')
+        assert resp.status_code == 200
+        assert b'Sitemap:' in resp.data
+        assert b'Disallow: /return/' in resp.data
+
+    def test_canonical_url(self, client):
+        resp = client.get('/')
+        assert b'rel="canonical"' in resp.data
+
+    def test_detail_page_has_structured_data(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'application/ld+json' in html
+        assert 'DefinedTerm' in html
+
+
+class TestEcho:
+    def test_echo_get(self, client):
+        resp = client.get('/echo?foo=bar')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'GET'
+        assert data['args']['foo'] == 'bar'
+
+    def test_echo_post(self, client):
+        resp = client.post('/echo', json={'key': 'value'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'POST'
+        assert data['json']['key'] == 'value'
+
+    def test_echo_strips_sensitive_headers(self, client):
+        """Echo should not mirror back credential-bearing headers."""
+        resp = client.get('/echo', headers={
+            'Authorization': 'Bearer secret',
+            'Cookie': 'session=abc',
+            'X-Custom': 'safe',
+        })
+        data = resp.get_json()
+        header_keys = {k.lower() for k in data['headers']}
+        assert 'authorization' not in header_keys
+        assert 'cookie' not in header_keys
+        assert 'x-custom' in header_keys
+
+
+class TestRedirectChain:
+    def test_redirect_chain(self, client):
+        resp = client.get('/redirect/2')
+        assert resp.status_code == 302
+        assert '/redirect/1' in resp.headers['Location']
+
+    def test_redirect_chain_end(self, client):
+        resp = client.get('/redirect/0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['code'] == 200
+
+    def test_redirect_chain_too_many(self, client):
+        resp = client.get('/redirect/11')
+        assert resp.status_code == 404
+
+    def test_redirect_chain_boundary(self, client):
+        """Max value of 10 should redirect (not 404)."""
+        resp = client.get('/redirect/10')
+        assert resp.status_code == 302
+
+
+# --- Delay parameter ---
+
+class TestDelayParameter:
+    def test_delay_zero_ignored(self, client):
+        """delay=0 should be ignored (falsy)."""
+        resp = client.get('/return/200?delay=0')
+        assert resp.status_code == 200
+
+    def test_delay_negative_ignored(self, client):
+        """Negative delay should be ignored."""
+        resp = client.get('/return/200?delay=-1')
+        assert resp.status_code == 200
+
+    def test_delay_non_numeric_ignored(self, client):
+        """Non-numeric delay should be ignored."""
+        resp = client.get('/return/200?delay=abc')
+        assert resp.status_code == 200
+
+    def test_delay_over_max_ignored(self, client):
+        """Delay over 10s should be ignored."""
+        resp = client.get('/return/200?delay=11')
+        assert resp.status_code == 200
+
+
+# --- Header Explainer ---
+
+class TestHeaderExplainer:
+    def test_headers_page_renders(self, client):
+        """Header Explainer page should return 200 with expected content."""
+        resp = client.get('/headers')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Header Explainer' in html
+        assert 'header-input' in html
+        assert 'explain-btn' in html
+
+    def test_headers_page_has_script(self, client):
+        """Header Explainer page should contain the HEADER_DB JavaScript."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'HEADER_DB' in html
+        assert 'content-type' in html
+        assert 'parseHeaders' in html
+
+    def test_headers_page_has_nonce(self, client):
+        """Header Explainer script tag should have a nonce."""
+        resp = client.get('/headers')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_headers_nav_link(self, client):
+        """Navigation should contain a link to the Headers page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/headers"' in html
+
+    def test_headers_in_sitemap(self, client):
+        """Sitemap should include the headers page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/headers' in resp.data
+
+
+# --- CORS Checker ---
+
+class TestCORSChecker:
+    def test_cors_checker_page_renders(self, client):
+        """CORS Checker page should return 200 with expected content."""
+        resp = client.get('/cors-checker')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'CORS Checker' in html
+        assert 'cors-url' in html
+        assert 'cors-origin' in html
+
+    def test_cors_checker_has_nonce(self, client):
+        """CORS Checker script tag should have a nonce."""
+        resp = client.get('/cors-checker')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_cors_checker_nav_link(self, client):
+        """Navigation should contain a link to the CORS Checker page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/cors-checker"' in html
+
+    def test_cors_checker_in_sitemap(self, client):
+        """Sitemap should include the CORS checker page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/cors-checker' in resp.data
+
+    def test_check_cors_missing_params(self, client):
+        """API should return 400 when url or origin is missing."""
+        resp = client.get('/api/check-cors')
+        assert resp.status_code == 400
+        assert b'Both url and origin are required' in resp.data
+
+    def test_check_cors_missing_origin(self, client):
+        """API should return 400 when origin is missing."""
+        resp = client.get('/api/check-cors?url=https://example.com')
+        assert resp.status_code == 400
+
+    def test_check_cors_missing_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/check-cors?origin=https://mysite.com')
+        assert resp.status_code == 400
+
+    def test_check_cors_blocked_url(self, client):
+        """API should return 403 for private/blocked URLs."""
+        resp = client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://evil.com')
+        assert resp.status_code == 403
+        assert b'not allowed' in resp.data
+
+    def test_check_cors_success(self, client):
+        """API should return CORS analysis for a valid URL."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 204
+        mock_preflight.headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST',
+        }
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {
+            'Access-Control-Allow-Origin': '*',
+        }
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight), \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'preflight' in data
+            assert 'actual' in data
+            assert 'analysis' in data
+            assert data['analysis']['cors_enabled'] is True
+            assert data['analysis']['allows_origin'] is True
+
+    def test_check_cors_no_cors_headers(self, client):
+        """API should detect when CORS is not enabled."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 405
+        mock_preflight.headers = {}
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {'Content-Type': 'text/html'}
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight), \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            data = resp.get_json()
+            assert data['analysis']['cors_enabled'] is False
+            assert data['analysis']['allows_origin'] is False
+
+    def test_check_cors_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://x.com')
+        resp = client.get('/api/check-cors?url=https://example.com&origin=https://x.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_check_cors_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 204
+        mock_preflight.headers = {'Access-Control-Allow-Origin': '*'}
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {'Access-Control-Allow-Origin': '*'}
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight) as mock_opt, \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            call_args = mock_opt.call_args
+            assert call_args[0][0] == 'https://example.com'
+
+    def test_check_cors_connection_error(self, client):
+        """API should handle connection errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', side_effect=requests.RequestException), \
+             patch('requests.get', side_effect=requests.RequestException):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['preflight']['error'] == 'Could not connect'
+            assert data['actual']['error'] == 'Could not connect'
+
+    def test_check_cors_in_robots_txt(self, client):
+        """robots.txt should block /api/check-cors."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/check-cors' in resp.data
+
+
+# --- Collection (Parrotdex) ---
+
+class TestCollection:
+    def test_collection_page_renders(self, client):
+        """Collection page should return 200 with expected content."""
+        resp = client.get('/collection')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Parrotdex' in html
+        assert 'collection-grid' in html
+        assert 'collect-count' in html
+
+    def test_collection_contains_all_pruned_codes(self, client):
+        """Collection page should list every status code that has an image."""
+        from index import pruned_status_codes
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        for sc in pruned_status_codes():
+            assert f'data-code="{sc.code}"' in html, f"Collection missing code {sc.code}"
+
+    def test_collection_has_progress_bar(self, client):
+        """Collection page should have a progress bar element."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'collection-progress-bar' in html
+        assert 'id="progress-bar"' in html
+
+    def test_collection_has_parrotdex_script(self, client):
+        """Collection page should have localStorage parrotdex script."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'parrotdex' in html
+        assert 'uncollected' in html
+
+    def test_collection_nav_link(self, client):
+        """Navigation should contain a link to the Parrotdex page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/collection"' in html
+
+    def test_collection_in_sitemap(self, client):
+        """Sitemap should include the collection page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/collection' in resp.data
+
+    def test_collection_has_nonce(self, client):
+        """Collection script tag should have a nonce."""
+        resp = client.get('/collection')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_collection_secrets_section(self, client):
+        """Collection page should have the easter egg secrets section."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'Secret Parrots' in html
+        assert 'egg-card' in html
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+
+    def test_collection_eggs_found_script(self, client):
+        """Collection page should check eggs_found in localStorage."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+        assert 'egg-found' in html
+
+
+# --- Detail page parrotdex tracking ---
+
+class TestParrotdexTracking:
+    def test_detail_page_has_parrotdex_tracking(self, client):
+        """Detail pages should include localStorage parrotdex tracking script."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'parrotdex' in html
+        assert "localStorage.getItem('parrotdex')" in html
+
+
+# --- Quiz shareable results ---
+
+class TestQuizResults:
+    def test_quiz_has_history_array(self, client):
+        """Quiz should declare a history array for tracking answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'let history = []' in html
+
+    def test_quiz_tracks_correct_answers(self, client):
+        """Quiz should push true to history on correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'history.push(true)' in html
+
+    def test_quiz_tracks_wrong_answers(self, client):
+        """Quiz should push false to history on wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'history.push(false)' in html
+
+    def test_quiz_shows_results_at_10(self, client):
+        """Quiz should show results overlay after 10 questions."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'total === 10' in html
+        assert 'showResults' in html
+
+    def test_quiz_results_has_copy_and_replay(self, client):
+        """Quiz results function should have copy and play again buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-results-overlay' in html
+        assert 'quiz-results-card' in html
+        assert 'Copy Result' in html
+        assert 'Play Again' in html
+
+    def test_quiz_results_generates_emoji_grid(self, client):
+        """Quiz results should generate a Wordle-style emoji grid."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-results-grid' in html
+        assert 'httpparrots.com/quiz' in html
+
+
+# --- Easter egg tracking on homepage ---
+
+class TestEasterEggTracking:
+    def test_homepage_tracks_easter_eggs(self, client):
+        """Homepage should save discovered easter eggs to localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+
+    def test_homepage_tracks_konami_easter_egg(self, client):
+        """Homepage konami code should save to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('konami')" in html

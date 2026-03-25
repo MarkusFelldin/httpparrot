@@ -17,8 +17,6 @@
     <link rel="prefetch" href="/quiz">
 {% endblock %}
 
-{% block skip_link %}<a href="#parrot-grid" class="skip-link">Skip to content</a>{% endblock %}
-
 {% block header_right %}
             <div class="header-right">
                 <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
@@ -43,7 +41,7 @@
 {% endblock %}
 
 {% block content %}
-    <main class="container-fluid parrot-grid" role="main">
+    <main id="main-content" class="container-fluid parrot-grid" role="main">
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
                 <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}" data-desc="{{ status_info.get(status_code[0], {}).get('description', '')|lower }}">
@@ -233,7 +231,9 @@
             });
         }, { threshold: 0.1 });
 
-        document.querySelectorAll('.parrot-card').forEach(function(card, i) {
+        var cards = document.querySelectorAll('.parrot-card');
+        cards.forEach(function(card) { card.classList.add('will-reveal'); });
+        cards.forEach(function(card, i) {
             card.style.transitionDelay = (i % 8) * 0.05 + 's';
             observer.observe(card);
         });
@@ -450,6 +450,8 @@
             /* easter eggs */
             if (easterEggs[code]) {
                 easterEggs[code](card);
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf(code) === -1) { eggs.push(code); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
             }
         });
     })();
@@ -472,6 +474,8 @@
                 if (pos === konamiCode.length) {
                     pos = 0;
                     activatePartyParrot();
+                    var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                    if (eggs.indexOf('konami') === -1) { eggs.push('konami'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
                 }
             } else {
                 pos = 0;

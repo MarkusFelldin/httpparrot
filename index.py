@@ -15,6 +15,7 @@ from flask import (Flask, abort, g, jsonify, redirect, render_template,
                    request, send_from_directory, url_for)
 from flask_compress import Compress
 from markupsafe import Markup, escape
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
@@ -26,6 +27,7 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400  # 24h cache for static files
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024  # 1MB request body limit
 app.config['DEBUG'] = False
 Compress(app)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 _RFC_RE = re.compile(r'(RFC\s+(\d+))')
 
@@ -50,6 +52,9 @@ def linkify_rfcs(text):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+if not os.environ.get('SECRET_KEY'):
+    logger.warning('SECRET_KEY not set — using random key. '
+                   'Sessions will not persist across restarts.')
 
 # --- Security ---
 
@@ -70,8 +75,15 @@ def resolve_and_validate(url):
     """Resolve hostname to IP and validate it's not private.
 
     Returns (validated_url, original_hostname) or (None, None) if blocked.
-    Resolves the hostname to verify the IP is not private/internal.
-    Returns the original URL (not IP-rewritten) so HTTPS works correctly.
+    Uses getaddrinfo to resolve ALL addresses (IPv4 and IPv6) and validates
+    every one against BLOCKED_NETWORKS. Returns the original URL (not
+    IP-rewritten) so HTTPS certificate validation works correctly.
+
+    Note: There is an inherent TOCTOU window between DNS resolution here and
+    the subsequent HTTP request. We mitigate this by disabling redirect
+    following in the caller, which prevents redirect-based SSRF bypass.
+    Full elimination would require a custom transport adapter that pins the
+    resolved IP, which is beyond scope for this application.
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
@@ -80,12 +92,19 @@ def resolve_and_validate(url):
     if parsed.username or parsed.password:
         return None, None
     try:
-        resolved_ip = socket.gethostbyname(hostname)
-        ip = ipaddress.ip_address(resolved_ip)
-    except (socket.gaierror, ValueError):
+        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC,
+                                        socket.SOCK_STREAM)
+    except (socket.gaierror, OSError):
         return None, None
-    if any(ip in net for net in BLOCKED_NETWORKS):
+    if not addr_infos:
         return None, None
+    for family, _type, _proto, _canonname, sockaddr in addr_infos:
+        try:
+            ip = ipaddress.ip_address(sockaddr[0])
+        except ValueError:
+            return None, None
+        if any(ip in net for net in BLOCKED_NETWORKS):
+            return None, None
     return url, hostname
 
 
@@ -538,6 +557,76 @@ def tester():
     return render_template('tester.html')
 
 
+@app.route('/collection')
+def collection():
+    """Parrotdex — track which status code parrots you've collected."""
+    return render_template('collection.html', all_codes=pruned_status_codes())
+
+
+@app.route('/headers')
+def header_explainer():
+    """Render the Header Explainer page for annotating HTTP headers."""
+    return render_template('headers.html')
+
+
+@app.route('/cors-checker')
+def cors_checker():
+    """Render the CORS Checker page for testing cross-origin policies."""
+    return render_template('cors_checker.html')
+
+
+@app.route('/api/check-cors')
+def check_cors():
+    """Check CORS headers for a given URL and origin."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    origin = request.args.get('origin', '')
+    if not url or not origin:
+        return jsonify({"error": "Both url and origin are required"}), 400
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        return jsonify({"error": "URL not allowed"}), 403
+    results = {}
+    try:
+        # Preflight (OPTIONS)
+        preflight = req.options(safe_url, headers={
+            'Origin': origin,
+            'Access-Control-Request-Method': 'GET',
+        }, allow_redirects=False, timeout=10)
+        results['preflight'] = {
+            'status': preflight.status_code,
+            'headers': {k: v for k, v in preflight.headers.items()
+                       if k.lower().startswith('access-control')},
+        }
+    except req.RequestException:
+        results['preflight'] = {'error': 'Could not connect'}
+    try:
+        # Actual request
+        actual = req.get(safe_url, headers={'Origin': origin},
+                        allow_redirects=False, timeout=10, stream=True)
+        actual.close()
+        results['actual'] = {
+            'status': actual.status_code,
+            'headers': {k: v for k, v in actual.headers.items()
+                       if k.lower().startswith('access-control')},
+        }
+    except req.RequestException:
+        results['actual'] = {'error': 'Could not connect'}
+    # Analysis
+    acao = (results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Origin', '')
+            or results.get('preflight', {}).get('headers', {}).get('Access-Control-Allow-Origin', ''))
+    actual_creds = results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Credentials', '')
+    results['analysis'] = {
+        'cors_enabled': bool(acao),
+        'allows_origin': acao == '*' or acao == origin,
+        'allows_credentials': actual_creds.lower() == 'true' if isinstance(actual_creds, str) else False,
+    }
+    return jsonify(results)
+
+
 @app.route('/api/check-url')
 def check_url():
     """Make a HEAD request to a user-provided URL and return its status code."""
@@ -555,16 +644,32 @@ def check_url():
         return jsonify({"error": "URL not allowed"}), 403
     try:
         resp = req.head(safe_url, allow_redirects=False, timeout=10)
-        return jsonify({"code": resp.status_code, "url": url})
+        headers = {k: v for k, v in resp.headers.items()
+                   if k.lower() not in ('set-cookie',)}
+        return jsonify({
+            "code": resp.status_code,
+            "url": url,
+            "headers": headers,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+        })
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
 @app.route('/return/<int:code>')
 def return_status(code):
-    """Return a JSON response with the given HTTP status code."""
+    """Return a JSON response with the given HTTP status code.
+
+    Intentionally returns the actual status code (including 1xx informational
+    codes) so developers can use this endpoint for testing HTTP clients.
+    """
     if code < 100 or code > 599:
         abort(404)
+    delay = request.args.get('delay', type=float)
+    if delay and 0 < delay <= 10:
+        if is_rate_limited(request.remote_addr):
+            return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+        time.sleep(delay)
     description = next((s.name for s in status_code_list if s.code == str(code)), 'Unknown')
     response = jsonify({
         "code": code,
@@ -637,6 +742,76 @@ def http_parrot_image(status_code):
     if not image:
         abort(404)
     return send_from_directory('static', image)
+
+
+_ECHO_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
+                       'set-cookie', 'x-api-key'}
+
+
+@app.route('/echo', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+def echo():
+    """Echo the request details back as JSON (httpbin-style)."""
+    data = {
+        'method': request.method,
+        'url': request.url,
+        'headers': {k: v for k, v in request.headers
+                    if k.lower() not in _ECHO_STRIP_HEADERS},
+        'args': dict(request.args),
+    }
+    if request.method in ('POST', 'PUT', 'PATCH'):
+        data['body'] = request.get_data(as_text=True)
+        if request.is_json:
+            data['json'] = request.get_json(silent=True)
+    return jsonify(data)
+
+
+@app.route('/redirect/<int:n>')
+def redirect_chain(n):
+    """Chain of n redirects ending at 200. Max 10 hops."""
+    if n < 0:
+        abort(404)
+    if n == 0:
+        return jsonify({"message": "End of redirect chain", "code": 200})
+    if n > 10:
+        abort(404)
+    return redirect(url_for('redirect_chain', n=n - 1), code=302)
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    """Generate a dynamic XML sitemap."""
+    base = request.url_root.rstrip('/')
+    pages = []
+    for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
+                 '/cheatsheet', '/headers', '/cors-checker', '/collection',
+                 '/api-docs']:
+        pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
+    for sc in pruned_status_codes():
+        pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for p in pages:
+        xml.append(f'  <url><loc>{p["loc"]}</loc><priority>{p["priority"]}</priority></url>')
+    xml.append('</urlset>')
+    resp = app.response_class('\n'.join(xml), mimetype='application/xml')
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
+
+@app.route('/robots.txt')
+def robots():
+    """Serve robots.txt."""
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/check-url\n"
+        "Disallow: /api/check-cors\n"
+        "Disallow: /return/\n"
+        "Disallow: /echo\n"
+        "Disallow: /redirect/\n"
+        f"\nSitemap: {request.url_root}sitemap.xml\n"
+    )
+    return app.response_class(content, mimetype='text/plain')
 
 
 if __name__ == '__main__':

@@ -3,8 +3,12 @@
 {% block title %}Compare Status Codes - HTTP Parrots{% endblock %}
 {% block subtitle %}Compare two HTTP status codes side by side{% endblock %}
 
+{% block meta %}
+    <meta name="description" content="Compare HTTP status codes side by side. Understand differences between similar codes like 401 vs 403 or 301 vs 302.">
+{% endblock %}
+
 {% block content %}
-    <main class="compare-container" role="main">
+    <main class="compare-container" id="main-content" role="main">
         <div class="compare-intro">
             <h1 class="compare-headline">Compare Status Codes</h1>
             <p class="compare-subtext">Pick two HTTP status codes to see how they differ.</p>

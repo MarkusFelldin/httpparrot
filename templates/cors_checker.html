@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}CORS Checker - HTTP Parrots{% endblock %}
+{% block subtitle %}CORS Checker{% endblock %}
+{% block meta %}
+    <meta name="description" content="Test CORS headers for any URL. Check preflight responses, allowed origins, credentials, and more.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>CORS Checker</h1>
+            <p>Test cross-origin resource sharing headers for any URL</p>
+        </div>
+        <form class="cors-form" id="cors-form">
+            <div class="cors-inputs">
+                <div class="cors-field">
+                    <label class="cors-label" for="cors-url">Target URL</label>
+                    <input type="text" class="headers-input cors-input-single" id="cors-url" placeholder="https://api.example.com/data" autocomplete="off">
+                </div>
+                <div class="cors-field">
+                    <label class="cors-label" for="cors-origin">Origin</label>
+                    <input type="text" class="headers-input cors-input-single" id="cors-origin" placeholder="https://mysite.com" autocomplete="off">
+                </div>
+            </div>
+            <button type="submit" class="tester-submit" id="cors-btn">Check CORS</button>
+        </form>
+        <div id="cors-results" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        function indicator(pass) {
+            var span = el('span', pass ? 'cors-pass' : 'cors-fail');
+            span.textContent = pass ? 'PASS' : 'FAIL';
+            return span;
+        }
+
+        function renderHeaders(parent, title, data) {
+            var section = el('div', 'cors-section');
+            var hdr = el('div', 'cors-section-header');
+            hdr.appendChild(el('span', 'cors-section-title', title));
+            if (data.error) {
+                hdr.appendChild(indicator(false));
+                section.appendChild(hdr);
+                section.appendChild(el('div', 'cors-section-error', data.error));
+                parent.appendChild(section);
+                return;
+            }
+            hdr.appendChild(el('span', 'cors-section-status', 'HTTP ' + data.status));
+            section.appendChild(hdr);
+
+            var headers = data.headers || {};
+            var keys = Object.keys(headers);
+            if (keys.length === 0) {
+                section.appendChild(el('div', 'cors-no-headers', 'No CORS headers found'));
+            } else {
+                var table = document.createElement('table');
+                table.className = 'tester-headers-table';
+                keys.forEach(function(k) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(el('td', 'tester-header-key', k));
+                    tr.appendChild(el('td', 'tester-header-val', headers[k]));
+                    table.appendChild(tr);
+                });
+                section.appendChild(table);
+            }
+            parent.appendChild(section);
+        }
+
+        function renderAnalysis(parent, analysis) {
+            var section = el('div', 'cors-section cors-analysis');
+            section.appendChild(el('div', 'cors-section-title', 'Analysis'));
+            var list = el('div', 'cors-analysis-list');
+
+            var items = [
+                {label: 'CORS enabled', value: analysis.cors_enabled},
+                {label: 'Origin allowed', value: analysis.allows_origin},
+                {label: 'Credentials allowed', value: analysis.allows_credentials},
+            ];
+            items.forEach(function(item) {
+                var row = el('div', 'cors-analysis-row');
+                row.appendChild(el('span', 'cors-analysis-label', item.label));
+                row.appendChild(indicator(item.value));
+                list.appendChild(row);
+            });
+            section.appendChild(list);
+
+            if (!analysis.cors_enabled) {
+                var hint = el('div', 'cors-hint');
+                hint.appendChild(document.createTextNode('No CORS headers detected. The server may block cross-origin requests. See '));
+                var link = document.createElement('a');
+                link.href = '/403';
+                link.textContent = '403 Forbidden';
+                hint.appendChild(link);
+                hint.appendChild(document.createTextNode(' for details.'));
+                section.appendChild(hint);
+            }
+            parent.appendChild(section);
+        }
+
+        document.getElementById('cors-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var url = document.getElementById('cors-url').value.trim();
+            var origin = document.getElementById('cors-origin').value.trim();
+            if (!url || !origin) return;
+
+            var results = document.getElementById('cors-results');
+            var btn = document.getElementById('cors-btn');
+            while (results.firstChild) results.removeChild(results.firstChild);
+            results.appendChild(el('div', 'tester-loading', 'Checking CORS...'));
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+
+            fetch('/api/check-cors?url=' + encodeURIComponent(url) + '&origin=' + encodeURIComponent(origin))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    btn.disabled = false;
+                    btn.textContent = 'Check CORS';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+
+                    if (data.error) {
+                        results.appendChild(el('div', 'tester-error', data.error));
+                        return;
+                    }
+                    var card = el('div', 'cors-result-card');
+                    if (data.preflight) renderHeaders(card, 'Preflight (OPTIONS)', data.preflight);
+                    if (data.actual) renderHeaders(card, 'Actual Request (GET)', data.actual);
+                    if (data.analysis) renderAnalysis(card, data.analysis);
+                    results.appendChild(card);
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Check CORS';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+                    results.appendChild(el('div', 'tester-error', 'Could not perform CORS check'));
+                });
+        });
+    })();
+    </script>
+{% endblock %}

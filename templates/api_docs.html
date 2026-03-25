@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-    <main class="docs-container" role="main">
+    <main id="main-content" class="docs-container" role="main">
         <div class="docs-intro">
             <h1>API</h1>
             <p>Use HTTP Parrots programmatically. All endpoints support content negotiation.</p>
@@ -104,7 +104,9 @@
                     <div class="docs-example-label">Response</div>
                     <div class="docs-code">{
   "code": 200,
-  "url": "https://example.com"
+  "url": "https://example.com",
+  "headers": {"Content-Type": "text/html", "...": "..."},
+  "time_ms": 142
 }</div>
                 </div>
             </div>
@@ -127,6 +129,44 @@
   "description": "Service Unavailable",
   "message": "This response was returned with HTTP status 503."
 }</div>
+                </div>
+                <div class="docs-desc">Add <code>?delay=N</code> to wait N seconds before responding (max 10). Rate limited.</div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Echo request</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">ANY</span>
+                <span class="docs-path">/echo</span>
+                <div class="docs-desc">Mirrors the incoming request back as JSON. Accepts GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS. For POST/PUT/PATCH, the request body and parsed JSON are included.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl -X POST {{ request.url_root }}echo -H "Content-Type: application/json" -d '{"test": true}'</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">{
+  "method": "POST",
+  "url": "{{ request.url_root }}echo",
+  "headers": {"Content-Type": "application/json", "...": "..."},
+  "args": {},
+  "body": "{\"test\": true}",
+  "json": {"test": true}
+}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Redirect chain</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/redirect/{n}</span>
+                <div class="docs-desc">Returns a chain of n 302 redirects, ending at a 200 JSON response. Max 10 hops. Useful for testing redirect-following behavior.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl -L {{ request.url_root }}redirect/3</div>
                 </div>
             </div>
         </div>

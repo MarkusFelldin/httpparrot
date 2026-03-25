@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Parrotdex - HTTP Parrots{% endblock %}
+{% block subtitle %}Parrotdex{% endblock %}
+{% block meta %}
+    <meta name="description" content="Track your HTTP status code parrot collection. Visit detail pages to catch them all!">
+{% endblock %}
+{% block content %}
+    <main class="collection-container" id="main-content" role="main">
+        <div class="collection-header">
+            <h1>Parrotdex</h1>
+            <p>Visit status code pages to collect parrots. <span id="collect-count">0</span>/{{ all_codes|length }} collected</p>
+            <div class="collection-progress">
+                <div class="collection-progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+        <div class="collection-grid" id="collection-grid">
+            {% for code in all_codes %}
+            <a href="/{{ code.code }}" class="collection-card" data-code="{{ code.code }}">
+                <img src="/static/{{ code[2] }}" alt="{{ code.code }} {{ code.name }}" width="120" height="100" loading="lazy" class="collection-img">
+                <div class="collection-code category-{{ code.code[0] }}xx">{{ code.code }}</div>
+                <div class="collection-name">{{ code.name }}</div>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="collection-secrets">
+            <h2>Secret Parrots</h2>
+            <p class="collection-secrets-hint">Some parrots have hidden surprises on the homepage. Can you find them all?</p>
+            <div class="collection-eggs" id="eggs-grid">
+                <div class="egg-card" data-egg="204">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">This parrot has nothing to show...</span>
+                </div>
+                <div class="egg-card" data-egg="418">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">A warm beverage awaits...</span>
+                </div>
+                <div class="egg-card" data-egg="429">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Too many tiny friends...</span>
+                </div>
+                <div class="egg-card" data-egg="508">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Round and round it goes...</span>
+                </div>
+                <div class="egg-card" data-egg="konami">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Up up down down...</span>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var collected = JSON.parse(localStorage.getItem('parrotdex') || '[]');
+        var cards = document.querySelectorAll('.collection-card');
+        var count = 0;
+        cards.forEach(function(card) {
+            if (collected.indexOf(card.dataset.code) === -1) {
+                card.classList.add('uncollected');
+            } else {
+                count++;
+            }
+        });
+        document.getElementById('collect-count').textContent = count;
+        document.getElementById('progress-bar').style.width = (count / cards.length * 100) + '%';
+
+        var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        document.querySelectorAll('.egg-card').forEach(function(card) {
+            if (eggs.indexOf(card.dataset.egg) !== -1) {
+                card.classList.add('egg-found');
+                card.querySelector('.egg-icon').textContent = '\uD83C\uDF89';
+            }
+        });
+    })();
+    </script>
+{% endblock %}

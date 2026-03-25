@@ -3,8 +3,12 @@
 {% block title %}HTTP Tester - HTTP Parrots{% endblock %}
 {% block subtitle %}HTTP Tester{% endblock %}
 
+{% block meta %}
+    <meta name="description" content="Test any URL and check its HTTP status code. Free online HTTP status checker tool for developers.">
+{% endblock %}
+
 {% block content %}
-    <main class="tester-container" role="main">
+    <main class="tester-container" id="main-content" role="main">
         <div class="tester-hero" id="tester-hero">
             <div class="tester-hero-content">
                 <h1 class="tester-headline">Test any URL</h1>
@@ -22,7 +26,7 @@
                 <img src="/static/tester.jpg" alt="Parrot waiting to test a URL" width="600" height="450" id="hero-img">
             </div>
         </div>
-        <div id="result"></div>
+        <div id="result" aria-live="polite"></div>
     </main>
 {% endblock %}
 
@@ -93,6 +97,25 @@
                     header.appendChild(el('div', 'tester-result-name', name));
                     header.appendChild(el('div', 'tester-result-url', data.url));
                     card.appendChild(header);
+
+                    if (data.time_ms !== undefined) {
+                        header.appendChild(el('div', 'tester-result-time', data.time_ms + 'ms'));
+                    }
+
+                    if (data.headers && Object.keys(data.headers).length > 0) {
+                        var hdrs = el('div', 'tester-headers');
+                        hdrs.appendChild(el('div', 'tester-headers-title', 'Response Headers'));
+                        var table = document.createElement('table');
+                        table.className = 'tester-headers-table';
+                        Object.keys(data.headers).forEach(function(k) {
+                            var tr = document.createElement('tr');
+                            tr.appendChild(el('td', 'tester-header-key', k));
+                            tr.appendChild(el('td', 'tester-header-val', data.headers[k]));
+                            table.appendChild(tr);
+                        });
+                        hdrs.appendChild(table);
+                        card.appendChild(hdrs);
+                    }
 
                     const actions = el('div', 'tester-result-actions');
                     const link = document.createElement('a');

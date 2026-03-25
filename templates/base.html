@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% block meta %}{% endblock %}
+    <link rel="canonical" href="{{ request.url.split('?')[0] }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="/static/style.css" as="style">
@@ -15,19 +16,22 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% block skip_link %}{% endblock %}
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header-compact" role="banner">
         <div class="header-inner">
             <div class="header-left">
                 <a href="/" class="header-title">HTTP Parrots</a>
                 <span class="header-subtitle">{% block subtitle %}Every HTTP status code, explained by parrots{% endblock %}</span>
                 <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/compare">Compare</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
+                    <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+                    <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
+                    <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+                    <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
+                    <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
+                    <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
+                    <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
+                    <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
+                    <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
                 </nav>
             </div>
             {% block header_right %}

@@ -3,8 +3,12 @@
 {% block title %}Quiz - HTTP Parrots{% endblock %}
 {% block subtitle %}Quiz Mode{% endblock %}
 
+{% block meta %}
+    <meta name="description" content="Test your HTTP status code knowledge. Identify status codes from parrot images in this interactive quiz for developers.">
+{% endblock %}
+
 {% block content %}
-    <main class="quiz-container" role="main">
+    <main class="quiz-container" id="main-content" role="main">
         <div class="quiz-score">
             <div class="score-item score-correct">
                 <div class="score-value" id="score">0</div>
@@ -25,7 +29,7 @@
         </div>
 
         <div class="quiz-choices" id="choices"></div>
-        <div class="quiz-feedback" id="feedback"></div>
+        <div class="quiz-feedback" id="feedback" aria-live="polite" role="status"></div>
         <div class="quiz-next" id="next-wrap">
             <button class="btn-back" id="next-btn">Next parrot</button>
         </div>
@@ -38,6 +42,27 @@
         const allCodes = {{ quiz_data | tojson }};
         let score = 0, streak = 0, total = 0;
         let answered = false;
+        let history = [];
+
+        function spawnConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            for (var i = 0; i < 20; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 50 + Math.random() * 100;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
 
         function shuffle(arr) {
             for (let i = arr.length - 1; i > 0; i--) {
@@ -94,11 +119,14 @@
                     if (c.code === correct.code) {
                         score++;
                         streak++;
+                        history.push(true);
+                        spawnConfetti(btn);
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
                     } else {
                         btn.classList.add('wrong');
                         streak = 0;
+                        history.push(false);
                         fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
                         fb.className = 'quiz-feedback nope';
                     }
@@ -106,16 +134,78 @@
                     document.getElementById('score').textContent = score;
                     document.getElementById('streak').textContent = streak;
                     document.getElementById('total').textContent = total;
+
+                    var streakEl = document.querySelector('.score-streak');
+                    streakEl.classList.remove('on-fire', 'blazing');
+                    if (streak >= 10) streakEl.classList.add('blazing');
+                    else if (streak >= 5) streakEl.classList.add('on-fire');
+                    var sv = document.getElementById('streak');
+                    sv.classList.remove('streak-bump');
+                    void sv.offsetWidth;
+                    sv.classList.add('streak-bump');
+
                     document.getElementById('next-wrap').style.display = '';
+
+                    if (total === 10) {
+                        setTimeout(function() { showResults(); }, 800);
+                    }
                 });
                 container.appendChild(btn);
             });
         }
 
-        document.getElementById('next-btn').addEventListener('click', nextRound);
+        function showResults() {
+            var emojis = history.map(function(h) { return h ? '\uD83D\uDFE2' : '\uD83D\uDD34'; }).join('');
+            var resultText = 'HTTP Parrots Quiz: ' + score + '/10\n' + emojis + '\nhttpparrots.com/quiz';
+            var overlay = document.createElement('div');
+            overlay.className = 'quiz-results-overlay';
+            var card = document.createElement('div');
+            card.className = 'quiz-results-card';
+            var title = document.createElement('div');
+            title.className = 'quiz-results-title';
+            title.textContent = score + '/10 Parrots Identified!';
+            card.appendChild(title);
+            var grid = document.createElement('div');
+            grid.className = 'quiz-results-grid';
+            grid.textContent = emojis;
+            card.appendChild(grid);
+            var copyBtn = document.createElement('button');
+            copyBtn.className = 'btn-back quiz-results-copy';
+            copyBtn.textContent = 'Copy Result';
+            copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(resultText).then(function() {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                }).catch(function() {
+                    copyBtn.textContent = 'Failed';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                });
+            });
+            card.appendChild(copyBtn);
+            var again = document.createElement('button');
+            again.className = 'btn-back quiz-results-again';
+            again.textContent = 'Play Again';
+            again.addEventListener('click', function() {
+                overlay.remove();
+                score = 0; streak = 0; total = 0; history = [];
+                document.getElementById('score').textContent = '0';
+                document.getElementById('streak').textContent = '0';
+                document.getElementById('total').textContent = '0';
+                var streakEl = document.querySelector('.score-streak');
+                streakEl.classList.remove('on-fire', 'blazing');
+                nextRound();
+            });
+            card.appendChild(again);
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        }
+
+        document.getElementById('next-btn').addEventListener('click', function() {
+            if (total < 10) nextRound();
+        });
 
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && answered) nextRound();
+            if (e.key === 'Enter' && answered && total < 10) nextRound();
             if (!answered && e.key >= '1' && e.key <= '4') {
                 const btns = document.querySelectorAll('.quiz-btn');
                 if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();

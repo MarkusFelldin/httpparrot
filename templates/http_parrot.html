@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ status_code }} {{ description }} - HTTP Parrots{% endblock %}
+{% block title %}HTTP {{ status_code }} {{ description }} - Meaning & Examples | HTTP Parrots{% endblock %}
 
 {% block meta %}
     <meta name="description" content="{{ info.get('description', 'HTTP status code explained by parrots') }}">
@@ -11,6 +11,21 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="HTTP Parrots">
     <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "DefinedTerm",
+  "name": "HTTP {{ status_code }} {{ description }}",
+  "description": {{ info.description | tojson }},
+  "termCode": "{{ status_code }}",
+  "inDefinedTermSet": {
+    "@type": "DefinedTermSet",
+    "name": "HTTP Status Codes",
+    "url": "{{ request.url_root }}"
+  },
+  "url": "{{ request.url_root }}{{ status_code }}"
+}
+</script>
 {% endblock %}
 
 {% block head %}
@@ -18,10 +33,16 @@
     {% if prev_code %}<link rel="prefetch" href="/{{ prev_code }}">{% endif %}
 {% endblock %}
 
-{% block skip_link %}<a href="#detail-content" class="skip-link">Skip to content</a>{% endblock %}
-
 {% block content %}
-    <main id="detail-content" class="container detail-container" role="main">
+    <main id="main-content" class="container detail-container" role="main">
+        <div class="scroll-progress" id="scroll-progress"></div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/">All Codes</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <a href="/?cat={{ status_code[0] }}">{{ status_code[0] }}xx</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span aria-current="page">{{ status_code }}</span>
+        </nav>
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
@@ -43,6 +64,10 @@
                 <span class="copy-curl-text">{{ curl_cmd }}</span>
                 <span class="copy-curl-icon" id="copy-curl-icon">Copy</span>
             </button>
+            <div class="share-actions" aria-live="polite">
+                <button class="btn-share" id="share-link" title="Copy link to this page">Copy Link</button>
+                <button class="btn-share" id="share-image" title="Copy direct image URL">Copy Image URL</button>
+            </div>
         </div>
 
         {% if info %}
@@ -154,20 +179,48 @@
     <script nonce="{{ csp_nonce }}">
     document.getElementById('copy-curl').addEventListener('click', function() {
         var text = {{ curl_cmd|tojson }};
+        var icon = document.getElementById('copy-curl-icon');
+        var originalText = icon.textContent;
         navigator.clipboard.writeText(text).then(function() {
-            var icon = document.getElementById('copy-curl-icon');
             icon.textContent = 'Copied!';
-            setTimeout(function() { icon.textContent = 'Copy'; }, 2000);
+            setTimeout(function() { icon.textContent = originalText; }, 2000);
+        }).catch(function() {
+            icon.textContent = 'Failed';
+            setTimeout(function() { icon.textContent = originalText; }, 2000);
         });
     });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        function copyWithFeedback(btn, text) {
+            var orig = btn.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            }).catch(function() {
+                btn.textContent = 'Failed';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            });
+        }
+        document.getElementById('share-link').addEventListener('click', function() {
+            copyWithFeedback(this, window.location.href);
+        });
+        document.getElementById('share-image').addEventListener('click', function() {
+            copyWithFeedback(this, window.location.origin + '/{{ status_code }}.jpg');
+        });
+    })();
     </script>
     <script nonce="{{ csp_nonce }}">
     document.querySelectorAll('.code-copy-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var snippet = btn.closest('.code-example').querySelector('.code-snippet').textContent;
+            var originalText = btn.textContent;
             navigator.clipboard.writeText(snippet).then(function() {
                 btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+                setTimeout(function() { btn.textContent = originalText; }, 2000);
+            }).catch(function() {
+                btn.textContent = 'Failed';
+                setTimeout(function() { btn.textContent = originalText; }, 2000);
             });
         });
     });
@@ -178,5 +231,25 @@
         if (e.key === 'ArrowLeft'{% if prev_code %}) window.location.href = '/{{ prev_code }}'{% else %}) {}{% endif %};
         if (e.key === 'ArrowRight'{% if next_code %}) window.location.href = '/{{ next_code }}'{% else %}) {}{% endif %};
     });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var bar = document.getElementById('scroll-progress');
+        if (!bar) return;
+        window.addEventListener('scroll', function() {
+            var h = document.documentElement.scrollHeight - window.innerHeight;
+            if (h > 0) bar.style.transform = 'scaleX(' + Math.min(window.scrollY / h, 1) + ')';
+        }, {passive: true});
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var code = '{{ status_code }}';
+        var collected = JSON.parse(localStorage.getItem('parrotdex') || '[]');
+        if (collected.indexOf(code) === -1) {
+            collected.push(code);
+            localStorage.setItem('parrotdex', JSON.stringify(collected));
+        }
+    })();
     </script>
 {% endblock %}
