@@ -858,6 +858,19 @@ class TestEcho:
         assert data['method'] == 'POST'
         assert data['json']['key'] == 'value'
 
+    def test_echo_strips_sensitive_headers(self, client):
+        """Echo should not mirror back credential-bearing headers."""
+        resp = client.get('/echo', headers={
+            'Authorization': 'Bearer secret',
+            'Cookie': 'session=abc',
+            'X-Custom': 'safe',
+        })
+        data = resp.get_json()
+        header_keys = {k.lower() for k in data['headers']}
+        assert 'authorization' not in header_keys
+        assert 'cookie' not in header_keys
+        assert 'x-custom' in header_keys
+
 
 class TestRedirectChain:
     def test_redirect_chain(self, client):
@@ -874,3 +887,32 @@ class TestRedirectChain:
     def test_redirect_chain_too_many(self, client):
         resp = client.get('/redirect/11')
         assert resp.status_code == 404
+
+    def test_redirect_chain_boundary(self, client):
+        """Max value of 10 should redirect (not 404)."""
+        resp = client.get('/redirect/10')
+        assert resp.status_code == 302
+
+
+# --- Delay parameter ---
+
+class TestDelayParameter:
+    def test_delay_zero_ignored(self, client):
+        """delay=0 should be ignored (falsy)."""
+        resp = client.get('/return/200?delay=0')
+        assert resp.status_code == 200
+
+    def test_delay_negative_ignored(self, client):
+        """Negative delay should be ignored."""
+        resp = client.get('/return/200?delay=-1')
+        assert resp.status_code == 200
+
+    def test_delay_non_numeric_ignored(self, client):
+        """Non-numeric delay should be ignored."""
+        resp = client.get('/return/200?delay=abc')
+        assert resp.status_code == 200
+
+    def test_delay_over_max_ignored(self, client):
+        """Delay over 10s should be ignored."""
+        resp = client.get('/return/200?delay=11')
+        assert resp.status_code == 200

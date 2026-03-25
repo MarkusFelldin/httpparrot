@@ -1891,7 +1891,7 @@ body > main, body > .container-fluid { flex: 1; }
 .tester-result-time {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.55);
   letter-spacing: 0.05em;
 }
 .tester-headers {
@@ -1902,7 +1902,7 @@ body > main, body > .container-fluid { flex: 1; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 0.5rem;
 }
 .tester-headers-table {
@@ -1964,6 +1964,8 @@ body > main, body > .container-fluid { flex: 1; }
   .tester-result-code { font-size: 3.5rem; }
   .tester-result img { height: 12em; }
   .tester-result-header { padding: 1.5rem 1rem 0.75rem; }
+  .tester-headers { padding: 0 1rem 1rem; }
+  .tester-header-key { white-space: normal; }
 }
 
 /* === Page: Cheat Sheet === */

@@ -597,6 +597,8 @@ def return_status(code):
         abort(404)
     delay = request.args.get('delay', type=float)
     if delay and 0 < delay <= 10:
+        if is_rate_limited(request.remote_addr):
+            return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
         time.sleep(delay)
     description = next((s.name for s in status_code_list if s.code == str(code)), 'Unknown')
     response = jsonify({
@@ -672,13 +674,18 @@ def http_parrot_image(status_code):
     return send_from_directory('static', image)
 
 
+_ECHO_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
+                       'set-cookie', 'x-api-key'}
+
+
 @app.route('/echo', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
 def echo():
     """Echo the request details back as JSON (httpbin-style)."""
     data = {
         'method': request.method,
         'url': request.url,
-        'headers': dict(request.headers),
+        'headers': {k: v for k, v in request.headers
+                    if k.lower() not in _ECHO_STRIP_HEADERS},
         'args': dict(request.args),
     }
     if request.method in ('POST', 'PUT', 'PATCH'):
@@ -691,7 +698,9 @@ def echo():
 @app.route('/redirect/<int:n>')
 def redirect_chain(n):
     """Chain of n redirects ending at 200. Max 10 hops."""
-    if n <= 0:
+    if n < 0:
+        abort(404)
+    if n == 0:
         return jsonify({"message": "End of redirect chain", "code": 200})
     if n > 10:
         abort(404)
@@ -726,6 +735,8 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /return/\n"
+        "Disallow: /echo\n"
+        "Disallow: /redirect/\n"
         f"\nSitemap: {request.url_root}sitemap.xml\n"
     )
     return app.response_class(content, mimetype='text/plain')
