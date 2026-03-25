@@ -4,7 +4,7 @@
 {% block subtitle %}Cheat Sheet{% endblock %}
 
 {% block content %}
-    <main class="cheat-container" role="main">
+    <main class="cheat-container" id="main-content" role="main">
         <div class="cheat-header">
             <h1>HTTP Status Code Cheat Sheet</h1>
             <p>All status codes at a glance</p>
@@ -18,13 +18,18 @@
                 <span class="cheat-cat-name">{{ cat_name }}</span>
             </div>
             <table class="cheat-table">
+                <thead class="sr-only">
+                    <tr><th>Image</th><th>Code</th><th>Name</th></tr>
+                </thead>
+                <tbody>
                 {% for code in codes %}
                 <tr>
-                    <td class="cheat-thumb"><a href="/{{ code[0] }}"><img src="/static/{{ code[2] }}" alt="" width="60" height="50" loading="lazy"></a></td>
+                    <td class="cheat-thumb"><a href="/{{ code[0] }}"><img src="/static/{{ code[2] }}" alt="{{ code[0] }} parrot" width="60" height="50" loading="lazy"></a></td>
                     <td class="cheat-code category-{{ code[0][0] }}xx"><a href="/{{ code[0] }}">{{ code[0] }}</a></td>
                     <td class="cheat-name"><a href="/{{ code[0] }}" class="cheat-link">{{ code[1] }}</a></td>
                 </tr>
                 {% endfor %}
+                </tbody>
             </table>
         </div>
         {% endif %}

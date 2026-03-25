@@ -345,7 +345,8 @@ class TestCheckURLSuccess:
         """Test successful external URL check with mocked request."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
             resp = client.get('/api/check-url?url=https://example.com')
             assert resp.status_code == 200
@@ -357,7 +358,8 @@ class TestCheckURLSuccess:
         """URLs without scheme should get https:// prepended."""
         mock_resp = MagicMock()
         mock_resp.status_code = 301
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
             resp = client.get('/api/check-url?url=example.com')
             assert resp.status_code == 200
@@ -367,7 +369,8 @@ class TestCheckURLSuccess:
 
     def test_check_url_connection_error(self, client):
         """Test that connection errors return 502."""
-        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', side_effect=requests.RequestException):
             resp = client.get('/api/check-url?url=https://example.com')
             assert resp.status_code == 502
@@ -427,24 +430,46 @@ class TestCSPNonce:
 
 class TestResolveValidateEdgeCases:
     def test_url_with_port(self):
-        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, hostname = resolve_and_validate('http://example.com:8080/path')
             assert result == 'http://example.com:8080/path'
             assert hostname == 'example.com'
 
     def test_unresolvable_hostname(self):
-        with patch('socket.gethostbyname', side_effect=socket.gaierror):
+        with patch('index.socket.getaddrinfo', side_effect=socket.gaierror):
             result, _ = resolve_and_validate('http://nonexistent.invalid/')
             assert result is None
 
     def test_blocks_zero_network(self):
-        with patch('socket.gethostbyname', return_value='0.0.0.1'):
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('0.0.0.1', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
             result, _ = resolve_and_validate('http://zero.example.com/')
             assert result is None
 
-    def test_blocks_ipv6_loopback(self):
-        result, _ = resolve_and_validate('http://[::1]/')
-        assert result is None
+    def test_blocks_ipv6_loopback_direct(self):
+        """IPv6 loopback address in URL should be blocked."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://evil.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_private(self):
+        """IPv6 unique local addresses should be blocked."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('fd00::1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://evil.example.com/')
+            assert result is None
+
+    def test_blocks_mixed_ipv4_ipv6_with_private(self):
+        """If any resolved address is private, the URL should be blocked."""
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::1', 0, 0, 0)),
+        ]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://dual.example.com/')
+            assert result is None
 
     def test_blocks_url_with_credentials(self):
         """URLs with embedded user:password should be rejected."""
@@ -702,3 +727,85 @@ class TestCheatsheet:
         assert 'Redirection' in html
         assert 'Client Error' in html
         assert 'Server Error' in html
+
+
+# --- Quiz data integrity ---
+
+class TestQuizDataIntegrity:
+    def test_quiz_embeds_valid_data(self, client):
+        """Quiz page should contain valid quiz data with required fields."""
+        resp = client.get('/quiz')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'allCodes' in html
+        assert '"code"' in html
+        assert '"name"' in html
+        assert '"image"' in html
+
+    def test_quiz_has_all_pruned_codes(self, client):
+        """Quiz data should include all status codes that have images."""
+        from index import pruned_status_codes
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        codes = pruned_status_codes()
+        for sc in codes:
+            assert f'"{sc.code}"' in html, f"Quiz missing code {sc.code}"
+
+
+# --- Flowchart tree validation ---
+
+class TestFlowchartTree:
+    def test_flowchart_result_codes_are_valid(self, client):
+        """All status codes referenced in the flowchart should exist in the app."""
+        resp = client.get('/flowchart')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        result_codes = re.findall(r'result:\s*["\'](\d{3})["\']', html)
+        assert len(result_codes) > 0, "No result codes found in flowchart"
+        from index import status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for code in result_codes:
+            assert code in valid_codes, f"Flowchart references invalid code: {code}"
+
+
+# --- Data consistency (reverse check) ---
+
+class TestDataConsistency:
+    def test_extra_data_keys_are_valid_codes(self):
+        """STATUS_EXTRA and HTTP_EXAMPLES should only contain valid status codes."""
+        from status_extra import STATUS_EXTRA
+        from http_examples import HTTP_EXAMPLES
+        from index import status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for code in STATUS_EXTRA:
+            assert code in valid_codes, f"STATUS_EXTRA has orphan key: {code}"
+        for code in HTTP_EXAMPLES:
+            assert code in valid_codes, f"HTTP_EXAMPLES has orphan key: {code}"
+
+
+# --- Check-URL redirect behavior ---
+
+class TestCheckURLRedirectBehavior:
+    def test_does_not_follow_redirects(self, client):
+        """URL tester should report first-hop status, not follow redirects."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 301
+        mock_resp.headers = {'Location': 'http://example.com/new'}
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp) as mock_head:
+            resp = client.get('/api/check-url?url=http://example.com')
+            data = resp.get_json()
+            assert data['code'] == 301
+            call_kwargs = mock_head.call_args
+            assert call_kwargs[1].get('allow_redirects') is False
+
+
+# --- Return status various codes ---
+
+class TestReturnStatusCodes:
+    def test_return_various_codes(self, client):
+        """Verify /return/ endpoint returns correct status codes."""
+        for code in [200, 201, 301, 404, 500]:
+            resp = client.get(f'/return/{code}')
+            assert resp.status_code == code, f"/return/{code} returned {resp.status_code}"

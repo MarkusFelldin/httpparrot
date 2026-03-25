@@ -4,7 +4,7 @@
 {% block subtitle %}Quiz Mode{% endblock %}
 
 {% block content %}
-    <main class="quiz-container" role="main">
+    <main class="quiz-container" id="main-content" role="main">
         <div class="quiz-score">
             <div class="score-item score-correct">
                 <div class="score-value" id="score">0</div>
@@ -25,7 +25,7 @@
         </div>
 
         <div class="quiz-choices" id="choices"></div>
-        <div class="quiz-feedback" id="feedback"></div>
+        <div class="quiz-feedback" id="feedback" aria-live="polite" role="status"></div>
         <div class="quiz-next" id="next-wrap">
             <button class="btn-back" id="next-btn">Next parrot</button>
         </div>

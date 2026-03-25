@@ -18,10 +18,8 @@
     {% if prev_code %}<link rel="prefetch" href="/{{ prev_code }}">{% endif %}
 {% endblock %}
 
-{% block skip_link %}<a href="#detail-content" class="skip-link">Skip to content</a>{% endblock %}
-
 {% block content %}
-    <main id="detail-content" class="container detail-container" role="main">
+    <main id="main-content" class="container detail-container" role="main">
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
@@ -154,10 +152,14 @@
     <script nonce="{{ csp_nonce }}">
     document.getElementById('copy-curl').addEventListener('click', function() {
         var text = {{ curl_cmd|tojson }};
+        var icon = document.getElementById('copy-curl-icon');
+        var originalText = icon.textContent;
         navigator.clipboard.writeText(text).then(function() {
-            var icon = document.getElementById('copy-curl-icon');
             icon.textContent = 'Copied!';
-            setTimeout(function() { icon.textContent = 'Copy'; }, 2000);
+            setTimeout(function() { icon.textContent = originalText; }, 2000);
+        }).catch(function() {
+            icon.textContent = 'Failed';
+            setTimeout(function() { icon.textContent = originalText; }, 2000);
         });
     });
     </script>
@@ -165,9 +167,13 @@
     document.querySelectorAll('.code-copy-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var snippet = btn.closest('.code-example').querySelector('.code-snippet').textContent;
+            var originalText = btn.textContent;
             navigator.clipboard.writeText(snippet).then(function() {
                 btn.textContent = 'Copied!';
-                setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+                setTimeout(function() { btn.textContent = originalText; }, 2000);
+            }).catch(function() {
+                btn.textContent = 'Failed';
+                setTimeout(function() { btn.textContent = originalText; }, 2000);
             });
         });
     });

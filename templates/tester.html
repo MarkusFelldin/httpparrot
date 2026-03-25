@@ -4,7 +4,7 @@
 {% block subtitle %}HTTP Tester{% endblock %}
 
 {% block content %}
-    <main class="tester-container" role="main">
+    <main class="tester-container" id="main-content" role="main">
         <div class="tester-hero" id="tester-hero">
             <div class="tester-hero-content">
                 <h1 class="tester-headline">Test any URL</h1>
@@ -22,7 +22,7 @@
                 <img src="/static/tester.jpg" alt="Parrot waiting to test a URL" width="600" height="450" id="hero-img">
             </div>
         </div>
-        <div id="result"></div>
+        <div id="result" aria-live="polite"></div>
     </main>
 {% endblock %}
 

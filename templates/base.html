@@ -15,19 +15,19 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% block skip_link %}{% endblock %}
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header-compact" role="banner">
         <div class="header-inner">
             <div class="header-left">
                 <a href="/" class="header-title">HTTP Parrots</a>
                 <span class="header-subtitle">{% block subtitle %}Every HTTP status code, explained by parrots{% endblock %}</span>
                 <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/compare">Compare</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
+                    <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+                    <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
+                    <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+                    <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
+                    <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
+                    <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
                 </nav>
             </div>
             {% block header_right %}
