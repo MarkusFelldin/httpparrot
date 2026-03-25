@@ -260,10 +260,10 @@ class TestSSRFProtection:
             assert result is not None
             assert hostname == 'example.com'
 
-    def test_rewrites_url_to_ip(self):
+    def test_returns_original_url(self):
         with patch('socket.gethostbyname', return_value='93.184.216.34'):
             result, _ = resolve_and_validate('http://example.com/path')
-            assert '93.184.216.34' in result
+            assert result == 'http://example.com/path'
 
     def test_blocks_empty_hostname(self):
         result, _ = resolve_and_validate('http://')
@@ -425,8 +425,7 @@ class TestResolveValidateEdgeCases:
     def test_url_with_port(self):
         with patch('socket.gethostbyname', return_value='93.184.216.34'):
             result, hostname = resolve_and_validate('http://example.com:8080/path')
-            assert result is not None
-            assert '93.184.216.34:8080' in result
+            assert result == 'http://example.com:8080/path'
             assert hostname == 'example.com'
 
     def test_unresolvable_hostname(self):

@@ -67,12 +67,11 @@ BLOCKED_NETWORKS = [
 
 
 def resolve_and_validate(url):
-    """Resolve hostname to IP, validate it's not private, return IP-based URL.
+    """Resolve hostname to IP and validate it's not private.
 
-    Returns (safe_url, original_hostname) or (None, None) if blocked.
-    Resolves once and rewrites the URL to use the IP directly,
-    preventing DNS rebinding attacks. The original hostname is returned
-    for use in the Host header.
+    Returns (validated_url, original_hostname) or (None, None) if blocked.
+    Resolves the hostname to verify the IP is not private/internal.
+    Returns the original URL (not IP-rewritten) so HTTPS works correctly.
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
@@ -87,9 +86,7 @@ def resolve_and_validate(url):
         return None, None
     if any(ip in net for net in BLOCKED_NETWORKS):
         return None, None
-    # Rewrite URL to use resolved IP, preventing DNS rebinding
-    safe_parsed = parsed._replace(netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip)
-    return urlunparse(safe_parsed), hostname
+    return url, hostname
 
 
 # Simple in-memory rate limiter
@@ -556,8 +553,7 @@ def check_url():
         logger.warning('SSRF blocked: %s from %s', url, request.remote_addr)
         return jsonify({"error": "URL not allowed"}), 403
     try:
-        resp = req.head(safe_url, headers={"Host": hostname},
-                        allow_redirects=False, timeout=10)
+        resp = req.head(safe_url, allow_redirects=False, timeout=10)
         return jsonify({"code": resp.status_code, "url": url})
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
