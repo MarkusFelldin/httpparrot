@@ -1,9 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>{{ status_code }} {{ description }} - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "base.html" %}
+
+{% block title %}{{ status_code }} {{ description }} - HTTP Parrots{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="{{ info.get('description', 'HTTP status code explained by parrots') }}">
     <meta property="og:title" content="{{ status_code }} {{ description }}">
     <meta property="og:description" content="{{ info.get('description', 'HTTP status code explained by parrots') }}">
     {% if image %}<meta property="og:image" content="{{ request.url_root }}static/{{ image }}">{% endif %}
@@ -11,47 +11,30 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="HTTP Parrots">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="preload" href="/static/style.css" as="style">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+{% endblock %}
+
+{% block head %}
     {% if next_code %}<link rel="prefetch" href="/{{ next_code }}">{% endif %}
     {% if prev_code %}<link rel="prefetch" href="/{{ prev_code }}">{% endif %}
-</head>
-<body>
-    <a href="#detail-content" class="skip-link">Skip to content</a>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
+{% endblock %}
 
-    <main id="detail-content" class="container" role="main" style="max-width: 720px; padding: 2rem 1.5rem 3rem;">
-        <div class="parrot" style="margin: 0 auto;">
+{% block skip_link %}<a href="#detail-content" class="skip-link">Skip to content</a>{% endblock %}
+
+{% block content %}
+    <main id="detail-content" class="container detail-container" role="main">
+        <div class="parrot detail-parrot">
             {% if image %}
             <div class="img">
-                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" style="height: auto; max-height: 32em;">
+                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500">
             </div>
             {% else %}
-            <div class="img" style="padding: 4rem 1rem;">
-                <p style="color: rgba(255,255,255,0.4); font-size: 1.1rem;">No parrot found for this status code</p>
+            <div class="img detail-img-empty">
+                <p>No parrot found for this status code</p>
             </div>
             {% endif %}
-            <div class="img-text" style="padding: 1.5rem;">
-                <div class="img-status-code category-{{ status_code[0] }}xx" style="font-size: 3rem;">{{ status_code }}</div>
-                <div class="img-status-code-text" style="font-size: 1rem;">{{ description }}</div>
+            <div class="img-text">
+                <div class="img-status-code category-{{ status_code[0] }}xx">{{ status_code }}</div>
+                <div class="img-status-code-text">{{ description }}</div>
             </div>
         </div>
 
@@ -132,23 +115,20 @@
                 {% endif %}
             </div>
             <a href="/" class="btn-back">All parrots</a>
-            <div class="detail-nav-side" style="text-align: right;">
+            <div class="detail-nav-side detail-nav-right">
                 {% if next_code %}
                 <a href="/{{ next_code }}" class="btn-nav">{{ next_code }} &rarr;</a>
                 {% endif %}
             </div>
         </div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">
-        HTTP Parrots by Markus Felldin
-    </footer>
-
-    <script>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
     document.addEventListener('keydown', function(e) {
         if (e.key === 'ArrowLeft'{% if prev_code %}) window.location.href = '/{{ prev_code }}'{% else %}) {}{% endif %};
         if (e.key === 'ArrowRight'{% if next_code %}) window.location.href = '/{{ next_code }}'{% else %}) {}{% endif %};
     });
     </script>
-</body>
-</html>
+{% endblock %}

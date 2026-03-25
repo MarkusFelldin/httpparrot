@@ -1,50 +1,19 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>404 - Parrot Not Found</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-</head>
-<body>
-    <header class="site-header-compact">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container" style="max-width: 600px; padding: 4rem 1.5rem; text-align: center;">
-        <div style="font-size: 6rem; margin-bottom: 1rem;">🦜❓</div>
-        <div class="img-status-code category-4xx" style="font-size: 5rem;">404</div>
-        <h1 style="font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #ffffff;">Parrot Not Found</h1>
-        <p style="color: rgba(255,255,255,0.5); font-size: 1rem; max-width: 400px; margin: 0 auto 2rem;">
+{% block title %}404 - Parrot Not Found{% endblock %}
+
+{% block content %}
+    <main class="container error-container">
+        <div class="error-emoji">&#x1F99C;&#x2753;</div>
+        <div class="img-status-code category-4xx error-code">404</div>
+        <h1 class="error-title">Parrot Not Found</h1>
+        <p class="error-message">
             This parrot has flown the coop. The page you're looking for doesn't exist or has migrated to warmer climates.
         </p>
-        <div>
-            <a href="/" class="btn-back" style="font-size: 1rem;">&larr; Back to all parrots</a>
-            <span style="color: rgba(255,255,255,0.2); margin: 0 1rem;">|</span>
-            <a href="/random" class="btn-back" style="font-size: 1rem;">Random parrot &rarr;</a>
+        <div class="error-actions">
+            <a href="/" class="btn-back">&larr; Back to all parrots</a>
+            <span class="error-separator">|</span>
+            <a href="/random" class="btn-back">Random parrot &rarr;</a>
         </div>
     </main>
-
-    <footer class="site-footer">
-        HTTP Parrots by Markus Felldin
-    </footer>
-
-</body>
-</html>
+{% endblock %}

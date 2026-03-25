@@ -42,16 +42,16 @@ flask --app index run
 ## Running tests
 
 ```bash
-pip install pytest
+pip install -r requirements-dev.txt
 python -m pytest test_app.py -v
 ```
 
 ## Tech stack
 
 - Python 3 / Flask 3.1
-- Jinja2 templates
+- Jinja2 templates with template inheritance
 - Custom CSS (no framework dependencies)
-- Pillow (for image generation)
+- Vanilla JavaScript (no external dependencies)
 
 ## Security
 

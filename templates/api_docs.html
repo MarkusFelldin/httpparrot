@@ -1,58 +1,13 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>API Docs - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-    <style>
-        .docs-container { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-        .docs-section { margin-bottom: 2rem; }
-        .docs-section h2 { font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.75rem; }
-        .docs-section p { font-size: 0.9rem; color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 0.75rem; }
-        .docs-endpoint { background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
-        .docs-method { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; margin-right: 0.5rem; }
-        .docs-method-get { background: rgba(0,201,167,0.15); color: #2dd4a8; }
-        .docs-path { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9rem; color: #fff; font-weight: 600; }
-        .docs-desc { font-size: 0.85rem; color: rgba(255,255,255,0.5); margin-top: 0.5rem; line-height: 1.5; }
-        .docs-example { margin-top: 0.75rem; }
-        .docs-example-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.25); margin-bottom: 0.25rem; }
-        .docs-code { background: #111114; border-radius: 8px; padding: 0.75rem 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; color: rgba(255,255,255,0.7); overflow-x: auto; white-space: pre; line-height: 1.6; }
-        .docs-response { margin-top: 0.5rem; }
-        .docs-header-tag { font-size: 0.7rem; display: inline-block; padding: 0.15rem 0.4rem; border-radius: 4px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); margin-right: 0.25rem; margin-top: 0.25rem; font-family: 'SF Mono', 'Fira Code', monospace; }
-        .docs-intro { text-align: center; margin-bottom: 2.5rem; }
-        .docs-intro h1 { font-size: 1.75rem; font-weight: 800; background: linear-gradient(135deg, #00c9a7, #00b4d8, #7b61ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
-        .docs-intro p { color: rgba(255,255,255,0.45); font-size: 0.95rem; }
-        .docs-base { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85rem; color: rgba(255,255,255,0.5); background: #111114; padding: 0.5rem 1rem; border-radius: 8px; display: inline-block; margin-top: 0.5rem; word-break: break-all; }
-        @media (max-width: 480px) {
-            .docs-container { padding: 1.5rem 1rem 3rem; }
-            .docs-code { font-size: 0.7rem; }
-            .docs-base { font-size: 0.7rem; }
-        }
-    </style>
-</head>
-<body>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">API Docs</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
+{% block title %}API Docs - HTTP Parrots{% endblock %}
+{% block subtitle %}API Docs{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="HTTP Parrots API documentation. Access status code data, parrot images, and tools programmatically.">
+{% endblock %}
+
+{% block content %}
     <main class="docs-container" role="main">
         <div class="docs-intro">
             <h1>API</h1>
@@ -63,7 +18,7 @@
         <div class="docs-section">
             <h2>Interactive pages</h2>
             <div class="docs-endpoint">
-                <div class="docs-desc" style="line-height: 2;">
+                <div class="docs-desc docs-desc--wide">
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/quiz</span> - Guess the status code from the parrot image<br>
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/flowchart</span> - Decision tree to pick the right status code<br>
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/tester</span> - Check what status code a URL returns<br>
@@ -74,7 +29,6 @@
 
         <div class="docs-section">
             <h2>Get status code details</h2>
-
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/{code}</span>
@@ -95,7 +49,7 @@
   "history": "Defined in HTTP/1.0 (RFC 1945, 1996)..."
 }</div>
                 </div>
-                <div style="margin-top:0.75rem;">
+                <div class="docs-accept-headers">
                     <div class="docs-example-label">Accept headers</div>
                     <span class="docs-header-tag">text/html</span> HTML page<br>
                     <span class="docs-header-tag">application/json</span> JSON data<br>
@@ -106,7 +60,6 @@
 
         <div class="docs-section">
             <h2>Get parrot image directly</h2>
-
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/{code}.jpg</span>
@@ -126,13 +79,10 @@
 
         <div class="docs-section">
             <h2>Random parrot</h2>
-
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/random</span>
-                <div class="docs-desc">
-                    Redirects (302) to a random status code page.
-                </div>
+                <div class="docs-desc">Redirects (302) to a random status code page.</div>
                 <div class="docs-example">
                     <div class="docs-example-label">Example</div>
                     <div class="docs-code">curl -L {{ request.url_root }}random</div>
@@ -142,13 +92,10 @@
 
         <div class="docs-section">
             <h2>Check a URL</h2>
-
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/api/check-url?url={url}</span>
-                <div class="docs-desc">
-                    Makes a HEAD request to the given URL and returns the HTTP status code. Useful for checking if a URL is up.
-                </div>
+                <div class="docs-desc">Makes a HEAD request to the given URL and returns the HTTP status code.</div>
                 <div class="docs-example">
                     <div class="docs-example-label">Example</div>
                     <div class="docs-code">curl "{{ request.url_root }}api/check-url?url=https://example.com"</div>
@@ -165,13 +112,10 @@
 
         <div class="docs-section">
             <h2>Return a specific status code</h2>
-
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/return/{code}</span>
-                <div class="docs-desc">
-                    Returns an actual HTTP response with the given status code and a JSON body. Useful for testing HTTP clients, error handling, and retry logic.
-                </div>
+                <div class="docs-desc">Returns an actual HTTP response with the given status code and a JSON body.</div>
                 <div class="docs-example">
                     <div class="docs-example-label">Example</div>
                     <div class="docs-code">curl -i {{ request.url_root }}return/503</div>
@@ -187,14 +131,13 @@
             </div>
         </div>
 
-        <div class="docs-section" style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.06);">
-            <h2 style="font-size: 1.3rem;">Bot integrations</h2>
+        <div class="docs-section docs-section-divider">
+            <h2>Bot integrations</h2>
             <p>Use the HTTP Parrots API to build Slack or Discord bots that respond with parrot images for status codes.</p>
         </div>
 
         <div class="docs-section">
             <h2>Slack bot (Python)</h2>
-
             <div class="docs-endpoint">
                 <div class="docs-desc">
                     A simple Slack slash command that responds with a parrot image. When a user types <code>/httpstatus 404</code>, the bot replies with the 404 parrot.
@@ -224,9 +167,9 @@ def slash_httpstatus():
         }]
     })</div>
                 </div>
-                <div class="docs-example" style="margin-top: 1rem;">
+                <div class="docs-example docs-example--spaced">
                     <div class="docs-example-label">Slack app setup</div>
-                    <div class="docs-desc" style="font-size: 0.85rem; line-height: 1.6;">
+                    <div class="docs-desc docs-desc--setup">
                         1. Create a Slack app at <strong>api.slack.com/apps</strong><br>
                         2. Add a Slash Command: <code>/httpstatus</code> pointing to your server's <code>/slack/httpstatus</code> URL<br>
                         3. Install the app to your workspace<br>
@@ -238,11 +181,8 @@ def slash_httpstatus():
 
         <div class="docs-section">
             <h2>Discord bot (Python)</h2>
-
             <div class="docs-endpoint">
-                <div class="docs-desc">
-                    A Discord bot using discord.py that responds to <code>!http 404</code> with the matching parrot.
-                </div>
+                <div class="docs-desc">A Discord bot using discord.py that responds to <code>!http 404</code> with the matching parrot.</div>
                 <div class="docs-example">
                     <div class="docs-example-label">discord.py bot</div>
                     <div class="docs-code">import discord, aiohttp
@@ -254,7 +194,6 @@ PARROT_BASE = "{{ request.url_root }}"
 @bot.command()
 async def http(ctx, code: str):
     """Show the HTTP parrot for a status code."""
-    # Fetch status info
     async with aiohttp.ClientSession() as session:
         async with session.get(
             f"{PARROT_BASE}{code}",
@@ -276,9 +215,9 @@ async def http(ctx, code: str):
 
 bot.run("YOUR_BOT_TOKEN")</div>
                 </div>
-                <div class="docs-example" style="margin-top: 1rem;">
+                <div class="docs-example docs-example--spaced">
                     <div class="docs-example-label">Discord bot setup</div>
-                    <div class="docs-desc" style="font-size: 0.85rem; line-height: 1.6;">
+                    <div class="docs-desc docs-desc--setup">
                         1. Create a bot at <strong>discord.com/developers/applications</strong><br>
                         2. Enable the Message Content intent<br>
                         3. Install: <code>pip install discord.py aiohttp</code><br>
@@ -290,7 +229,6 @@ bot.run("YOUR_BOT_TOKEN")</div>
 
         <div class="docs-section">
             <h2>Quick embed examples</h2>
-
             <div class="docs-endpoint">
                 <div class="docs-desc">Embed parrots anywhere that supports images:</div>
                 <div class="docs-example">
@@ -310,7 +248,4 @@ bot.run("YOUR_BOT_TOKEN")</div>
             </div>
         </div>
     </main>
-
-    <footer class="site-footer">HTTP Parrots by Markus Felldin</footer>
-</body>
-</html>
+{% endblock %}

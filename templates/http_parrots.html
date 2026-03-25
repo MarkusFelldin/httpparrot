@@ -1,9 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>HTTP Parrots - Every HTTP Status Code Explained by Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+{% extends "base.html" %}
+
+{% block title %}HTTP Parrots - Every HTTP Status Code Explained by Parrots{% endblock %}
+
+{% block meta %}
     <meta name="description" content="A fun visual guide to HTTP status codes, each illustrated by a parrot. Browse 72 status codes from 100 to 530 with descriptions, history, and hilarious parrot images.">
     <meta property="og:title" content="HTTP Parrots">
     <meta property="og:description" content="Every HTTP status code, explained by parrots. A fun visual reference for developers.">
@@ -12,32 +11,18 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="HTTP Parrots">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
+{% endblock %}
+
+{% block head %}
     <link rel="prefetch" href="/quiz">
     <link rel="prefetch" href="/random">
-</head>
-<body>
-    <a href="#parrot-grid" class="skip-link">Skip to content</a>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Every HTTP status code, explained by parrots</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
+{% endblock %}
+
+{% block skip_link %}<a href="#parrot-grid" class="skip-link">Skip to content</a>{% endblock %}
+
+{% block header_right %}
             <div class="header-right">
-                <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">🎲</a>
+                <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
                 <div role="search">
                     <input type="text" id="search" class="search-input" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
                 </div>
@@ -56,9 +41,9 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </header>
+{% endblock %}
 
+{% block content %}
     <main class="container-fluid parrot-grid" role="main">
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
@@ -66,7 +51,7 @@
                     <a href="/{{ status_code[0] }}" class="parrot-link" aria-label="{{ status_code[0] }} {{ status_code[1] }}">
                         <div class="parrot parrot-{{ status_code[0][0] }}xx{% if status_code[0] == featured %} featured{% endif %}">
                             <div class="img">
-                                <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" loading="lazy"/>
+                                <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" width="600" height="500" loading="lazy"/>
                             </div>
                             <div class="img-text">
                                 <div class="img-status-code category-{{ status_code[0][0] }}xx">{{ status_code[0] }}</div>
@@ -77,23 +62,22 @@
                 </div>
             {% endfor %}
         </div>
-        <div id="no-results" role="status" aria-live="polite" style="display:none; text-align:center; padding:3rem; color:rgba(255,255,255,0.4);">
+        <div id="no-results" class="no-results" role="status" aria-live="polite">
             No parrots found matching your search.
         </div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">
-        HTTP Parrots by Markus Felldin
-    </footer>
-
-
-    <script>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
     (function() {
         let activeCat = 'all';
         const searchEl = document.getElementById('search');
         const cards = document.querySelectorAll('.parrot-card');
         const noResults = document.getElementById('no-results');
         const pills = document.querySelectorAll('.cat-pill');
+        const toggleBtn = document.getElementById('filter-toggle');
+        const dropdown = document.getElementById('filter-dropdown');
 
         function filterCards() {
             const q = searchEl.value.toLowerCase().trim();
@@ -127,12 +111,9 @@
             });
         });
 
-        var toggleBtn = document.getElementById('filter-toggle');
-        var dropdown = document.getElementById('filter-dropdown');
-
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            var isOpen = dropdown.classList.toggle('open');
+            const isOpen = dropdown.classList.toggle('open');
             toggleBtn.classList.toggle('open');
             toggleBtn.setAttribute('aria-expanded', isOpen);
         });
@@ -158,7 +139,7 @@
         document.querySelectorAll('.parrot-link').forEach(function(link) {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
-                var href = this.href;
+                const href = this.href;
                 this.closest('.parrot-card').classList.add('clicked');
                 setTimeout(function() { window.location.href = href; }, 80);
             });
@@ -166,9 +147,9 @@
     })();
     </script>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
     (function() {
-        var observer = new IntersectionObserver(function(entries) {
+        const observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('revealed');
@@ -190,7 +171,7 @@
         <div id="party-parrot-text">PARTY PARROT MODE</div>
     </div>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
     (function() {
         const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
         let pos = 0;
@@ -215,7 +196,7 @@
             for (let i = 0; i < 20; i++) {
                 const parrot = document.createElement('div');
                 parrot.className = 'flying-parrot';
-                parrot.textContent = '🦜';
+                parrot.textContent = '\uD83E\uDD9C';
                 parrot.style.left = Math.random() * 100 + 'vw';
                 parrot.style.animationDelay = Math.random() * 2 + 's';
                 parrot.style.animationDuration = (2 + Math.random() * 3) + 's';
@@ -224,7 +205,6 @@
             }
 
             overlay.classList.add('active');
-
             document.body.style.animation = 'rainbow-bg 0.5s infinite';
 
             setTimeout(function() {
@@ -235,5 +215,4 @@
         }
     })();
     </script>
-</body>
-</html>
+{% endblock %}

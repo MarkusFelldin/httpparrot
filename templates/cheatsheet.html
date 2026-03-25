@@ -1,81 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>Cheat Sheet - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-    <style>
-        .cheat-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-        .cheat-header { text-align: center; margin-bottom: 2rem; }
-        .cheat-header h1 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #00c9a7, #00b4d8, #7b61ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .cheat-header p { color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-top: 0.25rem; }
-        .cheat-category { margin-bottom: 1.5rem; }
-        .cheat-cat-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
-        .cheat-cat-badge { font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; }
-        .cheat-cat-name { font-size: 0.8rem; color: rgba(255,255,255,0.4); font-weight: 500; }
-        .cat-badge-1xx { background: rgba(0,180,216,0.15); color: #48cae4; }
-        .cat-badge-2xx { background: rgba(0,201,167,0.15); color: #2dd4a8; }
-        .cat-badge-3xx { background: rgba(249,199,79,0.15); color: #f9c74f; }
-        .cat-badge-4xx { background: rgba(233,69,96,0.15); color: #ff6b6b; }
-        .cat-badge-5xx { background: rgba(123,97,255,0.15); color: #a78bfa; }
-        .cheat-table { width: 100%; border-collapse: collapse; }
-        .cheat-table td { padding: 0.35rem 0.5rem; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
-        .cheat-table tr:last-child td { border-bottom: none; }
-        .cheat-code { font-weight: 700; white-space: nowrap; width: 3.5rem; }
-        .cheat-name { color: rgba(255,255,255,0.8); }
-        .cheat-desc { color: rgba(255,255,255,0.4); font-size: 0.78rem; }
-        .cheat-print-btn { margin-top: 1rem; text-align: center; }
+{% extends "base.html" %}
 
-        @media print {
-            body { background: #fff; color: #000; }
-            .site-header-compact, .site-footer, .cheat-print-btn { display: none; }
-            .cheat-container { padding: 0; max-width: 100%; }
-            .cheat-header h1 { -webkit-text-fill-color: #333; background: none; color: #333; }
-            .cheat-header p { color: #666; }
-            .cheat-cat-header { border-bottom-color: #ddd; }
-            .cheat-cat-badge { border: 1px solid #ccc; }
-            .cat-badge-1xx { background: #e8f4f8; color: #0077b6; }
-            .cat-badge-2xx { background: #e8f8f0; color: #2d7a5f; }
-            .cat-badge-3xx { background: #fdf6e3; color: #b8860b; }
-            .cat-badge-4xx { background: #fde8e8; color: #c62828; }
-            .cat-badge-5xx { background: #f0e8fd; color: #5e35b1; }
-            .cheat-cat-name { color: #666; }
-            .cheat-name { color: #222; }
-            .cheat-desc { color: #666; }
-            .cheat-table td { border-bottom-color: #eee; }
-            .cheat-code { color: #333; }
-            a { color: inherit; text-decoration: none; }
-        }
+{% block title %}Cheat Sheet - HTTP Parrots{% endblock %}
+{% block subtitle %}Cheat Sheet{% endblock %}
 
-        @media (max-width: 480px) {
-            .cheat-desc { display: none; }
-            .cheat-container { padding: 1.5rem 1rem 3rem; }
-        }
-    </style>
-</head>
-<body>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Cheat Sheet</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
-
+{% block content %}
     <main class="cheat-container" role="main">
         <div class="cheat-header">
             <h1>HTTP Status Code Cheat Sheet</h1>
@@ -93,7 +21,7 @@
                 {% for code in codes %}
                 <tr>
                     <td class="cheat-code category-{{ code[0][0] }}xx"><a href="/{{ code[0] }}">{{ code[0] }}</a></td>
-                    <td class="cheat-name"><a href="/{{ code[0] }}" style="color:inherit;text-decoration:none;">{{ code[1] }}</a></td>
+                    <td class="cheat-name"><a href="/{{ code[0] }}" class="cheat-link">{{ code[1] }}</a></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -102,10 +30,13 @@
         {% endfor %}
 
         <div class="cheat-print-btn">
-            <button class="btn-back" onclick="window.print()">Print this page</button>
+            <button class="btn-back" id="print-btn">Print this page</button>
         </div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">HTTP Parrots by Markus Felldin</footer>
-</body>
-</html>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    document.getElementById('print-btn').addEventListener('click', function() { window.print(); });
+    </script>
+{% endblock %}

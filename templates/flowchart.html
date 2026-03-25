@@ -1,273 +1,18 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>Which Status Code? - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-    <style>
-        .flow-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem 3rem;
-        }
+{% extends "base.html" %}
 
-        /* History trail */
-        .flow-history {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+{% block title %}Which Status Code? - HTTP Parrots{% endblock %}
+{% block subtitle %}Which Status Code?{% endblock %}
 
-        .flow-past-node {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 10px;
-            padding: 0.6rem 1rem;
-            text-align: center;
-            width: 100%;
-            max-width: 420px;
-            opacity: 0.5;
-        }
-
-        .flow-past-q {
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.4);
-        }
-
-        .flow-past-answer {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #2dd4a8;
-            margin-top: 0.15rem;
-        }
-
-        /* Connector line */
-        .flow-connector {
-            width: 2px;
-            height: 24px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04));
-            margin: 0 auto;
-        }
-
-        /* Current question node */
-        .flow-node {
-            background: #1a1a1f;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 1.5rem;
-            width: 100%;
-            max-width: 480px;
-            margin: 0 auto;
-            animation: flow-fade-in 0.3s ease;
-        }
-
-        .flow-node h2 {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-align: center;
-            margin-bottom: 1.25rem;
-            line-height: 1.4;
-        }
-
-        /* Diamond shape indicator */
-        .flow-diamond {
-            width: 10px;
-            height: 10px;
-            background: rgba(0,201,167,0.6);
-            transform: rotate(45deg);
-            margin: 0 auto 1rem;
-            border-radius: 2px;
-        }
-
-        /* Yes/No buttons side by side */
-        .flow-yesno {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .flow-yesno .flow-btn {
-            flex: 1;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .flow-yesno .flow-btn-yes {
-            border-color: rgba(0,201,167,0.2);
-            color: #2dd4a8;
-        }
-
-        .flow-yesno .flow-btn-yes:hover {
-            background: rgba(0,201,167,0.08);
-            border-color: rgba(0,201,167,0.4);
-            box-shadow: 0 0 15px rgba(0,201,167,0.1);
-        }
-
-        .flow-yesno .flow-btn-no {
-            border-color: rgba(233,69,96,0.2);
-            color: #ff6b6b;
-        }
-
-        .flow-yesno .flow-btn-no:hover {
-            background: rgba(233,69,96,0.08);
-            border-color: rgba(233,69,96,0.4);
-            box-shadow: 0 0 15px rgba(233,69,96,0.1);
-        }
-
-        /* Option buttons (vertical) */
-        .flow-options {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .flow-btn {
-            padding: 0.7rem 1rem;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.02);
-            color: rgba(255,255,255,0.7);
-            font-size: 0.9rem;
-            font-family: inherit;
-            cursor: pointer;
-            text-align: left;
-            transition: all 0.2s ease;
-        }
-
-        .flow-btn:hover {
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(255,255,255,0.15);
-            color: #fff;
-            transform: translateY(-1px);
-        }
-
-        /* Result node */
-        .flow-result {
-            background: #1a1a1f;
-            border-radius: 14px;
-            overflow: hidden;
-            width: 100%;
-            max-width: 480px;
-            margin: 0 auto;
-            animation: flow-fade-in 0.3s ease;
-        }
-
-        .flow-result-image {
-            background: #111114;
-            text-align: center;
-            padding: 1rem;
-        }
-
-        .flow-result-image img {
-            max-width: 100%;
-            height: 14em;
-            object-fit: cover;
-            border-radius: 8px;
-        }
-
-        .flow-result-body {
-            padding: 1.25rem 1.5rem 1.5rem;
-            text-align: center;
-        }
-
-        .flow-result-code {
-            font-size: 3rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .flow-result-name {
-            font-size: 0.95rem;
-            color: rgba(255,255,255,0.45);
-            margin-top: 0.25rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-weight: 600;
-        }
-
-        .flow-result-why {
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.6);
-            line-height: 1.6;
-            margin-top: 1rem;
-            text-align: left;
-        }
-
-        .flow-result-border {
-            height: 3px;
-            border-radius: 2px;
-        }
-
-        .flow-actions {
-            display: flex;
-            gap: 0.6rem;
-            justify-content: center;
-            margin-top: 1.25rem;
-        }
-
-        .flow-actions .btn-back {
-            font-size: 0.85rem;
-            padding: 0.5rem 1.25rem;
-        }
-
-        /* Start over (shown at bottom when history exists) */
-        .flow-restart {
-            text-align: center;
-            margin-top: 1.5rem;
-        }
-
-        .flow-restart button {
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.3);
-            font-size: 0.8rem;
-            font-family: inherit;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .flow-restart button:hover {
-            color: rgba(255,255,255,0.6);
-        }
-
-        @keyframes flow-fade-in {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-</head>
-<body>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Which Status Code?</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
-
+{% block content %}
     <main class="flow-container" role="main">
         <div id="flow"></div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">HTTP Parrots by Markus Felldin</footer>
-
-    <script>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
     (function() {
-        var tree = {
+        const tree = {
             q: "Did the request succeed?",
             yes: {
                 q: "Did you create a new resource?",
@@ -345,84 +90,84 @@
             }
         };
 
-        var history = [];
-        var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
+        const history = [];
+        const colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
 
         function render(node) {
-            var el = document.getElementById('flow');
+            const el = document.getElementById('flow');
             el.innerHTML = '';
 
-            // Render history trail
             if (history.length > 0) {
-                var trail = document.createElement('div');
+                const trail = document.createElement('div');
                 trail.className = 'flow-history';
-                history.forEach(function(h, i) {
-                    var past = document.createElement('div');
+                history.forEach(function(h) {
+                    const past = document.createElement('div');
                     past.className = 'flow-past-node';
-                    var pastQ = document.createElement('div');
+                    const pastQ = document.createElement('div');
                     pastQ.className = 'flow-past-q';
                     pastQ.textContent = h.q;
-                    var pastA = document.createElement('div');
+                    const pastA = document.createElement('div');
                     pastA.className = 'flow-past-answer';
                     pastA.textContent = h.answer;
                     past.appendChild(pastQ);
                     past.appendChild(pastA);
                     trail.appendChild(past);
 
-                    var conn = document.createElement('div');
+                    const conn = document.createElement('div');
                     conn.className = 'flow-connector';
                     trail.appendChild(conn);
                 });
                 el.appendChild(trail);
             }
 
-            // Render result
             if (node.result) {
-                var cat = node.result[0];
-                var color = colors[cat] || '#fff';
+                const cat = node.result[0];
+                const color = colors[cat] || '#fff';
 
-                var d = document.createElement('div');
+                const d = document.createElement('div');
                 d.className = 'flow-result';
                 d.style.border = '1px solid ' + color + '33';
 
-                var border = document.createElement('div');
+                const border = document.createElement('div');
                 border.className = 'flow-result-border';
                 border.style.background = color;
                 d.appendChild(border);
 
-                var imgWrap = document.createElement('div');
+                const imgWrap = document.createElement('div');
                 imgWrap.className = 'flow-result-image';
-                var img = document.createElement('img');
+                const img = document.createElement('img');
                 img.src = '/' + node.result + '.jpg';
                 img.alt = node.result + ' parrot';
+                img.width = 600;
+                img.height = 500;
                 img.onerror = function() { this.parentElement.style.display = 'none'; };
                 imgWrap.appendChild(img);
                 d.appendChild(imgWrap);
 
-                var body = document.createElement('div');
+                const body = document.createElement('div');
                 body.className = 'flow-result-body';
-                var codeEl = document.createElement('div');
+                const codeEl = document.createElement('div');
                 codeEl.className = 'flow-result-code';
                 codeEl.style.color = color;
                 codeEl.textContent = node.result;
                 body.appendChild(codeEl);
-                var nameEl = document.createElement('div');
+                const nameEl = document.createElement('div');
                 nameEl.className = 'flow-result-name';
                 nameEl.textContent = node.name;
                 body.appendChild(nameEl);
-                var whyEl = document.createElement('div');
+                const whyEl = document.createElement('div');
                 whyEl.className = 'flow-result-why';
                 whyEl.textContent = node.why;
                 body.appendChild(whyEl);
 
-                var actions = document.createElement('div');
+                const actions = document.createElement('div');
                 actions.className = 'flow-actions';
-                var viewLink = document.createElement('a');
+                const viewLink = document.createElement('a');
                 viewLink.href = '/' + node.result;
                 viewLink.className = 'btn-back';
                 viewLink.textContent = 'View parrot';
                 actions.appendChild(viewLink);
-                var restartBtn = document.createElement('button');
+                const restartBtn = document.createElement('button');
                 restartBtn.className = 'btn-back';
                 restartBtn.textContent = 'Start over';
                 restartBtn.addEventListener('click', function() { location.reload(); });
@@ -435,23 +180,22 @@
                 return;
             }
 
-            // Render current question
-            var box = document.createElement('div');
+            const box = document.createElement('div');
             box.className = 'flow-node';
 
-            var diamond = document.createElement('div');
+            const diamond = document.createElement('div');
             diamond.className = 'flow-diamond';
             box.appendChild(diamond);
 
-            var h2 = document.createElement('h2');
+            const h2 = document.createElement('h2');
             h2.textContent = node.q;
             box.appendChild(h2);
 
             if (node.options) {
-                var opts = document.createElement('div');
+                const opts = document.createElement('div');
                 opts.className = 'flow-options';
                 Object.keys(node.options).forEach(function(label) {
-                    var btn = document.createElement('button');
+                    const btn = document.createElement('button');
                     btn.className = 'flow-btn';
                     btn.textContent = label;
                     btn.addEventListener('click', function() {
@@ -462,10 +206,10 @@
                 });
                 box.appendChild(opts);
             } else {
-                var yesno = document.createElement('div');
+                const yesno = document.createElement('div');
                 yesno.className = 'flow-yesno';
 
-                var yBtn = document.createElement('button');
+                const yBtn = document.createElement('button');
                 yBtn.className = 'flow-btn flow-btn-yes';
                 yBtn.textContent = 'Yes';
                 yBtn.addEventListener('click', function() {
@@ -474,7 +218,7 @@
                 });
                 yesno.appendChild(yBtn);
 
-                var nBtn = document.createElement('button');
+                const nBtn = document.createElement('button');
                 nBtn.className = 'flow-btn flow-btn-no';
                 nBtn.textContent = 'No';
                 nBtn.addEventListener('click', function() {
@@ -488,11 +232,13 @@
 
             el.appendChild(box);
 
-            // Start over link when there's history
             if (history.length > 0) {
-                var restart = document.createElement('div');
+                const restart = document.createElement('div');
                 restart.className = 'flow-restart';
-                restart.innerHTML = '<button onclick="location.reload()">Start over</button>';
+                const restartBtn = document.createElement('button');
+                restartBtn.textContent = 'Start over';
+                restartBtn.addEventListener('click', function() { location.reload(); });
+                restart.appendChild(restartBtn);
                 el.appendChild(restart);
             }
 
@@ -502,5 +248,4 @@
         render(tree);
     })();
     </script>
-</body>
-</html>
+{% endblock %}

@@ -1,8 +1,11 @@
 """Tests for HTTP Parrots application."""
+import re
+import socket
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from index import app, _rate_limit, is_rate_limited, resolve_and_validate
 
@@ -308,3 +311,141 @@ class TestDataIntegrity:
         for c in codes:
             assert len(c) >= 3, f"Code {c[0]} missing image filename"
             assert c[2].endswith('.jpg'), f"Code {c[0]} image not .jpg: {c[2]}"
+
+
+# --- Check-URL success path ---
+
+class TestCheckURLSuccess:
+    def test_check_url_success(self, client):
+        """Test successful external URL check with mocked request."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/check-url?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['code'] == 200
+            assert data['url'] == 'https://example.com'
+
+    def test_check_url_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 301
+        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/check-url?url=example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['code'] == 301
+            assert data['url'] == 'https://example.com'
+
+    def test_check_url_connection_error(self, client):
+        """Test that connection errors return 502."""
+        with patch('socket.gethostbyname', return_value='93.184.216.34'), \
+             patch('requests.head', side_effect=requests.RequestException):
+            resp = client.get('/api/check-url?url=https://example.com')
+            assert resp.status_code == 502
+            assert b'Could not connect' in resp.data
+
+
+# --- Return status edge cases ---
+
+class TestReturnStatusEdgeCases:
+    def test_return_unlisted_code(self, client):
+        """Valid range code not in status_code_list should return 'Unknown'."""
+        resp = client.get('/return/299')
+        assert resp.status_code == 299
+        data = resp.get_json()
+        assert data['description'] == 'Unknown'
+
+    def test_return_100(self, client):
+        resp = client.get('/return/100')
+        assert resp.status_code == 100
+
+
+# --- CSP nonce ---
+
+class TestCSPNonce:
+    def test_csp_has_nonce(self, client):
+        """CSP should contain a nonce, not unsafe-inline for scripts."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "'nonce-" in csp
+        assert "'unsafe-inline'" not in csp.split('script-src')[1].split(';')[0]
+
+    def test_csp_no_unsafe_inline(self, client):
+        """CSP should not contain unsafe-inline for either scripts or styles."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "'unsafe-inline'" not in csp
+
+    def test_csp_nonce_changes_per_request(self, client):
+        """Each request should get a unique nonce."""
+        resp1 = client.get('/')
+        resp2 = client.get('/')
+        csp1 = resp1.headers.get('Content-Security-Policy', '')
+        csp2 = resp2.headers.get('Content-Security-Policy', '')
+        nonce1 = re.search(r"'nonce-([^']+)'", csp1).group(1)
+        nonce2 = re.search(r"'nonce-([^']+)'", csp2).group(1)
+        assert nonce1 != nonce2
+
+    def test_script_tags_have_nonce(self, client):
+        """Inline scripts should have the nonce attribute."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+
+# --- Resolve and validate edge cases ---
+
+class TestResolveValidateEdgeCases:
+    def test_url_with_port(self):
+        with patch('socket.gethostbyname', return_value='93.184.216.34'):
+            result, hostname = resolve_and_validate('http://example.com:8080/path')
+            assert result is not None
+            assert '93.184.216.34:8080' in result
+            assert hostname == 'example.com'
+
+    def test_unresolvable_hostname(self):
+        with patch('socket.gethostbyname', side_effect=socket.gaierror):
+            result, _ = resolve_and_validate('http://nonexistent.invalid/')
+            assert result is None
+
+    def test_blocks_zero_network(self):
+        with patch('socket.gethostbyname', return_value='0.0.0.1'):
+            result, _ = resolve_and_validate('http://zero.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_loopback(self):
+        result, _ = resolve_and_validate('http://[::1]/')
+        assert result is None
+
+
+# --- Rate limiter pruning ---
+
+class TestRateLimiterPruning:
+    def test_all_detail_pages_render(self, client):
+        """Every status code detail page should render without errors."""
+        from index import pruned_status_codes
+        for sc in pruned_status_codes():
+            resp = client.get(f'/{sc.code}')
+            # 2xx/4xx/5xx return their actual code; 1xx/3xx return 200
+            code = int(sc.code)
+            if code < 200 or 300 <= code < 400:
+                assert resp.status_code == 200, f"/{sc.code} returned {resp.status_code}"
+            else:
+                assert resp.status_code == code, f"/{sc.code} returned {resp.status_code}"
+
+    def test_stale_entries_pruned(self):
+        """Stale rate limit entries should be cleaned up."""
+        import index
+        old_prune = index._rate_limit_last_prune
+        # Add a stale entry
+        _rate_limit['stale-ip'] = [time.time() - 120]
+        # Force prune by setting last prune far in the past
+        index._rate_limit_last_prune = time.time() - 400
+        is_rate_limited('fresh-ip')
+        assert 'stale-ip' not in _rate_limit
+        index._rate_limit_last_prune = old_prune

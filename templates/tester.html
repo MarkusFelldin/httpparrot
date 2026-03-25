@@ -1,58 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>HTTP Tester - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-    <style>
-        .tester-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-        .tester-form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-        .tester-input { flex: 1; padding: 0.75rem 1.15rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a1f; color: #fff; font-size: 1rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
-        .tester-input::placeholder { color: rgba(255,255,255,0.3); }
-        .tester-input:focus { border-color: rgba(255,255,255,0.25); }
-        .tester-submit { padding: 0.75rem 1.5rem; border-radius: 10px; border: 1px solid rgba(0,201,167,0.3); background: rgba(0,201,167,0.1); color: #2dd4a8; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; }
-        .tester-submit:hover { background: rgba(0,201,167,0.2); border-color: rgba(0,201,167,0.5); }
-        .tester-submit:disabled { opacity: 0.5; cursor: default; }
-        .tester-result { background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; text-align: center; }
-        .tester-result-header { padding: 1.5rem; }
-        .tester-result-code { font-size: 4rem; font-weight: 800; }
-        .tester-result-name { font-size: 1rem; color: rgba(255,255,255,0.5); margin-top: 0.25rem; }
-        .tester-result-url { font-size: 0.8rem; color: rgba(255,255,255,0.3); margin-top: 0.5rem; word-break: break-all; }
-        .tester-result img { max-width: 100%; height: 16em; object-fit: cover; }
-        .tester-result-actions { padding: 1rem; }
-        .tester-error { background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); border-radius: 12px; padding: 1.25rem; color: #ff6b6b; text-align: center; font-size: 0.9rem; }
-        .tester-loading { text-align: center; padding: 2rem; color: rgba(255,255,255,0.4); }
-        @media (max-width: 480px) {
-            .tester-container { padding: 1.5rem 1rem 3rem; }
-            .tester-form { flex-direction: column; }
-            .tester-result-code { font-size: 3rem; }
-            .tester-result img { height: 12em; }
-        }
-    </style>
-</head>
-<body>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">HTTP Tester</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
+{% block title %}HTTP Tester - HTTP Parrots{% endblock %}
+{% block subtitle %}HTTP Tester{% endblock %}
+
+{% block content %}
     <main class="tester-container" role="main">
         <form class="tester-form" id="tester-form">
             <input type="text" class="tester-input" id="url-input" placeholder="Enter a URL (e.g. example.com)" autocomplete="off" aria-label="URL to test">
@@ -60,22 +11,22 @@
         </form>
         <div id="result"></div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">HTTP Parrots by Markus Felldin</footer>
-
-    <script>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
     (function() {
-        var codes = {
+        const codes = {
             200:'OK',201:'Created',202:'Accepted',204:'No Content',
             301:'Moved Permanently',302:'Found',303:'See Other',304:'Not Modified',307:'Temporary Redirect',308:'Permanent Redirect',
             400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',405:'Method Not Allowed',
             408:'Request Time-out',410:'Gone',429:'Too Many Requests',451:'Unavailable For Legal Reasons',
             500:'Internal Server Error',502:'Bad Gateway',503:'Service Unavailable',504:'Gateway Time-out'
         };
-        var colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
+        const colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
 
         function el(tag, cls, text) {
-            var e = document.createElement(tag);
+            const e = document.createElement(tag);
             if (cls) e.className = cls;
             if (text) e.textContent = text;
             return e;
@@ -88,11 +39,11 @@
 
         document.getElementById('tester-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            var url = document.getElementById('url-input').value.trim();
+            const url = document.getElementById('url-input').value.trim();
             if (!url) return;
 
-            var result = document.getElementById('result');
-            var btn = document.getElementById('submit-btn');
+            const result = document.getElementById('result');
+            const btn = document.getElementById('submit-btn');
             result.innerHTML = '';
             result.appendChild(el('div', 'tester-loading', 'Testing...'));
             btn.disabled = true;
@@ -105,32 +56,33 @@
                         showError(result, data.error);
                         return;
                     }
-                    var code = data.code;
-                    var name = codes[code] || 'Unknown';
-                    var cat = String(code)[0];
-                    var color = colors[cat] || '#fff';
+                    const code = data.code;
+                    const name = codes[code] || 'Unknown';
+                    const cat = String(code)[0];
+                    const color = colors[cat] || '#fff';
 
                     result.innerHTML = '';
-                    var card = el('div', 'tester-result');
-                    var header = el('div', 'tester-result-header');
-                    var codeEl = el('div', 'tester-result-code', String(code));
+                    const card = el('div', 'tester-result');
+                    const header = el('div', 'tester-result-header');
+                    const codeEl = el('div', 'tester-result-code', String(code));
                     codeEl.style.color = color;
                     header.appendChild(codeEl);
                     header.appendChild(el('div', 'tester-result-name', name));
                     header.appendChild(el('div', 'tester-result-url', data.url));
                     card.appendChild(header);
 
-                    var img = document.createElement('img');
+                    const img = document.createElement('img');
                     img.src = '/' + code + '.jpg';
                     img.alt = code + ' parrot';
+                    img.width = 600;
+                    img.height = 500;
                     img.onerror = function() { this.style.display = 'none'; };
                     card.appendChild(img);
 
-                    var actions = el('div', 'tester-result-actions');
-                    var link = document.createElement('a');
+                    const actions = el('div', 'tester-result-actions');
+                    const link = document.createElement('a');
                     link.href = '/' + code;
-                    link.className = 'btn-back';
-                    link.style.cssText = 'font-size:0.85rem;padding:0.5rem 1.25rem';
+                    link.className = 'btn-back tester-learn-link';
                     link.textContent = 'Learn about ' + code;
                     actions.appendChild(link);
                     card.appendChild(actions);
@@ -145,5 +97,4 @@
         document.getElementById('url-input').focus();
     })();
     </script>
-</body>
-</html>
+{% endblock %}

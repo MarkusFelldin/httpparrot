@@ -1,63 +1,9 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <title>Quiz - HTTP Parrots</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="/static/style.css" as="style">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
-    <style>
-        .quiz-container { max-width: 600px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
-        .quiz-image { border-radius: 12px; overflow: hidden; background: #1a1a1f; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 1.5rem; text-align: center; }
-        .quiz-image img { max-width: 100%; height: 20em; object-fit: cover; border-radius: 8px; margin: 1rem; }
-        @media (max-width: 480px) {
-            .quiz-container { padding: 1.5rem 1rem 3rem; }
-            .quiz-image img { height: 14em; margin: 0.75rem; }
-            .quiz-score { gap: 1rem; }
-            .score-value { font-size: 1.5rem; }
-            .quiz-btn { font-size: 0.85rem; padding: 0.65rem 1rem; }
-        }
-        .quiz-choices { display: flex; flex-direction: column; gap: 0.5rem; }
-        .quiz-btn { padding: 0.75rem 1.25rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a1f; color: rgba(255,255,255,0.8); font-size: 0.95rem; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.2s ease; text-align: left; }
-        .quiz-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
-        .quiz-btn.correct { background: rgba(0,201,167,0.15); border-color: rgba(0,201,167,0.4); color: #2dd4a8; }
-        .quiz-btn.wrong { background: rgba(233,69,96,0.15); border-color: rgba(233,69,96,0.4); color: #ff6b6b; }
-        .quiz-btn:disabled { cursor: default; opacity: 0.6; }
-        .quiz-btn.correct:disabled { opacity: 1; }
-        .quiz-score { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; }
-        .score-item { text-align: center; }
-        .score-value { font-size: 2rem; font-weight: 800; }
-        .score-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; }
-        .score-correct .score-value { color: #2dd4a8; }
-        .score-streak .score-value { color: #f9c74f; }
-        .score-total .score-value { color: rgba(255,255,255,0.5); }
-        .quiz-next { text-align: center; margin-top: 1.25rem; }
-        .quiz-feedback { text-align: center; margin-top: 1rem; font-size: 0.95rem; min-height: 1.5em; }
-        .quiz-feedback.right { color: #2dd4a8; }
-        .quiz-feedback.nope { color: #ff6b6b; }
-    </style>
-</head>
-<body>
-    <header class="site-header-compact" role="banner">
-        <div class="header-inner">
-            <div class="header-left">
-                <a href="/" class="header-title">HTTP Parrots</a>
-                <span class="header-subtitle">Quiz Mode</span>
-                <nav class="header-nav" aria-label="Site navigation">
-                    <a href="/quiz">Quiz</a>
-                    <a href="/flowchart">Flowchart</a>
-                    <a href="/tester">Tester</a>
-                    <a href="/cheatsheet">Cheat Sheet</a>
-                    <a href="/api-docs">API</a>
-                </nav>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
+{% block title %}Quiz - HTTP Parrots{% endblock %}
+{% block subtitle %}Quiz Mode{% endblock %}
+
+{% block content %}
     <main class="quiz-container" role="main">
         <div class="quiz-score">
             <div class="score-item score-correct">
@@ -75,55 +21,53 @@
         </div>
 
         <div class="quiz-image">
-            <img id="quiz-img" src="" alt="Guess this HTTP status code">
+            <img id="quiz-img" src="" alt="Guess this HTTP status code" width="600" height="500">
         </div>
 
         <div class="quiz-choices" id="choices"></div>
         <div class="quiz-feedback" id="feedback"></div>
-        <div class="quiz-next" id="next-wrap" style="display:none;">
+        <div class="quiz-next" id="next-wrap">
             <button class="btn-back" id="next-btn">Next parrot</button>
         </div>
     </main>
+{% endblock %}
 
-    <footer class="site-footer">
-        HTTP Parrots by Markus Felldin
-    </footer>
-
-    <script>
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
     (function() {
-        var allCodes = {{ quiz_data | tojson }};
-        var score = 0, streak = 0, total = 0;
-        var answered = false;
+        const allCodes = {{ quiz_data | tojson }};
+        let score = 0, streak = 0, total = 0;
+        let answered = false;
 
         function shuffle(arr) {
-            for (var i = arr.length - 1; i > 0; i--) {
-                var j = Math.floor(Math.random() * (i + 1));
-                var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
             }
             return arr;
         }
 
         function pickChoices(correct) {
-            var others = allCodes.filter(function(c) { return c.code !== correct.code; });
+            const others = allCodes.filter(function(c) { return c.code !== correct.code; });
             shuffle(others);
-            var choices = [correct].concat(others.slice(0, 3));
+            const choices = [correct].concat(others.slice(0, 3));
             return shuffle(choices);
         }
 
         function nextRound() {
             answered = false;
-            var correct = allCodes[Math.floor(Math.random() * allCodes.length)];
-            var choices = pickChoices(correct);
+            const correct = allCodes[Math.floor(Math.random() * allCodes.length)];
+            const choices = pickChoices(correct);
 
             document.getElementById('quiz-img').src = '/static/' + correct.image;
             document.getElementById('feedback').textContent = '';
             document.getElementById('feedback').className = 'quiz-feedback';
             document.getElementById('next-wrap').style.display = 'none';
 
-            var container = document.getElementById('choices');
+            const container = document.getElementById('choices');
             container.innerHTML = '';
             choices.forEach(function(c) {
-                var btn = document.createElement('button');
+                const btn = document.createElement('button');
                 btn.className = 'quiz-btn';
                 btn.textContent = c.code + ' ' + c.name;
                 btn.dataset.code = c.code;
@@ -132,13 +76,13 @@
                     answered = true;
                     total++;
 
-                    var btns = container.querySelectorAll('.quiz-btn');
+                    const btns = container.querySelectorAll('.quiz-btn');
                     btns.forEach(function(b) {
                         b.disabled = true;
                         if (b.dataset.code === correct.code) b.classList.add('correct');
                     });
 
-                    var fb = document.getElementById('feedback');
+                    const fb = document.getElementById('feedback');
                     if (c.code === correct.code) {
                         score++;
                         streak++;
@@ -165,7 +109,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && answered) nextRound();
             if (!answered && e.key >= '1' && e.key <= '4') {
-                var btns = document.querySelectorAll('.quiz-btn');
+                const btns = document.querySelectorAll('.quiz-btn');
                 if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
             }
         });
@@ -173,5 +117,4 @@
         nextRound();
     })();
     </script>
-</body>
-</html>
+{% endblock %}
