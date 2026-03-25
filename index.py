@@ -242,6 +242,20 @@ def check_url():
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
+@app.route('/return/<int:code>')
+def return_status(code):
+    if code < 100 or code > 599:
+        abort(404)
+    description = next((s[1] for s in status_code_list if s[0] == str(code)), 'Unknown')
+    response = jsonify({
+        "code": code,
+        "description": description,
+        "message": f"This response was returned with HTTP status {code}.",
+    })
+    response.status_code = code
+    return response
+
+
 @app.route('/random')
 def random_parrot():
     codes = pruned_status_codes()
