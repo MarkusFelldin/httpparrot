@@ -574,7 +574,14 @@ def check_url():
         return jsonify({"error": "URL not allowed"}), 403
     try:
         resp = req.head(safe_url, allow_redirects=False, timeout=10)
-        return jsonify({"code": resp.status_code, "url": url})
+        headers = {k: v for k, v in resp.headers.items()
+                   if k.lower() not in ('set-cookie',)}
+        return jsonify({
+            "code": resp.status_code,
+            "url": url,
+            "headers": headers,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+        })
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
@@ -660,6 +667,39 @@ def http_parrot_image(status_code):
     if not image:
         abort(404)
     return send_from_directory('static', image)
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    """Generate a dynamic XML sitemap."""
+    base = request.url_root.rstrip('/')
+    pages = []
+    for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
+                 '/cheatsheet', '/api-docs']:
+        pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
+    for sc in pruned_status_codes():
+        pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for p in pages:
+        xml.append(f'  <url><loc>{p["loc"]}</loc><priority>{p["priority"]}</priority></url>')
+    xml.append('</urlset>')
+    resp = app.response_class('\n'.join(xml), mimetype='application/xml')
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
+
+
+@app.route('/robots.txt')
+def robots():
+    """Serve robots.txt."""
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/check-url\n"
+        "Disallow: /return/\n"
+        f"\nSitemap: {request.url_root}sitemap.xml\n"
+    )
+    return app.response_class(content, mimetype='text/plain')
 
 
 if __name__ == '__main__':

@@ -345,6 +345,8 @@ class TestCheckURLSuccess:
         """Test successful external URL check with mocked request."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html'}
+        mock_resp.elapsed.total_seconds.return_value = 0.05
         addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
         with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
@@ -353,11 +355,15 @@ class TestCheckURLSuccess:
             data = resp.get_json()
             assert data['code'] == 200
             assert data['url'] == 'https://example.com'
+            assert 'headers' in data
+            assert 'time_ms' in data
 
     def test_check_url_auto_prefix(self, client):
         """URLs without scheme should get https:// prepended."""
         mock_resp = MagicMock()
         mock_resp.status_code = 301
+        mock_resp.headers = {'Location': 'https://www.example.com'}
+        mock_resp.elapsed.total_seconds.return_value = 0.1
         addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
         with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp):
@@ -791,6 +797,7 @@ class TestCheckURLRedirectBehavior:
         mock_resp = MagicMock()
         mock_resp.status_code = 301
         mock_resp.headers = {'Location': 'http://example.com/new'}
+        mock_resp.elapsed.total_seconds.return_value = 0.1
         addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
         with patch('index.socket.getaddrinfo', return_value=addrinfo), \
              patch('requests.head', return_value=mock_resp) as mock_head:
@@ -809,3 +816,28 @@ class TestReturnStatusCodes:
         for code in [200, 201, 301, 404, 500]:
             resp = client.get(f'/return/{code}')
             assert resp.status_code == code, f"/return/{code} returned {resp.status_code}"
+
+
+class TestSEO:
+    def test_sitemap_xml(self, client):
+        resp = client.get('/sitemap.xml')
+        assert resp.status_code == 200
+        assert b'<urlset' in resp.data
+        assert b'/200' in resp.data
+        assert b'/404' in resp.data
+
+    def test_robots_txt(self, client):
+        resp = client.get('/robots.txt')
+        assert resp.status_code == 200
+        assert b'Sitemap:' in resp.data
+        assert b'Disallow: /return/' in resp.data
+
+    def test_canonical_url(self, client):
+        resp = client.get('/')
+        assert b'rel="canonical"' in resp.data
+
+    def test_detail_page_has_structured_data(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'application/ld+json' in html
+        assert 'DefinedTerm' in html

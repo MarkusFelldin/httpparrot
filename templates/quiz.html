@@ -3,6 +3,10 @@
 {% block title %}Quiz - HTTP Parrots{% endblock %}
 {% block subtitle %}Quiz Mode{% endblock %}
 
+{% block meta %}
+    <meta name="description" content="Test your HTTP status code knowledge. Identify status codes from parrot images in this interactive quiz for developers.">
+{% endblock %}
+
 {% block content %}
     <main class="quiz-container" id="main-content" role="main">
         <div class="quiz-score">
@@ -38,6 +42,26 @@
         const allCodes = {{ quiz_data | tojson }};
         let score = 0, streak = 0, total = 0;
         let answered = false;
+
+        function spawnConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            for (var i = 0; i < 20; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 50 + Math.random() * 100;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
 
         function shuffle(arr) {
             for (let i = arr.length - 1; i > 0; i--) {
@@ -94,6 +118,7 @@
                     if (c.code === correct.code) {
                         score++;
                         streak++;
+                        spawnConfetti(btn);
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
                     } else {
@@ -106,6 +131,16 @@
                     document.getElementById('score').textContent = score;
                     document.getElementById('streak').textContent = streak;
                     document.getElementById('total').textContent = total;
+
+                    var streakEl = document.querySelector('.score-streak');
+                    streakEl.classList.remove('on-fire', 'blazing');
+                    if (streak >= 10) streakEl.classList.add('blazing');
+                    else if (streak >= 5) streakEl.classList.add('on-fire');
+                    var sv = document.getElementById('streak');
+                    sv.classList.remove('streak-bump');
+                    void sv.offsetWidth;
+                    sv.classList.add('streak-bump');
+
                     document.getElementById('next-wrap').style.display = '';
                 });
                 container.appendChild(btn);

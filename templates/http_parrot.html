@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ status_code }} {{ description }} - HTTP Parrots{% endblock %}
+{% block title %}HTTP {{ status_code }} {{ description }} - Meaning & Examples | HTTP Parrots{% endblock %}
 
 {% block meta %}
     <meta name="description" content="{{ info.get('description', 'HTTP status code explained by parrots') }}">
@@ -11,6 +11,21 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="HTTP Parrots">
     <meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "DefinedTerm",
+  "name": "HTTP {{ status_code }} {{ description }}",
+  "description": {{ info.description | tojson }},
+  "termCode": "{{ status_code }}",
+  "inDefinedTermSet": {
+    "@type": "DefinedTermSet",
+    "name": "HTTP Status Codes",
+    "url": "{{ request.url_root }}"
+  },
+  "url": "{{ request.url_root }}{{ status_code }}"
+}
+</script>
 {% endblock %}
 
 {% block head %}
@@ -41,6 +56,10 @@
                 <span class="copy-curl-text">{{ curl_cmd }}</span>
                 <span class="copy-curl-icon" id="copy-curl-icon">Copy</span>
             </button>
+            <div class="share-actions">
+                <button class="btn-share" id="share-link" title="Copy link to this page">Copy Link</button>
+                <button class="btn-share" id="share-image" title="Copy direct image URL">Copy Image URL</button>
+            </div>
         </div>
 
         {% if info %}
@@ -162,6 +181,26 @@
             setTimeout(function() { icon.textContent = originalText; }, 2000);
         });
     });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        function copyWithFeedback(btn, text) {
+            var orig = btn.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            }).catch(function() {
+                btn.textContent = 'Failed';
+                setTimeout(function() { btn.textContent = orig; }, 2000);
+            });
+        }
+        document.getElementById('share-link').addEventListener('click', function() {
+            copyWithFeedback(this, window.location.href);
+        });
+        document.getElementById('share-image').addEventListener('click', function() {
+            copyWithFeedback(this, window.location.origin + '/{{ status_code }}.jpg');
+        });
+    })();
     </script>
     <script nonce="{{ csp_nonce }}">
     document.querySelectorAll('.code-copy-btn').forEach(function(btn) {
