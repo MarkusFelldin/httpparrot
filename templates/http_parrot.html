@@ -105,6 +105,25 @@
         </div>
         {% endif %}
 
+        {% if http_example %}
+        <div class="detail-info">
+            <div class="detail-section">
+                <h2>Example HTTP exchange</h2>
+                <div class="http-exchange">
+                    <div class="http-panel">
+                        <div class="http-panel-label http-request-label">Request</div>
+                        <pre class="http-block http-request">{{ http_example.request }}</pre>
+                    </div>
+                    <div class="http-arrow" aria-hidden="true"></div>
+                    <div class="http-panel">
+                        <div class="http-panel-label http-response-label">Response</div>
+                        <pre class="http-block http-response">{{ http_example.response }}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="detail-nav">
             <div class="detail-nav-side">
                 {% if prev_code %}
