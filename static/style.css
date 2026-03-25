@@ -359,6 +359,12 @@ body {
   z-index: 2;
 }
 
+.parrot-card.grid-focus .parrot {
+  border-color: rgba(0, 201, 167, 0.5);
+  box-shadow: 0 0 0 2px rgba(0, 201, 167, 0.3), 0 8px 30px rgba(0, 201, 167, 0.15);
+  transform: translateY(-4px);
+}
+
 .parrot-card.clicked .parrot {
   transform: scale(0.95);
   opacity: 0.6;
@@ -821,6 +827,9 @@ body {
 .detail-parrot .img-status-code { font-size: 3rem; }
 .detail-parrot .img-status-code-text { font-size: 1rem; }
 .detail-nav-right { text-align: right; }
+
+.rfc-link { color: rgba(0, 180, 216, 0.8); text-decoration: none; border-bottom: 1px solid rgba(0, 180, 216, 0.2); transition: color 0.2s, border-color 0.2s; }
+.rfc-link:hover { color: #48cae4; border-bottom-color: #48cae4; }
 
 /* === Page: 404 === */
 .error-container { max-width: 600px; padding: 4rem 1.5rem; text-align: center; }
