@@ -46,7 +46,7 @@
             </div>
             <div class="detail-section">
                 <h2>History</h2>
-                <p>{{ info.history }}</p>
+                <p>{{ info.history|linkify_rfcs }}</p>
             </div>
         </div>
         {% endif %}

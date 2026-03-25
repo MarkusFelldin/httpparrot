@@ -126,14 +126,61 @@
             }
         });
 
+        function getVisibleCards() {
+            return Array.from(cards).filter(function(c) { return c.style.display !== 'none'; });
+        }
+
+        function getColumns() {
+            const grid = document.getElementById('parrot-grid');
+            return getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+        }
+
         document.addEventListener('keydown', function(e) {
             if (e.key === '/' && document.activeElement !== searchEl) {
                 e.preventDefault();
                 searchEl.focus();
+                return;
             }
-            if (e.key === 'Escape' && document.activeElement === searchEl) {
-                searchEl.blur();
+            if (e.key === 'Escape') {
+                if (document.activeElement === searchEl) searchEl.blur();
+                return;
             }
+
+            const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+            if (!arrowKeys.includes(e.key) && e.key !== 'Enter') return;
+            if (document.activeElement === searchEl) return;
+
+            const visible = getVisibleCards();
+            if (!visible.length) return;
+
+            const focused = document.querySelector('.parrot-card.grid-focus');
+            let idx = focused ? visible.indexOf(focused) : -1;
+
+            if (e.key === 'Enter' && focused) {
+                const link = focused.querySelector('.parrot-link');
+                if (link) link.click();
+                return;
+            }
+
+            if (!arrowKeys.includes(e.key)) return;
+            e.preventDefault();
+
+            const cols = getColumns();
+            if (idx === -1) {
+                idx = 0;
+            } else if (e.key === 'ArrowRight') {
+                idx = Math.min(idx + 1, visible.length - 1);
+            } else if (e.key === 'ArrowLeft') {
+                idx = Math.max(idx - 1, 0);
+            } else if (e.key === 'ArrowDown') {
+                idx = Math.min(idx + cols, visible.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                idx = Math.max(idx - cols, 0);
+            }
+
+            if (focused) focused.classList.remove('grid-focus');
+            visible[idx].classList.add('grid-focus');
+            visible[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         });
 
         document.querySelectorAll('.parrot-link').forEach(function(link) {

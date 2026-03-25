@@ -2,6 +2,7 @@ import ipaddress
 import logging
 import os
 import random
+import re
 import secrets
 import socket
 import time
@@ -24,6 +25,27 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400  # 24h cache for static files
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024  # 1MB request body limit
 app.config['DEBUG'] = False
 Compress(app)
+
+_RFC_RE = re.compile(r'(RFC\s+(\d+))')
+
+
+@app.template_filter('linkify_rfcs')
+def linkify_rfcs(text):
+    """Convert 'RFC XXXX' references to clickable IETF links."""
+    from markupsafe import Markup, escape
+    parts = []
+    last = 0
+    for m in _RFC_RE.finditer(text):
+        parts.append(escape(text[last:m.start()]))
+        rfc_num = m.group(2)
+        parts.append(Markup(
+            f'<a href="https://datatracker.ietf.org/doc/html/rfc{rfc_num}" '
+            f'class="rfc-link" target="_blank" rel="noopener">{escape(m.group(1))}</a>'
+        ))
+        last = m.end()
+    parts.append(escape(text[last:]))
+    return Markup(''.join(parts))
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

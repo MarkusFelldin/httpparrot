@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""HTTP Parrots CLI - Look up HTTP status codes from the terminal."""
+
+import sys
+
+# Status code data (self-contained, no server required)
+STATUS_CODES = {
+    "100": "Continue", "101": "Switching Protocols", "102": "Processing",
+    "103": "Early Hints",
+    "200": "OK", "201": "Created", "202": "Accepted",
+    "203": "Non-Authoritative Information", "204": "No Content",
+    "205": "Reset Content", "206": "Partial Content",
+    "207": "Multi-Status", "208": "Already Reported", "226": "IM Used",
+    "300": "Multiple Choices", "301": "Moved Permanently", "302": "Found",
+    "303": "See Other", "304": "Not Modified", "305": "Use Proxy",
+    "306": "Switch Proxy", "307": "Temporary Redirect",
+    "308": "Permanent Redirect",
+    "400": "Bad Request", "401": "Unauthorized", "402": "Payment Required",
+    "403": "Forbidden", "404": "Not Found", "405": "Method Not Allowed",
+    "406": "Not Acceptable", "407": "Proxy Authentication Required",
+    "408": "Request Time-out", "409": "Conflict", "410": "Gone",
+    "411": "Length Required", "412": "Precondition Failed",
+    "413": "Payload Too Large", "414": "URI Too Long",
+    "415": "Unsupported Media Type", "416": "Range Not Satisfiable",
+    "417": "Expectation Failed", "418": "I'm a teapot",
+    "419": "I'm a Fox", "420": "Enhance Your Calm",
+    "421": "Misdirected Request", "422": "Unprocessable Entity",
+    "423": "Locked", "424": "Failed Dependency", "425": "Too Early",
+    "426": "Upgrade Required", "428": "Precondition Required",
+    "429": "Too Many Requests", "431": "Request Header Fields Too Large",
+    "444": "No Response", "450": "Blocked by Windows Parental Controls",
+    "451": "Unavailable For Legal Reasons",
+    "494": "Request Header Too Large",
+    "498": "Invalid Token", "499": "Token Required",
+    "500": "Internal Server Error", "501": "Not Implemented",
+    "502": "Bad Gateway", "503": "Service Unavailable",
+    "504": "Gateway Time-out", "505": "HTTP Version Not Supported",
+    "506": "Variant Also Negotiates", "507": "Insufficient Storage",
+    "508": "Loop Detected", "509": "Bandwidth Limit Exceeded",
+    "510": "Not Extended", "511": "Network Authentication Required",
+    "530": "Site is Frozen",
+}
+
+DESCRIPTIONS = {
+    "100": "The server has received the request headers and the client should proceed to send the request body.",
+    "101": "The server is switching to a different protocol as requested by the client via an Upgrade header.",
+    "102": "The server has received and is processing the request, but no response is available yet.",
+    "103": "Used to return some response headers before the final HTTP message.",
+    "200": "The request has succeeded.",
+    "201": "The request has been fulfilled and a new resource has been created.",
+    "202": "The request has been accepted for processing, but the processing has not been completed.",
+    "203": "The server successfully processed the request, but is returning information that may be from another source.",
+    "204": "The server has successfully fulfilled the request but there is no content to return.",
+    "205": "The server has fulfilled the request and the client should reset the document view.",
+    "206": "The server is delivering only part of the resource due to a Range header.",
+    "207": "A Multi-Status response conveys information about multiple resources.",
+    "208": "Used inside a Multi-Status response to avoid enumerating a member more than once.",
+    "226": "The server has fulfilled a GET request and the response is a result of instance-manipulations.",
+    "300": "The requested resource has multiple representations.",
+    "301": "The requested resource has been permanently moved to a new URL.",
+    "302": "The requested resource temporarily resides at a different URL.",
+    "303": "The response can be found at another URL using GET.",
+    "304": "The resource has not been modified since the last request.",
+    "305": "The requested resource must be accessed through a proxy.",
+    "306": "Originally meant 'Switch Proxy'. No longer used; code is reserved.",
+    "307": "The resource temporarily resides at another URL. Method must not change.",
+    "308": "The resource has permanently moved. Method must not change.",
+    "400": "The server cannot process the request due to a client error.",
+    "401": "The request requires authentication.",
+    "402": "Reserved for future use. Sometimes used for payment-related errors.",
+    "403": "The server refuses to authorize the request.",
+    "404": "The server cannot find the requested resource.",
+    "405": "The HTTP method is not allowed for the requested resource.",
+    "406": "The server cannot produce a response matching the client's Accept headers.",
+    "407": "The client must first authenticate with a proxy.",
+    "408": "The server timed out waiting for the request.",
+    "409": "The request conflicts with the current state of the server.",
+    "410": "The resource is permanently gone and will not be available again.",
+    "411": "The server requires a Content-Length header.",
+    "412": "A precondition in the request headers evaluated to false.",
+    "413": "The request body is larger than the server is willing to process.",
+    "414": "The URI is too long for the server to process.",
+    "415": "The media type of the request body is not supported.",
+    "416": "The requested byte range is not satisfiable.",
+    "417": "The Expect header could not be met by the server.",
+    "418": "I'm a teapot. The server refuses to brew coffee because it is a teapot.",
+    "419": "Unofficial. Sometimes used for CSRF token errors or humorously as 'I'm a Fox'.",
+    "420": "Unofficial. Used by old Twitter API for rate limiting: 'Enhance Your Calm'.",
+    "421": "The request was directed at a server that cannot produce a response.",
+    "422": "The request is well-formed but has semantic validation errors.",
+    "423": "The resource is locked.",
+    "424": "The request failed because it depended on another request that failed.",
+    "425": "The server is unwilling to risk processing a potentially replayed request.",
+    "426": "The client should switch to a different protocol.",
+    "428": "The server requires the request to be conditional.",
+    "429": "Too many requests. The client is being rate limited.",
+    "431": "The request header fields are too large.",
+    "444": "Nginx-specific: the server returns no response and closes the connection.",
+    "450": "Microsoft: the resource is blocked by Windows Parental Controls.",
+    "451": "Access denied for legal reasons. Named after Fahrenheit 451.",
+    "494": "Nginx-specific: the request header is too large.",
+    "498": "Unofficial: the authentication token is invalid.",
+    "499": "Unofficial: the authentication token is missing.",
+    "500": "The server encountered an unexpected internal error.",
+    "501": "The server does not support the required functionality.",
+    "502": "The gateway received an invalid response from the upstream server.",
+    "503": "The server is temporarily unable to handle the request.",
+    "504": "The gateway did not receive a timely response from the upstream server.",
+    "505": "The server does not support the HTTP protocol version used.",
+    "506": "Transparent content negotiation results in a circular reference.",
+    "507": "The server cannot store the representation needed to complete the request.",
+    "508": "The server detected an infinite loop while processing the request.",
+    "509": "Unofficial: the site has exceeded its bandwidth limit.",
+    "510": "Extensions required by the request are not available.",
+    "511": "The client needs to authenticate to gain network access.",
+    "530": "Unofficial: the origin server is frozen or inaccessible.",
+}
+
+CATEGORIES = {
+    "1": ("1xx", "Informational", "\033[96m"),  # cyan
+    "2": ("2xx", "Success", "\033[92m"),         # green
+    "3": ("3xx", "Redirection", "\033[93m"),     # yellow
+    "4": ("4xx", "Client Error", "\033[91m"),    # red
+    "5": ("5xx", "Server Error", "\033[95m"),    # magenta
+}
+
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+
+_use_color = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+
+
+def c(text, *codes):
+    """Apply ANSI color codes to text, only if stdout is a terminal."""
+    if _use_color and codes:
+        return f"{''.join(codes)}{text}{RESET}"
+    return text
+
+
+def print_code(code):
+    name = STATUS_CODES.get(code)
+    if not name:
+        print(f"Unknown status code: {code}")
+        return False
+
+    cat = CATEGORIES.get(code[0], ("???", "Unknown", ""))
+    cat_color = cat[2]
+
+    print()
+    print(f"  {c(code, BOLD, cat_color)}  {c(name, cat_color)}")
+    print(f"  {c(f'{cat[0]} {cat[1]}', DIM)}")
+    print()
+
+    desc = DESCRIPTIONS.get(code)
+    if desc:
+        # Word wrap to ~70 chars with indent
+        words = desc.split()
+        line = "  "
+        for word in words:
+            if len(line) + len(word) + 1 > 72:
+                print(line)
+                line = "  " + word
+            else:
+                line += (" " if len(line) > 2 else "") + word
+        if line.strip():
+            print(line)
+        print()
+
+    return True
+
+
+def print_category(cat_prefix):
+    cat = CATEGORIES.get(cat_prefix)
+    if not cat:
+        print(f"Unknown category: {cat_prefix}xx")
+        return
+
+    print()
+    print(f"  {c(cat[0] + ' ' + cat[1], BOLD, cat[2])}")
+    print(f"  {c('─' * 40, DIM)}")
+
+    for code in sorted(STATUS_CODES.keys(), key=int):
+        if code[0] == cat_prefix:
+            name = STATUS_CODES[code]
+            print(f"  {c(code, cat[2])}  {name}")
+    print()
+
+
+def print_all():
+    for cat_prefix in "12345":
+        print_category(cat_prefix)
+
+
+def print_search(query):
+    query = query.lower()
+    matches = []
+    for code, name in sorted(STATUS_CODES.items(), key=lambda x: int(x[0])):
+        desc = DESCRIPTIONS.get(code, "")
+        if query in code or query in name.lower() or query in desc.lower():
+            matches.append(code)
+
+    if not matches:
+        print(f"  No status codes matching '{query}'")
+        return
+
+    print()
+    for code in matches:
+        cat = CATEGORIES.get(code[0], ("", "", ""))
+        print(f"  {c(code, cat[2])}  {STATUS_CODES[code]}")
+    print()
+    print(f"  {c(f'{len(matches)} result(s)', DIM)}")
+    print()
+
+
+def print_usage():
+    print()
+    green = '\033[92m'
+    print(f"  {c('httpparrot', BOLD, green)} - HTTP status code reference")
+    print()
+    print(f"  {c('Usage:', BOLD)}")
+    print(f"    httpparrot {c('404', DIM)}          Look up a status code")
+    print(f"    httpparrot {c('4xx', DIM)}          List a category")
+    print(f"    httpparrot {c('all', DIM)}          List all codes")
+    print(f"    httpparrot {c('search term', DIM)}  Search codes by keyword")
+    print()
+    print(f"  {c('Examples:', BOLD)}")
+    print(f"    httpparrot 301")
+    print(f"    httpparrot 5xx")
+    print(f"    httpparrot teapot")
+    print(f"    httpparrot 'not found'")
+    print()
+
+
+def main():
+    if len(sys.argv) < 2:
+        print_usage()
+        return
+
+    arg = sys.argv[1]
+
+    # Direct code lookup
+    if arg in STATUS_CODES:
+        print_code(arg)
+        return
+
+    # Category: 1xx, 2xx, etc.
+    if len(arg) == 3 and arg[0] in "12345" and arg[1:] == "xx":
+        print_category(arg[0])
+        return
+
+    # List all
+    if arg == "all":
+        print_all()
+        return
+
+    # Try as a number (might be a valid but unlisted code)
+    if arg.isdigit() and 100 <= int(arg) <= 599:
+        if not print_code(arg):
+            sys.exit(1)
+        return
+
+    # Search
+    query = " ".join(sys.argv[1:])
+    print_search(query)
+
+
+if __name__ == "__main__":
+    main()
