@@ -450,6 +450,8 @@
             /* easter eggs */
             if (easterEggs[code]) {
                 easterEggs[code](card);
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf(code) === -1) { eggs.push(code); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
             }
         });
     })();
@@ -472,6 +474,8 @@
                 if (pos === konamiCode.length) {
                     pos = 0;
                     activatePartyParrot();
+                    var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                    if (eggs.indexOf('konami') === -1) { eggs.push('konami'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
                 }
             } else {
                 pos = 0;

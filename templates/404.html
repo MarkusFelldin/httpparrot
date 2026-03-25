@@ -4,10 +4,11 @@
 
 {% block content %}
     <main class="container error-container">
+        <span class="error-wandering-parrot" aria-hidden="true">&#x1F99C;</span>
         <div class="error-emoji">&#x1F99C;&#x2753;</div>
         <div class="img-status-code category-4xx error-code">404</div>
         <h1 class="error-title">Parrot Not Found</h1>
-        <p class="error-message">
+        <p class="error-message" id="error-fun-message">
             This parrot has flown the coop. The page you're looking for doesn't exist or has migrated to warmer climates.
         </p>
         <div class="error-actions">
@@ -16,4 +17,21 @@
             <a href="/random" class="btn-back">Random parrot &rarr;</a>
         </div>
     </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var messages = [
+            "This parrot has flown the coop!",
+            "Even our search parrot couldn't find that.",
+            "404 parrots looked, none found your page.",
+            "This page migrated south for the winter."
+        ];
+        var el = document.getElementById('error-fun-message');
+        if (el) {
+            el.textContent = messages[Math.floor(Math.random() * messages.length)];
+        }
+    })();
+    </script>
 {% endblock %}

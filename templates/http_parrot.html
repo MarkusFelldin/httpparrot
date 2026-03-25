@@ -35,6 +35,14 @@
 
 {% block content %}
     <main id="main-content" class="container detail-container" role="main">
+        <div class="scroll-progress" id="scroll-progress"></div>
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/">All Codes</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <a href="/?cat={{ status_code[0] }}">{{ status_code[0] }}xx</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span aria-current="page">{{ status_code }}</span>
+        </nav>
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
@@ -223,5 +231,25 @@
         if (e.key === 'ArrowLeft'{% if prev_code %}) window.location.href = '/{{ prev_code }}'{% else %}) {}{% endif %};
         if (e.key === 'ArrowRight'{% if next_code %}) window.location.href = '/{{ next_code }}'{% else %}) {}{% endif %};
     });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var bar = document.getElementById('scroll-progress');
+        if (!bar) return;
+        window.addEventListener('scroll', function() {
+            var h = document.documentElement.scrollHeight - window.innerHeight;
+            if (h > 0) bar.style.transform = 'scaleX(' + Math.min(window.scrollY / h, 1) + ')';
+        }, {passive: true});
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var code = '{{ status_code }}';
+        var collected = JSON.parse(localStorage.getItem('parrotdex') || '[]');
+        if (collected.indexOf(code) === -1) {
+            collected.push(code);
+            localStorage.setItem('parrotdex', JSON.stringify(collected));
+        }
+    })();
     </script>
 {% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Header Explainer - HTTP Parrots{% endblock %}
+{% block subtitle %}Header Explainer{% endblock %}
+{% block meta %}
+    <meta name="description" content="Paste HTTP headers and get instant explanations. Understand Cache-Control, CORS, security headers, and more.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>Header Explainer</h1>
+            <p>Paste HTTP headers below and get instant explanations</p>
+        </div>
+        <div class="headers-input-wrap">
+            <textarea class="headers-input" id="header-input" placeholder="Content-Type: application/json&#10;Cache-Control: max-age=3600&#10;X-Frame-Options: DENY" rows="8" aria-label="Paste HTTP headers here"></textarea>
+            <button class="tester-submit" id="explain-btn">Explain</button>
+        </div>
+        <div id="header-results" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var HEADER_DB = {
+            'content-type': {type: 'Content', desc: 'Specifies the media type of the resource or data being sent. Tells the receiver how to parse the body.'},
+            'cache-control': {type: 'Caching', desc: 'Directives for caching mechanisms. Controls how long responses can be cached and under what conditions.'},
+            'content-length': {type: 'Content', desc: 'The size of the response body in bytes.'},
+            'content-encoding': {type: 'Content', desc: 'The compression algorithm applied to the response body (e.g., gzip, br).'},
+            'etag': {type: 'Caching', desc: 'A unique identifier for a specific version of a resource. Used for conditional requests.'},
+            'last-modified': {type: 'Caching', desc: 'The date the resource was last changed. Used with If-Modified-Since for caching.'},
+            'expires': {type: 'Caching', desc: 'The date/time after which the response is considered stale. Superseded by Cache-Control.'},
+            'age': {type: 'Caching', desc: 'Time in seconds the response has been in a proxy cache.'},
+            'vary': {type: 'Caching', desc: 'Lists headers that affect the cached response. Tells caches when to serve different versions.'},
+            'location': {type: 'Redirect', desc: 'The URL to redirect to. Used with 3xx status codes.'},
+            'access-control-allow-origin': {type: 'CORS', desc: 'Specifies which origins can access the resource. Use * for any origin, or a specific domain.'},
+            'access-control-allow-methods': {type: 'CORS', desc: 'HTTP methods allowed when accessing the resource in a CORS request.'},
+            'access-control-allow-headers': {type: 'CORS', desc: 'Headers allowed in the actual CORS request.'},
+            'access-control-max-age': {type: 'CORS', desc: 'How long (seconds) the preflight response can be cached.'},
+            'access-control-expose-headers': {type: 'CORS', desc: 'Headers that the browser is allowed to read from the response.'},
+            'access-control-allow-credentials': {type: 'CORS', desc: 'Whether the browser should send cookies/auth with cross-origin requests.'},
+            'strict-transport-security': {type: 'Security', desc: 'Forces HTTPS connections. The max-age directive sets how long browsers should remember this.'},
+            'content-security-policy': {type: 'Security', desc: 'Controls which resources the browser can load. Prevents XSS and data injection attacks.'},
+            'x-content-type-options': {type: 'Security', desc: 'Prevents browsers from MIME-sniffing. Set to "nosniff" to enforce declared content type.'},
+            'x-frame-options': {type: 'Security', desc: 'Controls whether the page can be embedded in iframes. DENY blocks all framing.'},
+            'x-xss-protection': {type: 'Security', desc: 'Legacy XSS filter. Modern browsers use CSP instead. "0" disables it (recommended).'},
+            'referrer-policy': {type: 'Security', desc: 'Controls how much referrer info is sent with requests. "strict-origin-when-cross-origin" is a good default.'},
+            'permissions-policy': {type: 'Security', desc: 'Controls which browser features (camera, microphone, geolocation) the page can use.'},
+            'server': {type: 'Info', desc: 'Identifies the server software. Often hidden for security.'},
+            'x-powered-by': {type: 'Info', desc: 'Reveals backend technology. Should be removed in production for security.'},
+            'date': {type: 'Info', desc: 'The date and time the response was generated.'},
+            'connection': {type: 'Connection', desc: 'Controls whether the network connection stays open. "keep-alive" reuses TCP connections.'},
+            'transfer-encoding': {type: 'Content', desc: 'The encoding used to transfer the body. "chunked" sends data in pieces.'},
+            'set-cookie': {type: 'Cookie', desc: 'Sets a cookie in the browser. Includes attributes like Path, Domain, Secure, HttpOnly, SameSite.'},
+            'cookie': {type: 'Cookie', desc: 'Cookies sent by the browser to the server with each request.'},
+            'authorization': {type: 'Auth', desc: 'Credentials for authenticating the client. Common schemes: Bearer, Basic, Digest.'},
+            'www-authenticate': {type: 'Auth', desc: 'Sent by the server with 401 responses. Tells the client what authentication scheme to use.'},
+            'accept': {type: 'Content Negotiation', desc: 'Media types the client can handle. The server uses this to choose a response format.'},
+            'accept-encoding': {type: 'Content Negotiation', desc: 'Compression algorithms the client supports (gzip, br, deflate).'},
+            'accept-language': {type: 'Content Negotiation', desc: 'Languages the client prefers. Used for content localization.'},
+            'host': {type: 'Routing', desc: 'The domain name of the server. Required in HTTP/1.1 requests.'},
+            'user-agent': {type: 'Info', desc: 'Identifies the client software (browser, bot, etc.) making the request.'},
+            'x-request-id': {type: 'Debug', desc: 'A unique ID for tracing requests through distributed systems.'},
+            'x-forwarded-for': {type: 'Proxy', desc: 'The original client IP when behind a proxy or load balancer.'},
+            'x-forwarded-proto': {type: 'Proxy', desc: 'The original protocol (http/https) before the proxy.'},
+            'retry-after': {type: 'Rate Limiting', desc: 'How long to wait before retrying. Used with 429 and 503 responses. Links to /429.'},
+            'x-ratelimit-limit': {type: 'Rate Limiting', desc: 'Maximum number of requests allowed in the current window.'},
+            'x-ratelimit-remaining': {type: 'Rate Limiting', desc: 'Number of requests remaining in the current window.'},
+        };
+
+        var TYPE_COLORS = {
+            'Security': '#e94560', 'CORS': '#7b61ff', 'Caching': '#00b4d8',
+            'Content': '#2dd4a8', 'Redirect': '#f9c74f', 'Cookie': '#f4a261',
+            'Auth': '#ff6b6b', 'Info': 'rgba(255,255,255,0.4)', 'Connection': 'rgba(255,255,255,0.4)',
+            'Content Negotiation': '#48cae4', 'Routing': 'rgba(255,255,255,0.4)',
+            'Debug': 'rgba(255,255,255,0.4)', 'Proxy': '#a78bfa', 'Rate Limiting': '#ff6b6b'
+        };
+
+        function parseHeaders(text) {
+            return text.trim().split('\n').map(function(line) {
+                var idx = line.indexOf(':');
+                if (idx === -1) return null;
+                return { name: line.substring(0, idx).trim(), value: line.substring(idx + 1).trim() };
+            }).filter(Boolean);
+        }
+
+        function explain(headers) {
+            var container = document.getElementById('header-results');
+            while (container.firstChild) container.removeChild(container.firstChild);
+            if (!headers.length) return;
+
+            headers.forEach(function(h) {
+                var info = HEADER_DB[h.name.toLowerCase()];
+                var card = document.createElement('div');
+                card.className = 'header-card';
+                var nameRow = document.createElement('div');
+                nameRow.className = 'header-card-name';
+
+                var nameEl = document.createElement('span');
+                nameEl.className = 'header-key';
+                nameEl.textContent = h.name;
+                nameRow.appendChild(nameEl);
+
+                if (info) {
+                    var badge = document.createElement('span');
+                    badge.className = 'header-type-badge';
+                    badge.textContent = info.type;
+                    badge.style.color = TYPE_COLORS[info.type] || '#fff';
+                    badge.style.borderColor = (TYPE_COLORS[info.type] || '#fff') + '40';
+                    nameRow.appendChild(badge);
+                }
+                card.appendChild(nameRow);
+
+                var valEl = document.createElement('div');
+                valEl.className = 'header-card-value';
+                valEl.textContent = h.value;
+                card.appendChild(valEl);
+
+                if (info) {
+                    var descEl = document.createElement('div');
+                    descEl.className = 'header-card-desc';
+                    descEl.textContent = info.desc;
+                    card.appendChild(descEl);
+                } else {
+                    var unknown = document.createElement('div');
+                    unknown.className = 'header-card-desc header-card-unknown';
+                    unknown.textContent = 'Custom or less common header — no annotation available.';
+                    card.appendChild(unknown);
+                }
+                container.appendChild(card);
+            });
+        }
+
+        document.getElementById('explain-btn').addEventListener('click', function() {
+            var text = document.getElementById('header-input').value;
+            explain(parseHeaders(text));
+        });
+        document.getElementById('header-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                explain(parseHeaders(this.value));
+            }
+        });
+    })();
+    </script>
+{% endblock %}

@@ -916,3 +916,183 @@ class TestDelayParameter:
         """Delay over 10s should be ignored."""
         resp = client.get('/return/200?delay=11')
         assert resp.status_code == 200
+
+
+# --- Header Explainer ---
+
+class TestHeaderExplainer:
+    def test_headers_page_renders(self, client):
+        """Header Explainer page should return 200 with expected content."""
+        resp = client.get('/headers')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Header Explainer' in html
+        assert 'header-input' in html
+        assert 'explain-btn' in html
+
+    def test_headers_page_has_script(self, client):
+        """Header Explainer page should contain the HEADER_DB JavaScript."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'HEADER_DB' in html
+        assert 'content-type' in html
+        assert 'parseHeaders' in html
+
+    def test_headers_page_has_nonce(self, client):
+        """Header Explainer script tag should have a nonce."""
+        resp = client.get('/headers')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_headers_nav_link(self, client):
+        """Navigation should contain a link to the Headers page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/headers"' in html
+
+    def test_headers_in_sitemap(self, client):
+        """Sitemap should include the headers page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/headers' in resp.data
+
+
+# --- CORS Checker ---
+
+class TestCORSChecker:
+    def test_cors_checker_page_renders(self, client):
+        """CORS Checker page should return 200 with expected content."""
+        resp = client.get('/cors-checker')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'CORS Checker' in html
+        assert 'cors-url' in html
+        assert 'cors-origin' in html
+
+    def test_cors_checker_has_nonce(self, client):
+        """CORS Checker script tag should have a nonce."""
+        resp = client.get('/cors-checker')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_cors_checker_nav_link(self, client):
+        """Navigation should contain a link to the CORS Checker page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/cors-checker"' in html
+
+    def test_cors_checker_in_sitemap(self, client):
+        """Sitemap should include the CORS checker page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/cors-checker' in resp.data
+
+    def test_check_cors_missing_params(self, client):
+        """API should return 400 when url or origin is missing."""
+        resp = client.get('/api/check-cors')
+        assert resp.status_code == 400
+        assert b'Both url and origin are required' in resp.data
+
+    def test_check_cors_missing_origin(self, client):
+        """API should return 400 when origin is missing."""
+        resp = client.get('/api/check-cors?url=https://example.com')
+        assert resp.status_code == 400
+
+    def test_check_cors_missing_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/check-cors?origin=https://mysite.com')
+        assert resp.status_code == 400
+
+    def test_check_cors_blocked_url(self, client):
+        """API should return 403 for private/blocked URLs."""
+        resp = client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://evil.com')
+        assert resp.status_code == 403
+        assert b'not allowed' in resp.data
+
+    def test_check_cors_success(self, client):
+        """API should return CORS analysis for a valid URL."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 204
+        mock_preflight.headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST',
+        }
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {
+            'Access-Control-Allow-Origin': '*',
+        }
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight), \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'preflight' in data
+            assert 'actual' in data
+            assert 'analysis' in data
+            assert data['analysis']['cors_enabled'] is True
+            assert data['analysis']['allows_origin'] is True
+
+    def test_check_cors_no_cors_headers(self, client):
+        """API should detect when CORS is not enabled."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 405
+        mock_preflight.headers = {}
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {'Content-Type': 'text/html'}
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight), \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            data = resp.get_json()
+            assert data['analysis']['cors_enabled'] is False
+            assert data['analysis']['allows_origin'] is False
+
+    def test_check_cors_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://x.com')
+        resp = client.get('/api/check-cors?url=https://example.com&origin=https://x.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_check_cors_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_preflight = MagicMock()
+        mock_preflight.status_code = 204
+        mock_preflight.headers = {'Access-Control-Allow-Origin': '*'}
+        mock_actual = MagicMock()
+        mock_actual.status_code = 200
+        mock_actual.headers = {'Access-Control-Allow-Origin': '*'}
+        mock_actual.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', return_value=mock_preflight) as mock_opt, \
+             patch('requests.get', return_value=mock_actual):
+            resp = client.get('/api/check-cors?url=example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            call_args = mock_opt.call_args
+            assert call_args[0][0] == 'https://example.com'
+
+    def test_check_cors_connection_error(self, client):
+        """API should handle connection errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.options', side_effect=requests.RequestException), \
+             patch('requests.get', side_effect=requests.RequestException):
+            resp = client.get('/api/check-cors?url=https://example.com&origin=https://mysite.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['preflight']['error'] == 'Could not connect'
+            assert data['actual']['error'] == 'Could not connect'
+
+    def test_check_cors_in_robots_txt(self, client):
+        """robots.txt should block /api/check-cors."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/check-cors' in resp.data

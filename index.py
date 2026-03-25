@@ -557,6 +557,76 @@ def tester():
     return render_template('tester.html')
 
 
+@app.route('/collection')
+def collection():
+    """Parrotdex — track which status code parrots you've collected."""
+    return render_template('collection.html', all_codes=pruned_status_codes())
+
+
+@app.route('/headers')
+def header_explainer():
+    """Render the Header Explainer page for annotating HTTP headers."""
+    return render_template('headers.html')
+
+
+@app.route('/cors-checker')
+def cors_checker():
+    """Render the CORS Checker page for testing cross-origin policies."""
+    return render_template('cors_checker.html')
+
+
+@app.route('/api/check-cors')
+def check_cors():
+    """Check CORS headers for a given URL and origin."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    origin = request.args.get('origin', '')
+    if not url or not origin:
+        return jsonify({"error": "Both url and origin are required"}), 400
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        return jsonify({"error": "URL not allowed"}), 403
+    results = {}
+    try:
+        # Preflight (OPTIONS)
+        preflight = req.options(safe_url, headers={
+            'Origin': origin,
+            'Access-Control-Request-Method': 'GET',
+        }, allow_redirects=False, timeout=10)
+        results['preflight'] = {
+            'status': preflight.status_code,
+            'headers': {k: v for k, v in preflight.headers.items()
+                       if k.lower().startswith('access-control')},
+        }
+    except req.RequestException:
+        results['preflight'] = {'error': 'Could not connect'}
+    try:
+        # Actual request
+        actual = req.get(safe_url, headers={'Origin': origin},
+                        allow_redirects=False, timeout=10, stream=True)
+        actual.close()
+        results['actual'] = {
+            'status': actual.status_code,
+            'headers': {k: v for k, v in actual.headers.items()
+                       if k.lower().startswith('access-control')},
+        }
+    except req.RequestException:
+        results['actual'] = {'error': 'Could not connect'}
+    # Analysis
+    acao = (results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Origin', '')
+            or results.get('preflight', {}).get('headers', {}).get('Access-Control-Allow-Origin', ''))
+    actual_creds = results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Credentials', '')
+    results['analysis'] = {
+        'cors_enabled': bool(acao),
+        'allows_origin': acao == '*' or acao == origin,
+        'allows_credentials': actual_creds.lower() == 'true' if isinstance(actual_creds, str) else False,
+    }
+    return jsonify(results)
+
+
 @app.route('/api/check-url')
 def check_url():
     """Make a HEAD request to a user-provided URL and return its status code."""
@@ -713,7 +783,8 @@ def sitemap():
     base = request.url_root.rstrip('/')
     pages = []
     for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
-                 '/cheatsheet', '/api-docs']:
+                 '/cheatsheet', '/headers', '/cors-checker', '/collection',
+                 '/api-docs']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -734,6 +805,7 @@ def robots():
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/check-url\n"
+        "Disallow: /api/check-cors\n"
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"
