@@ -1993,20 +1993,22 @@ body > main, body > .container-fluid { flex: 1; }
 
 @media print {
   body { background: #fff; color: #000; }
-  .site-header-compact, .site-footer, .cheat-print-btn, .cheat-thumb { display: none; }
-  .cheat-container { padding: 0; max-width: 100%; }
-  .cheat-header h1 { -webkit-text-fill-color: #333; background: none; color: #333; }
-  .cheat-header p { color: #666; }
-  .cheat-cat-header { border-bottom-color: #ddd; }
-  .cheat-cat-badge { border: 1px solid #ccc; }
+  .site-header-compact, .site-footer, .cheat-print-btn, .cheat-thumb, .skip-link { display: none; }
+  .cheat-container { padding: 0; max-width: 100%; columns: 2; column-gap: 2rem; }
+  .cheat-category { break-inside: avoid; margin-bottom: 0.5rem; }
+  .cheat-header { column-span: all; text-align: center; margin-bottom: 0.5rem; }
+  .cheat-header h1 { -webkit-text-fill-color: #333; background: none; color: #333; font-size: 1.2rem; }
+  .cheat-header p { color: #666; font-size: 0.8rem; }
+  .cheat-cat-header { border-bottom-color: #ddd; padding: 0.25rem 0; }
+  .cheat-cat-badge { border: 1px solid #ccc; font-size: 0.6rem; padding: 0.15rem 0.4rem; }
   .cat-badge-1xx { background: #e8f4f8; color: #0077b6; }
   .cat-badge-2xx { background: #e8f8f0; color: #2d7a5f; }
   .cat-badge-3xx { background: #fdf6e3; color: #b8860b; }
   .cat-badge-4xx { background: #fde8e8; color: #c62828; }
   .cat-badge-5xx { background: #f0e8fd; color: #5e35b1; }
-  .cheat-cat-name { color: #666; }
-  .cheat-name { color: #222; }
-  .cheat-table td { border-bottom-color: #eee; }
+  .cheat-cat-name { color: #666; font-size: 0.75rem; }
+  .cheat-name { color: #222; font-size: 0.75rem; }
+  .cheat-table td { border-bottom-color: #eee; padding: 0.2rem 0.3rem; font-size: 0.7rem; }
   .cheat-code { color: #333; }
   a { color: inherit; text-decoration: none; }
 }

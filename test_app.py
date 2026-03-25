@@ -841,3 +841,36 @@ class TestSEO:
         html = resp.data.decode()
         assert 'application/ld+json' in html
         assert 'DefinedTerm' in html
+
+
+class TestEcho:
+    def test_echo_get(self, client):
+        resp = client.get('/echo?foo=bar')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'GET'
+        assert data['args']['foo'] == 'bar'
+
+    def test_echo_post(self, client):
+        resp = client.post('/echo', json={'key': 'value'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'POST'
+        assert data['json']['key'] == 'value'
+
+
+class TestRedirectChain:
+    def test_redirect_chain(self, client):
+        resp = client.get('/redirect/2')
+        assert resp.status_code == 302
+        assert '/redirect/1' in resp.headers['Location']
+
+    def test_redirect_chain_end(self, client):
+        resp = client.get('/redirect/0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['code'] == 200
+
+    def test_redirect_chain_too_many(self, client):
+        resp = client.get('/redirect/11')
+        assert resp.status_code == 404

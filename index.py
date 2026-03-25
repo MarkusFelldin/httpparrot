@@ -595,6 +595,9 @@ def return_status(code):
     """
     if code < 100 or code > 599:
         abort(404)
+    delay = request.args.get('delay', type=float)
+    if delay and 0 < delay <= 10:
+        time.sleep(delay)
     description = next((s.name for s in status_code_list if s.code == str(code)), 'Unknown')
     response = jsonify({
         "code": code,
@@ -667,6 +670,32 @@ def http_parrot_image(status_code):
     if not image:
         abort(404)
     return send_from_directory('static', image)
+
+
+@app.route('/echo', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+def echo():
+    """Echo the request details back as JSON (httpbin-style)."""
+    data = {
+        'method': request.method,
+        'url': request.url,
+        'headers': dict(request.headers),
+        'args': dict(request.args),
+    }
+    if request.method in ('POST', 'PUT', 'PATCH'):
+        data['body'] = request.get_data(as_text=True)
+        if request.is_json:
+            data['json'] = request.get_json(silent=True)
+    return jsonify(data)
+
+
+@app.route('/redirect/<int:n>')
+def redirect_chain(n):
+    """Chain of n redirects ending at 200. Max 10 hops."""
+    if n <= 0:
+        return jsonify({"message": "End of redirect chain", "code": 200})
+    if n > 10:
+        abort(404)
+    return redirect(url_for('redirect_chain', n=n - 1), code=302)
 
 
 @app.route('/sitemap.xml')
