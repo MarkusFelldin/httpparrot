@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import os
 import random
@@ -7,8 +8,9 @@ import secrets
 import socket
 import time
 from collections import namedtuple
-from datetime import date
-from urllib.parse import urlparse, urlunparse
+from datetime import date, datetime, timezone
+from urllib.parse import urlparse
+from xml.sax.saxutils import escape as xml_escape
 
 import requests as req
 from flask import (Flask, abort, g, jsonify, redirect, render_template,
@@ -20,6 +22,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
+from scenarios import SCENARIOS
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -49,6 +52,35 @@ def linkify_rfcs(text):
     return Markup(''.join(parts))
 
 
+_HTTP_METHOD_RE = re.compile(
+    r'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|PROPFIND|PROPPATCH|MKCOL'
+    r'|COPY|MOVE|LOCK|UNLOCK|TRACE|CONNECT)\b',
+    re.MULTILINE,
+)
+_HTTP_STATUS_LINE_RE = re.compile(r'^(HTTP/\d\.\d\s+\d{3}[^\n]*)', re.MULTILINE)
+_HTTP_HEADER_RE = re.compile(r'^([A-Za-z][A-Za-z0-9\-]*)(:)', re.MULTILINE)
+
+
+@app.template_filter('highlight_http')
+def highlight_http(text, panel_type='request'):
+    """Add syntax-highlighting spans to HTTP request/response text.
+
+    Wraps HTTP methods, status lines, and header names in styled spans
+    so CSS can colorize them without JavaScript.
+    """
+    text = str(escape(text))
+    # Highlight status lines first (response)
+    text = _HTTP_STATUS_LINE_RE.sub(
+        r'<span class="http-hl-status">\1</span>', text)
+    # Highlight HTTP methods (request)
+    text = _HTTP_METHOD_RE.sub(
+        r'<span class="http-hl-method">\1</span>', text)
+    # Highlight header names
+    text = _HTTP_HEADER_RE.sub(
+        r'<span class="http-hl-header">\1</span>\2', text)
+    return Markup(text)
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -71,6 +103,15 @@ BLOCKED_NETWORKS = [
 ]
 
 
+def _is_blocked_ip(ip):
+    """Return True if the IP address falls within any blocked network."""
+    # Normalize IPv6-mapped IPv4 addresses (e.g. ::ffff:127.0.0.1)
+    # to their IPv4 equivalent so they match the IPv4 blocked networks.
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return any(ip in net for net in BLOCKED_NETWORKS)
+
+
 def resolve_and_validate(url):
     """Resolve hostname to IP and validate it's not private.
 
@@ -85,26 +126,32 @@ def resolve_and_validate(url):
     Full elimination would require a custom transport adapter that pins the
     resolved IP, which is beyond scope for this application.
     """
+    _FAIL = (None, None)
     parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        return _FAIL
     hostname = parsed.hostname
     if not hostname:
-        return None, None
+        return _FAIL
     if parsed.username or parsed.password:
-        return None, None
+        return _FAIL
+    # Only allow standard HTTP(S) ports to prevent SSRF to internal services
+    if parsed.port is not None and parsed.port not in (80, 443):
+        return _FAIL
     try:
         addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC,
                                         socket.SOCK_STREAM)
     except (socket.gaierror, OSError):
-        return None, None
+        return _FAIL
     if not addr_infos:
-        return None, None
-    for family, _type, _proto, _canonname, sockaddr in addr_infos:
+        return _FAIL
+    for _family, _type, _proto, _canonname, sockaddr in addr_infos:
         try:
             ip = ipaddress.ip_address(sockaddr[0])
         except ValueError:
-            return None, None
-        if any(ip in net for net in BLOCKED_NETWORKS):
-            return None, None
+            return _FAIL
+        if _is_blocked_ip(ip):
+            return _FAIL
     return url, hostname
 
 
@@ -126,14 +173,21 @@ def is_rate_limited(client_ip):
                  if not ts or now - ts[-1] > RATE_LIMIT_WINDOW]
         for ip in stale:
             del _rate_limit[ip]
-    if client_ip not in _rate_limit:
-        _rate_limit[client_ip] = []
-    # Clean old entries for this IP
-    _rate_limit[client_ip] = [t for t in _rate_limit[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    if len(_rate_limit[client_ip]) >= RATE_LIMIT_MAX:
+    # Clean old entries for this IP and check the limit
+    timestamps = [t for t in _rate_limit.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW]
+    if len(timestamps) >= RATE_LIMIT_MAX:
+        _rate_limit[client_ip] = timestamps
         return True
-    _rate_limit[client_ip].append(now)
+    timestamps.append(now)
+    _rate_limit[client_ip] = timestamps
     return False
+
+
+def _ensure_scheme(url):
+    """Prepend https:// if the URL has no scheme."""
+    if not url.startswith(('http://', 'https://')):
+        return 'https://' + url
+    return url
 
 
 @app.context_processor
@@ -154,7 +208,7 @@ def set_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         f"script-src 'self' 'nonce-{nonce}'; "
-        "style-src 'self' https://fonts.googleapis.com; "
+        f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
         "img-src 'self'; "
         "connect-src 'self'"
@@ -240,6 +294,9 @@ def _build_caches():
 
 _pruned_cache, _image_cache = _build_caches()
 
+# O(1) name lookup dict — eliminates repeated linear scans of status_code_list
+_name_cache = {sc.code: sc.name for sc in status_code_list}
+
 
 def pruned_status_codes():
     return _pruned_cache
@@ -247,6 +304,11 @@ def pruned_status_codes():
 
 def find_image(code):
     return _image_cache.get(code)
+
+
+def status_name(code):
+    """Look up the human name for a status code in O(1)."""
+    return _name_cache.get(code, '')
 
 
 # --- Related codes ---
@@ -494,6 +556,45 @@ RELATED_CODES = {
     ],
 }
 
+
+# --- FAQ generation helper ---
+
+def build_faq_entries(status_code, description, info, extra, related):
+    """Build FAQ entries for structured data on detail pages.
+
+    Generates questions and answers from status descriptions, examples,
+    and related codes to produce FAQPage schema entries.
+    """
+    faq = []
+    if info.get('description'):
+        faq.append({
+            "question": f"What does HTTP {status_code} mean?",
+            "answer": info['description'],
+        })
+    if extra.get('examples'):
+        examples_text = " ".join(f"- {ex}" for ex in extra['examples'])
+        faq.append({
+            "question": f"When should I use HTTP {status_code}?",
+            "answer": f"Common scenarios for HTTP {status_code} {description}: {examples_text}",
+        })
+    for rel_code, diff in related[:3]:
+        rel_name = status_name(rel_code) or rel_code
+        faq.append({
+            "question": f"What is the difference between HTTP {status_code} and {rel_code}?",
+            "answer": f"HTTP {status_code} ({description}) vs HTTP {rel_code} ({rel_name}): {diff}",
+        })
+    return faq
+
+
+# --- Featured parrot of the day ---
+
+def get_featured_parrot():
+    """Return the featured 'parrot of the day' based on today's date."""
+    codes = pruned_status_codes()
+    day_index = date.today().toordinal() % len(codes)
+    return codes[day_index]
+
+
 # --- Routes ---
 
 @app.errorhandler(404)
@@ -505,10 +606,21 @@ def page_not_found(e):
 def http_parrots():
     """Render the homepage gallery of all HTTP status code parrots."""
     codes = pruned_status_codes()
-    day_index = date.today().toordinal() % len(codes)
-    featured = codes[day_index].code
+    featured_parrot = get_featured_parrot()
+    featured = featured_parrot.code
+    # Get a fun fact for the featured parrot
+    featured_info = STATUS_INFO.get(featured, {})
+    featured_extra = STATUS_EXTRA.get(featured, {})
+    featured_description = status_name(featured)
+    featured_fun_fact = None
+    if featured_extra and featured_extra.get('examples'):
+        featured_fun_fact = featured_extra['examples'][0]
+    elif featured_info and featured_info.get('description'):
+        featured_fun_fact = featured_info['description']
     return render_template('http_parrots.html', status_code_list=codes, featured=featured,
-                           status_info=STATUS_INFO)
+                           status_info=STATUS_INFO, featured_description=featured_description,
+                           featured_image=featured_parrot.image,
+                           featured_fun_fact=featured_fun_fact)
 
 
 @app.route('/quiz')
@@ -517,6 +629,61 @@ def quiz():
     codes = pruned_status_codes()
     quiz_data = [{"code": c.code, "name": c.name, "image": c.image} for c in codes]
     return render_template('quiz.html', quiz_data=quiz_data)
+
+
+@app.route('/daily')
+def daily():
+    """Render the daily HTTP challenge — one scenario question per day."""
+    today = date.today()
+    day_number = today.toordinal()
+    rng = random.Random(day_number)
+
+    # Build candidates: codes that have examples in STATUS_EXTRA
+    codes = pruned_status_codes()
+    candidates = [c for c in codes if c.code in STATUS_EXTRA
+                  and STATUS_EXTRA[c.code].get('examples')]
+    if len(candidates) < 4:
+        candidates = codes  # fallback
+
+    # Pick the correct answer deterministically
+    correct = rng.choice(candidates)
+    example_list = STATUS_EXTRA.get(correct.code, {}).get('examples', [])
+    scenario = rng.choice(example_list) if example_list else f"A server responds with {correct.code} {correct.name}"
+
+    # Pick 3 wrong answers from the same category (same first digit) if possible
+    same_category = [c for c in candidates if c.code != correct.code
+                     and c.code[0] == correct.code[0]]
+    others = [c for c in candidates if c.code != correct.code
+              and c.code[0] != correct.code[0]]
+    pool = same_category + others
+    rng.shuffle(pool)
+    distractors = pool[:3]
+
+    options = [correct] + distractors
+    rng.shuffle(options)
+
+    correct_index = options.index(correct)
+
+    info = STATUS_INFO.get(correct.code, {})
+    explanation = info.get('meaning', f'{correct.code} {correct.name}')
+    image = correct.image
+
+    return render_template('daily.html',
+                           scenario=scenario,
+                           options=[{"code": o.code, "name": o.name} for o in options],
+                           correct_index=correct_index,
+                           correct_code=correct.code,
+                           correct_name=correct.name,
+                           explanation=explanation,
+                           image=image,
+                           day_number=day_number,
+                           date_str=today.isoformat())
+
+
+@app.route('/practice')
+def practice():
+    """Render the scenario-based practice page for HTTP status code training."""
+    return render_template('practice.html', scenarios=SCENARIOS)
 
 
 @app.route('/api-docs')
@@ -529,11 +696,8 @@ def cheatsheet():
     """Render the printable cheat sheet of all status codes by category."""
     codes = pruned_status_codes()
     categories = [
-        ("1xx", "Informational", [c for c in codes if c.code.startswith('1')]),
-        ("2xx", "Success", [c for c in codes if c.code.startswith('2')]),
-        ("3xx", "Redirection", [c for c in codes if c.code.startswith('3')]),
-        ("4xx", "Client Error", [c for c in codes if c.code.startswith('4')]),
-        ("5xx", "Server Error", [c for c in codes if c.code.startswith('5')]),
+        (prefix, name, [c for c in codes if c.code.startswith(digit)])
+        for digit, (prefix, name) in sorted(_CATEGORY_LABELS.items())
     ]
     return render_template('cheatsheet.html', categories=categories)
 
@@ -543,13 +707,37 @@ def flowchart():
     return render_template('flowchart.html')
 
 
+def _build_symmetric_summaries(pairs):
+    """Build a dict with both orderings (a,b and b,a) from single-direction pairs."""
+    result = {}
+    for (a, b), text in pairs.items():
+        result[f"{a},{b}"] = text
+        result[f"{b},{a}"] = text
+    return result
+
+
+COMPARISON_SUMMARIES = _build_symmetric_summaries({
+    ("401", "403"): "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
+    ("301", "302"): "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
+    ("500", "502"): "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
+    ("200", "204"): "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
+    ("301", "308"): "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
+    ("302", "307"): "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
+    ("404", "410"): "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
+    ("502", "504"): "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
+    ("400", "422"): "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
+    ("503", "500"): "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
+})
+
+
 @app.route('/compare')
 def compare():
     """Render the side-by-side status code comparison tool."""
     codes = pruned_status_codes()
     code_list = [{"code": c.code, "name": c.name} for c in codes]
     return render_template('compare.html', code_list=code_list,
-                           status_info=STATUS_INFO, status_extra=STATUS_EXTRA)
+                           status_info=STATUS_INFO, status_extra=STATUS_EXTRA,
+                           comparison_summaries=COMPARISON_SUMMARIES)
 
 
 @app.route('/tester')
@@ -584,8 +772,7 @@ def check_cors():
     origin = request.args.get('origin', '')
     if not url or not origin:
         return jsonify({"error": "Both url and origin are required"}), 400
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    url = _ensure_scheme(url)
     safe_url, hostname = resolve_and_validate(url)
     if not safe_url:
         return jsonify({"error": "URL not allowed"}), 403
@@ -615,15 +802,77 @@ def check_cors():
         }
     except req.RequestException:
         results['actual'] = {'error': 'Could not connect'}
-    # Analysis
-    acao = (results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Origin', '')
-            or results.get('preflight', {}).get('headers', {}).get('Access-Control-Allow-Origin', ''))
-    actual_creds = results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Credentials', '')
+    # Analysis — extract CORS headers from whichever response returned them
+    def _cors_header(section, name):
+        return results.get(section, {}).get('headers', {}).get(name, '')
+
+    acao = _cors_header('actual', 'Access-Control-Allow-Origin') or _cors_header('preflight', 'Access-Control-Allow-Origin')
+    actual_creds = _cors_header('actual', 'Access-Control-Allow-Credentials')
     results['analysis'] = {
         'cors_enabled': bool(acao),
-        'allows_origin': acao == '*' or acao == origin,
-        'allows_credentials': actual_creds.lower() == 'true' if isinstance(actual_creds, str) else False,
+        'allows_origin': acao in ('*', origin),
+        'allows_credentials': isinstance(actual_creds, str) and actual_creds.lower() == 'true',
     }
+    return jsonify(results)
+
+
+@app.route('/api/search')
+def api_search():
+    """Search status codes by code number, name, description, or keywords.
+
+    Returns a JSON array of matching status codes with relevance scores.
+    Query parameter: q (required).
+    """
+    query = request.args.get('q', '').strip().lower()
+    if not query:
+        return jsonify({"error": "Missing required query parameter: q"}), 400
+    if len(query) > 200:
+        return jsonify({"error": "Query too long (max 200 characters)"}), 400
+
+    results = []
+    for sc in status_code_list:
+        score = 0
+        code = sc.code
+        name = sc.name.lower()
+        info = STATUS_INFO.get(code, {})
+        description = info.get('description', '').lower()
+
+        # Exact code match (highest relevance)
+        if query == code:
+            score = 100
+        # Code starts with query (e.g. "40" matches 400, 401, etc.)
+        elif code.startswith(query) and query.isdigit():
+            score = 80
+        # Code contains query digits
+        elif query.isdigit() and query in code:
+            score = 60
+
+        # Name matching
+        if query in name:
+            name_bonus = 70 if query == name else 50
+            score = max(score, name_bonus)
+
+        # Description matching
+        if query in description:
+            score = max(score, 30)
+
+        # Keyword matching in name words
+        query_words = query.split()
+        if len(query_words) > 1:
+            matched_words = sum(1 for w in query_words if w in name or w in description)
+            if matched_words > 0:
+                word_score = int(20 + (matched_words / len(query_words)) * 40)
+                score = max(score, word_score)
+
+        if score > 0:
+            results.append({
+                "code": code,
+                "name": sc.name,
+                "description": info.get('description', ''),
+                "score": score,
+            })
+
+    results.sort(key=lambda r: (-r['score'], r['code']))
     return jsonify(results)
 
 
@@ -636,8 +885,7 @@ def check_url():
     url = request.args.get('url', '')
     if not url:
         return jsonify({"error": "No URL provided"}), 400
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    url = _ensure_scheme(url)
     safe_url, hostname = resolve_and_validate(url)
     if not safe_url:
         logger.warning('SSRF blocked: %s from %s', url, request.remote_addr)
@@ -656,6 +904,64 @@ def check_url():
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
+@app.route('/playground')
+def playground():
+    """Render the Interactive Response Playground page."""
+    codes = [{"code": c.code, "name": c.name} for c in status_code_list]
+    return render_template('playground.html', all_codes=codes)
+
+
+# Security-sensitive headers that mock-response users must not override
+_BLOCKED_MOCK_HEADERS = frozenset({
+    'set-cookie', 'content-security-policy', 'x-frame-options',
+    'x-content-type-options', 'strict-transport-security',
+    'referrer-policy', 'permissions-policy', 'server',
+    'transfer-encoding',
+})
+
+
+def _is_safe_header_value(s):
+    """Return True if the string contains no newline/carriage-return characters."""
+    return '\n' not in s and '\r' not in s
+
+
+@app.route('/api/mock-response', methods=['POST'])
+def mock_response():
+    """Return an HTTP response with user-specified status, headers, and body.
+
+    Accepts JSON: {status_code: int, headers: dict, body: string}.
+    Rate-limited to prevent abuse.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+    status = data.get('status_code', 200)
+    if not isinstance(status, int) or status < 100 or status > 599:
+        return jsonify({"error": "status_code must be an integer between 100 and 599"}), 400
+    headers = data.get('headers', {})
+    if not isinstance(headers, dict):
+        return jsonify({"error": "headers must be a dict"}), 400
+    body = data.get('body', '')
+    if not isinstance(body, str):
+        return jsonify({"error": "body must be a string"}), 400
+    if len(body) > 10000:
+        return jsonify({"error": "body must be 10000 characters or fewer"}), 400
+    if len(headers) > 50:
+        return jsonify({"error": "Too many headers (max 50)"}), 400
+    resp = app.response_class(body, status=status)
+    for key, value in headers.items():
+        key_clean = str(key).strip()
+        value_clean = str(value).strip()
+        if (key_clean
+                and _is_safe_header_value(key_clean)
+                and _is_safe_header_value(value_clean)
+                and key_clean.lower() not in _BLOCKED_MOCK_HEADERS):
+            resp.headers[key_clean] = value_clean
+    return resp
+
+
 @app.route('/return/<int:code>')
 def return_status(code):
     """Return a JSON response with the given HTTP status code.
@@ -670,7 +976,7 @@ def return_status(code):
         if is_rate_limited(request.remote_addr):
             return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
         time.sleep(delay)
-    description = next((s.name for s in status_code_list if s.code == str(code)), 'Unknown')
+    description = status_name(str(code)) or 'Unknown'
     response = jsonify({
         "code": code,
         "description": description,
@@ -697,7 +1003,8 @@ def http_parrot(status_code):
         code = int(status_code)
     except ValueError:
         abort(404)
-    if not any(s.code == status_code for s in status_code_list):
+    description = status_name(status_code)
+    if not description:
         abort(404)
     # Only return the actual status code for 2xx/4xx/5xx.
     # 1xx and 3xx codes have special HTTP semantics that break the response.
@@ -707,10 +1014,8 @@ def http_parrot(status_code):
     best = request.accept_mimetypes.best_match(['text/html', 'image/*', 'application/json'])
     if image and best == 'image/*':
         return send_from_directory('static', image), code
-    description = next((s.name for s in status_code_list if s.code == status_code), '')
     info = STATUS_INFO.get(status_code, {})
     extra = STATUS_EXTRA.get(status_code, {})
-    http_example = HTTP_EXAMPLES.get(status_code, {})
     if best == 'application/json':
         return jsonify({
             "code": status_code,
@@ -719,6 +1024,7 @@ def http_parrot(status_code):
             "meaning": info.get("description", ""),
             "history": info.get("history", ""),
         }), code
+    http_example = HTTP_EXAMPLES.get(status_code, {})
     codes = pruned_status_codes()
     code_list = [c.code for c in codes]
     try:
@@ -729,11 +1035,14 @@ def http_parrot(status_code):
     next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
     related = RELATED_CODES.get(status_code, [])
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
+    faq_entries = build_faq_entries(status_code, description, info, extra, related)
+    eli5 = extra.get('eli5', '')
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
                            prev_code=prev_code, next_code=next_code,
-                           related=related, curl_cmd=curl_cmd), code
+                           related=related, curl_cmd=curl_cmd,
+                           faq_entries=faq_entries, eli5=eli5), code
 
 
 @app.route('/<status_code>.jpg')
@@ -750,19 +1059,129 @@ _ECHO_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
 
 @app.route('/echo', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
 def echo():
-    """Echo the request details back as JSON (httpbin-style)."""
+    """Echo the request details back as JSON (httpbin-style).
+
+    Supports all HTTP methods. For POST/PUT/PATCH the request body and
+    parsed JSON are included.  Query parameters are always echoed in
+    ``args``.
+
+    Special query params:
+      ?format=pretty  -- return indented JSON
+      ?format=curl    -- return a curl command that reproduces the request
+    """
+    safe_headers = {k: v for k, v in request.headers
+                    if k.lower() not in _ECHO_STRIP_HEADERS}
+    args = {k: v for k, v in request.args.items() if k != 'format'}
+
+    fmt = request.args.get('format', '').lower()
+
+    if fmt == 'curl':
+        # Build a curl command that reproduces this request
+        parts = ['curl']
+        if request.method != 'GET':
+            parts.append(f'-X {request.method}')
+        # Rebuild URL without the format param
+        base_url = request.base_url
+        if args:
+            qs = '&'.join(f'{k}={v}' for k, v in args.items())
+            base_url = f'{base_url}?{qs}'
+        parts.append(f"'{base_url}'")
+        for k, v in safe_headers.items():
+            parts.append(f"-H '{k}: {v}'")
+        if request.method in ('POST', 'PUT', 'PATCH'):
+            body = request.get_data(as_text=True)
+            if body:
+                escaped = body.replace("'", "'\\''")
+                parts.append(f"-d '{escaped}'")
+        return jsonify({'curl': ' \\\n  '.join(parts)})
+
     data = {
         'method': request.method,
         'url': request.url,
-        'headers': {k: v for k, v in request.headers
-                    if k.lower() not in _ECHO_STRIP_HEADERS},
-        'args': dict(request.args),
+        'headers': safe_headers,
+        'args': args,
     }
     if request.method in ('POST', 'PUT', 'PATCH'):
         data['body'] = request.get_data(as_text=True)
         if request.is_json:
             data['json'] = request.get_json(silent=True)
+
+    if fmt == 'pretty':
+        resp = app.response_class(
+            json.dumps(data, indent=2, sort_keys=True) + '\n',
+            mimetype='application/json',
+        )
+        return resp
+
     return jsonify(data)
+
+
+_CATEGORY_LABELS = {
+    '1': ('1xx', 'Informational'),
+    '2': ('2xx', 'Success'),
+    '3': ('3xx', 'Redirection'),
+    '4': ('4xx', 'Client Error'),
+    '5': ('5xx', 'Server Error'),
+}
+
+
+def _code_category(code_str):
+    """Return the category label for a status code string, e.g. '404' -> '4xx Client Error'."""
+    first = code_str[0] if code_str else '?'
+    prefix, name = _CATEGORY_LABELS.get(first, (None, None))
+    return f'{prefix} {name}' if prefix else 'Unknown'
+
+
+@app.route('/api/diff')
+def api_diff():
+    """Compare two HTTP status codes and return their differences as JSON.
+
+    Query params:
+      code1 -- first status code  (required)
+      code2 -- second status code (required)
+
+    Returns descriptions, categories, real-world examples, related codes,
+    and a human-readable key_difference summary.
+    """
+    code1 = request.args.get('code1', '').strip()
+    code2 = request.args.get('code2', '').strip()
+    if not code1 or not code2:
+        return jsonify({'error': 'Both code1 and code2 query params are required.'}), 400
+
+    name1 = status_name(code1)
+    name2 = status_name(code2)
+    if not name1 or not name2:
+        missing = [c for c, n in [(code1, name1), (code2, name2)] if not n]
+        return jsonify({'error': f"Unknown status code(s): {', '.join(missing)}"}), 404
+
+    related1 = RELATED_CODES.get(code1, [])
+    related2 = RELATED_CODES.get(code2, [])
+
+    # Try to find a direct key_difference from RELATED_CODES
+    key_diff = (
+        next((exp for rc, exp in related1 if rc == code2), None)
+        or next((exp for rc, exp in related2 if rc == code1), None)
+        or (f"{code1} ({name1}) is a {_code_category(code1).split(' ', 1)[1].lower()} response; "
+            f"{code2} ({name2}) is a {_code_category(code2).split(' ', 1)[1].lower()} response.")
+    )
+
+    def _code_detail(code, name, related):
+        info = STATUS_INFO.get(code, {})
+        extra = STATUS_EXTRA.get(code, {})
+        return {
+            'code': code,
+            'name': name,
+            'category': _code_category(code),
+            'description': info.get('description', ''),
+            'examples': extra.get('examples', []),
+            'related_codes': [{'code': c, 'why': w} for c, w in related],
+        }
+
+    return jsonify({
+        'code1': _code_detail(code1, name1, related1),
+        'code2': _code_detail(code2, name2, related2),
+        'key_difference': key_diff,
+    })
 
 
 @app.route('/redirect/<int:n>')
@@ -777,14 +1196,54 @@ def redirect_chain(n):
     return redirect(url_for('redirect_chain', n=n - 1), code=302)
 
 
+@app.route('/feed.xml')
+def rss_feed():
+    """Generate an RSS 2.0 feed with the daily parrot as the latest item."""
+    base = request.url_root.rstrip('/')
+    featured = get_featured_parrot()
+    info = STATUS_INFO.get(featured.code, {})
+    description = info.get('description', f'HTTP {featured.code} {featured.name}')
+    pub_date = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')
+
+    items_xml = []
+    # Daily parrot as the latest item
+    items_xml.append(
+        f'    <item>\n'
+        f'      <title>Parrot of the Day: HTTP {xml_escape(featured.code)} {xml_escape(featured.name)}</title>\n'
+        f'      <link>{xml_escape(base)}/{xml_escape(featured.code)}</link>\n'
+        f'      <description>{xml_escape(description)}</description>\n'
+        f'      <enclosure url="{xml_escape(base)}/static/{xml_escape(featured.image)}" type="image/jpeg" />\n'
+        f'      <pubDate>{pub_date}</pubDate>\n'
+        f'      <guid>{xml_escape(base)}/{xml_escape(featured.code)}#{date.today().isoformat()}</guid>\n'
+        f'    </item>'
+    )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        '  <channel>\n'
+        f'    <title>HTTP Parrots</title>\n'
+        f'    <link>{xml_escape(base)}/</link>\n'
+        f'    <description>Every HTTP status code, explained by parrots. A fun visual reference for developers.</description>\n'
+        f'    <language>en-us</language>\n'
+        f'    <lastBuildDate>{pub_date}</lastBuildDate>\n'
+        + '\n'.join(items_xml) + '\n'
+        '  </channel>\n'
+        '</rss>'
+    )
+    resp = app.response_class(xml, mimetype='application/rss+xml')
+    resp.headers['Cache-Control'] = 'public, max-age=3600'
+    return resp
+
+
 @app.route('/sitemap.xml')
 def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
-                 '/cheatsheet', '/headers', '/cors-checker', '/collection',
-                 '/api-docs']:
+    for rule in ['/', '/quiz', '/daily', '/practice', '/flowchart',
+                 '/compare', '/tester', '/cheatsheet', '/headers',
+                 '/cors-checker', '/collection', '/playground', '/api-docs']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -806,6 +1265,9 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /api/check-cors\n"
+        "Disallow: /api/mock-response\n"
+        "Disallow: /api/diff\n"
+        "Disallow: /api/search\n"
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"

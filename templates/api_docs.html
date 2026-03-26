@@ -20,9 +20,16 @@
             <div class="docs-endpoint">
                 <div class="docs-desc docs-desc--wide">
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/quiz</span> - Guess the status code from the parrot image<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/daily</span> - Daily HTTP challenge with a new scenario question each day<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/practice</span> - Scenario-based practice for HTTP status code training<br>
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/flowchart</span> - Decision tree to pick the right status code<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/compare</span> - Compare two status codes side by side<br>
                     <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/tester</span> - Check what status code a URL returns<br>
-                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/cheatsheet</span> - Printable reference of all status codes
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/cheatsheet</span> - Printable reference of all status codes<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/collection</span> - Browse your collected parrots<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/headers</span> - HTTP header explainer tool<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/cors-checker</span> - Check CORS headers for any URL<br>
+                    <span class="docs-method docs-method-get">GET</span> <span class="docs-path">/playground</span> - Interactive Response Playground for crafting mock responses
                 </div>
             </div>
         </div>
@@ -47,6 +54,16 @@
   "image": "/404.jpg",
   "meaning": "The server cannot find the requested resource...",
   "history": "Defined in HTTP/1.0 (RFC 1945, 1996)..."
+}</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response schema</div>
+                    <div class="docs-code">{
+  "code": "string",         // HTTP status code
+  "description": "string",  // Short name (e.g. "Not Found")
+  "image": "string|null",   // Path to parrot image
+  "meaning": "string",      // Detailed explanation
+  "history": "string"       // RFC and history info
 }</div>
                 </div>
                 <div class="docs-accept-headers">
@@ -82,10 +99,55 @@
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>
                 <span class="docs-path">/random</span>
-                <div class="docs-desc">Redirects (302) to a random status code page.</div>
+                <div class="docs-desc">Redirects (302) to a random status code page. Follow redirects to get the final page. The <code>Cache-Control: no-store</code> header ensures each request picks a new code.</div>
                 <div class="docs-example">
                     <div class="docs-example-label">Example</div>
                     <div class="docs-code">curl -L {{ request.url_root }}random</div>
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Get random JSON</div>
+                    <div class="docs-code">curl -L -H "Accept: application/json" {{ request.url_root }}random</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Search status codes</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/search?q={query}</span>
+                <div class="docs-desc">Search status codes by code number, name, description, or keywords. Returns a JSON array of matches sorted by relevance. Useful for building Slack bots, IDE extensions, or CLI tools.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Search by keyword</div>
+                    <div class="docs-code">curl "{{ request.url_root }}api/search?q=not+found"</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">[
+  {
+    "code": "404",
+    "name": "Not Found",
+    "description": "The server cannot find the requested resource...",
+    "score": 50
+  },
+  ...
+]</div>
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Search by code number</div>
+                    <div class="docs-code">curl "{{ request.url_root }}api/search?q=40"</div>
+                </div>
+                <div class="docs-desc">The <code>score</code> field (0-100) indicates relevance. Exact code matches score highest, followed by name matches, then description matches.</div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response schema</div>
+                    <div class="docs-code">[
+  {
+    "code": "string",         // HTTP status code
+    "name": "string",         // Short name (e.g. "Not Found")
+    "description": "string",  // Longer description
+    "score": "number"         // Relevance 0-100
+  }
+]</div>
                 </div>
             </div>
         </div>
@@ -109,6 +171,46 @@
   "time_ms": 142
 }</div>
                 </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Error response</div>
+                    <div class="docs-code">{
+  "error": "Could not connect to the provided URL"
+}   // HTTP 502</div>
+                </div>
+                <div class="docs-desc">Returns 400 if no URL is provided, 403 if the URL targets a private/internal network, or 502 if the connection fails. Rate limited.</div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Check CORS headers</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/check-cors?url={url}&amp;origin={origin}</span>
+                <div class="docs-desc">Sends a preflight (OPTIONS) and actual (GET) request to the given URL with the specified origin, and reports the CORS headers returned. Rate limited.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code" id="cors-curl">curl "{{ request.url_root }}api/check-cors?url=https://api.example.com&amp;origin=https://mysite.com"</div>
+                    <button class="docs-copy-curl-btn" data-target="cors-curl" title="Copy as curl">Copy curl</button>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">{
+  "preflight": {
+    "status": 204,
+    "headers": {"Access-Control-Allow-Origin": "*", "...": "..."}
+  },
+  "actual": {
+    "status": 200,
+    "headers": {"Access-Control-Allow-Origin": "*", "...": "..."}
+  },
+  "analysis": {
+    "cors_enabled": true,
+    "allows_origin": true,
+    "allows_credentials": false
+  }
+}</div>
+                </div>
+                <div class="docs-desc">Both <code>url</code> and <code>origin</code> query params are required. The <code>analysis</code> object summarizes whether CORS is enabled for the given origin.</div>
             </div>
         </div>
 
@@ -139,10 +241,12 @@
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">ANY</span>
                 <span class="docs-path">/echo</span>
-                <div class="docs-desc">Mirrors the incoming request back as JSON. Accepts GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS. For POST/PUT/PATCH, the request body and parsed JSON are included.</div>
+                <div class="docs-desc">Mirrors the incoming request back as JSON. Accepts GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS. For POST/PUT/PATCH, the request body and parsed JSON are included. Query parameters are echoed in <code>args</code>.</div>
+
                 <div class="docs-example">
-                    <div class="docs-example-label">Example</div>
-                    <div class="docs-code">curl -X POST {{ request.url_root }}echo -H "Content-Type: application/json" -d '{"test": true}'</div>
+                    <div class="docs-example-label">POST with JSON body</div>
+                    <div class="docs-code" id="echo-post-curl">curl -X POST {{ request.url_root }}echo -H "Content-Type: application/json" -d '{"test": true}'</div>
+                    <button class="docs-copy-curl-btn" data-target="echo-post-curl" title="Copy as curl">Copy curl</button>
                 </div>
                 <div class="docs-response">
                     <div class="docs-example-label">Response</div>
@@ -154,6 +258,71 @@
   "body": "{\"test\": true}",
   "json": {"test": true}
 }</div>
+                </div>
+
+                <div class="docs-example">
+                    <div class="docs-example-label">GET with query params</div>
+                    <div class="docs-code" id="echo-get-curl">curl "{{ request.url_root }}echo?foo=bar&amp;page=2"</div>
+                    <button class="docs-copy-curl-btn" data-target="echo-get-curl" title="Copy as curl">Copy curl</button>
+                </div>
+
+                <div class="docs-example">
+                    <div class="docs-example-label">Pretty-printed JSON</div>
+                    <div class="docs-code" id="echo-pretty-curl">curl "{{ request.url_root }}echo?format=pretty"</div>
+                    <button class="docs-copy-curl-btn" data-target="echo-pretty-curl" title="Copy as curl">Copy curl</button>
+                </div>
+
+                <div class="docs-example">
+                    <div class="docs-example-label">Get a reproducible curl command</div>
+                    <div class="docs-code" id="echo-curl-curl">curl -X POST {{ request.url_root }}echo?format=curl -H "Content-Type: application/json" -d '{"test": true}'</div>
+                    <button class="docs-copy-curl-btn" data-target="echo-curl-curl" title="Copy as curl">Copy curl</button>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">{"curl": "curl \\\n  -X POST \\\n  '{{ request.url_root }}echo' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"test\": true}'"}</div>
+                </div>
+
+                <div class="docs-try-it">
+                    <button class="docs-try-btn" data-endpoint="/echo?format=pretty" data-method="GET" aria-label="Try the echo endpoint">Try it</button>
+                    <pre class="docs-try-result" style="display:none"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Compare status codes</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/diff?code1={code}&amp;code2={code}</span>
+                <div class="docs-desc">Compares two HTTP status codes and returns their descriptions, categories, real-world examples, related codes, and a human-readable key difference summary.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code" id="diff-curl">curl "{{ request.url_root }}api/diff?code1=401&amp;code2=403"</div>
+                    <button class="docs-copy-curl-btn" data-target="diff-curl" title="Copy as curl">Copy curl</button>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">{
+  "code1": {
+    "code": "401", "name": "Unauthorized",
+    "category": "4xx Client Error",
+    "description": "...",
+    "examples": ["..."],
+    "related_codes": [{"code": "403", "why": "..."}]
+  },
+  "code2": {
+    "code": "403", "name": "Forbidden",
+    "category": "4xx Client Error",
+    "description": "...",
+    "examples": ["..."],
+    "related_codes": [{"code": "401", "why": "..."}]
+  },
+  "key_difference": "Authenticated but not authorized — re-authenticating won't help"
+}</div>
+                </div>
+                <div class="docs-try-it">
+                    <button class="docs-try-btn" data-endpoint="/api/diff?code1=404&code2=410" data-method="GET" aria-label="Try the diff endpoint">Try it</button>
+                    <pre class="docs-try-result" style="display:none"></pre>
                 </div>
             </div>
         </div>
@@ -167,6 +336,47 @@
                 <div class="docs-example">
                     <div class="docs-example-label">Example</div>
                     <div class="docs-code">curl -L {{ request.url_root }}redirect/3</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Final response (after all redirects)</div>
+                    <div class="docs-code">{
+  "message": "End of redirect chain",
+  "code": 200
+}</div>
+                </div>
+                <div class="docs-desc">Each hop redirects to <code>/redirect/{n-1}</code> until <code>n=0</code>, which returns the 200 JSON response. Returns 404 if <code>n</code> exceeds 10.</div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>Mock response</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-post">POST</span>
+                <span class="docs-path">/api/mock-response</span>
+                <div class="docs-desc">Returns an HTTP response with your specified status code, headers, and body. Useful for testing how clients handle various responses. Rate limited. See the <a href="/playground">Response Playground</a> for an interactive UI.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code" id="mock-curl">curl -X POST {{ request.url_root }}api/mock-response \
+  -H "Content-Type: application/json" \
+  -d '{"status_code": 429, "headers": {"Retry-After": "60"}, "body": "Too many requests"}'</div>
+                    <button class="docs-copy-curl-btn" data-target="mock-curl" title="Copy as curl">Copy curl</button>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Request body (JSON)</div>
+                    <div class="docs-code">{
+  "status_code": 429,
+  "headers": {"Retry-After": "60", "Content-Type": "text/plain"},
+  "body": "Too many requests"
+}</div>
+                </div>
+                <div class="docs-desc">Fields: <code>status_code</code> (100-599, required), <code>headers</code> (object, optional), <code>body</code> (string, max 10000 chars, optional).</div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Request body schema</div>
+                    <div class="docs-code">{
+  "status_code": "integer",  // 100-599, required
+  "headers": "object",       // key-value pairs, optional
+  "body": "string"           // response body, max 10000 chars, optional
+}</div>
                 </div>
             </div>
         </div>
@@ -288,4 +498,43 @@ bot.run("YOUR_BOT_TOKEN")</div>
             </div>
         </div>
     </main>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    /* --- Copy curl buttons --- */
+    document.querySelectorAll('.docs-copy-curl-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var target = document.getElementById(btn.getAttribute('data-target'));
+            if (!target) return;
+            var text = target.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = orig; }, 1500);
+            });
+        });
+    });
+
+    /* --- Try it buttons --- */
+    document.querySelectorAll('.docs-try-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var endpoint = btn.getAttribute('data-endpoint');
+            var method = btn.getAttribute('data-method') || 'GET';
+            var resultEl = btn.parentElement.querySelector('.docs-try-result');
+            resultEl.style.display = 'block';
+            resultEl.textContent = 'Loading...';
+            fetch(endpoint, {method: method, headers: {'Accept': 'application/json'}})
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(function(err) {
+                    resultEl.textContent = 'Error: ' + err.message;
+                });
+        });
+    });
+})();
+</script>
 {% endblock %}

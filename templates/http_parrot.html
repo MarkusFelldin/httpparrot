@@ -12,19 +12,37 @@
     <meta property="og:site_name" content="HTTP Parrots">
     <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "DefinedTerm",
-  "name": "HTTP {{ status_code }} {{ description }}",
-  "description": {{ info.description | tojson }},
-  "termCode": "{{ status_code }}",
-  "inDefinedTermSet": {
-    "@type": "DefinedTermSet",
-    "name": "HTTP Status Codes",
-    "url": "{{ request.url_root }}"
-  },
-  "url": "{{ request.url_root }}{{ status_code }}"
-}
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    "name": "HTTP {{ status_code }} {{ description }}",
+    "description": {{ info.description | tojson }},
+    "termCode": "{{ status_code }}",
+    "inDefinedTermSet": {
+      "@type": "DefinedTermSet",
+      "name": "HTTP Status Codes",
+      "url": "{{ request.url_root }}"
+    },
+    "url": "{{ request.url_root }}{{ status_code }}"
+  }{% if faq_entries %},
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {% for faq in faq_entries %}
+      {
+        "@type": "Question",
+        "name": {{ faq.question | tojson }},
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": {{ faq.answer | tojson }}
+        }
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }{% endif %}
+]
 </script>
 {% endblock %}
 
@@ -60,21 +78,67 @@
         </div>
 
         <div class="detail-actions">
-            <button class="btn-copy-curl" id="copy-curl" title="Copy curl command">
+            <button class="btn-copy-curl" id="copy-curl" title="Copy curl command" aria-label="Copy curl command: {{ curl_cmd }}">
                 <span class="copy-curl-text">{{ curl_cmd }}</span>
-                <span class="copy-curl-icon" id="copy-curl-icon">Copy</span>
+                <span class="copy-curl-icon" id="copy-curl-icon" aria-live="polite">Copy</span>
             </button>
-            <div class="share-actions" aria-live="polite">
-                <button class="btn-share" id="share-link" title="Copy link to this page">Copy Link</button>
-                <button class="btn-share" id="share-image" title="Copy direct image URL">Copy Image URL</button>
+            <div class="share-actions" role="group" aria-label="Share options">
+                <button class="btn-share" id="share-native" title="Share this parrot" aria-label="Share this parrot">Share</button>
+                <a class="btn-share" id="share-twitter" href="https://twitter.com/intent/tweet?text={{ ('HTTP ' + status_code + ' ' + description + ' — explained by parrots')|urlencode }}&amp;url={{ (request.url_root + status_code)|urlencode }}" target="_blank" rel="noopener" title="Share on X/Twitter" aria-label="Share on X/Twitter">Post on X</a>
+                <button class="btn-share" id="share-link" title="Copy link to this page" aria-label="Copy link to this page">Copy Link</button>
+                <button class="btn-share" id="share-image" title="Copy direct image URL" aria-label="Copy direct image URL">Copy Image URL</button>
+                <button class="btn-share" id="share-slack" title="Copy formatted message for Slack" aria-label="Copy formatted message for Slack">Slack</button>
+                <button class="btn-share" id="share-discord" title="Copy formatted message for Discord" aria-label="Copy formatted message for Discord">Discord</button>
             </div>
         </div>
+
+        <details class="embed-section">
+            <summary class="embed-toggle">Embed this parrot</summary>
+            <div class="embed-content">
+                <div class="embed-item">
+                    <label class="embed-label">Direct Image URL</label>
+                    <div class="embed-code-row">
+                        <code class="embed-code">{{ request.url_root }}{{ status_code }}.jpg</code>
+                        <button class="btn-embed-copy" data-copy="{{ request.url_root }}{{ status_code }}.jpg">Copy</button>
+                    </div>
+                </div>
+                <div class="embed-item">
+                    <label class="embed-label">HTML</label>
+                    <div class="embed-code-row">
+                        <code class="embed-code">&lt;img src="{{ request.url_root }}{{ status_code }}.jpg" alt="HTTP {{ status_code }} {{ description }}" width="600"&gt;</code>
+                        <button class="btn-embed-copy" data-copy='<img src="{{ request.url_root }}{{ status_code }}.jpg" alt="HTTP {{ status_code }} {{ description }}" width="600">'>Copy</button>
+                    </div>
+                </div>
+                <div class="embed-item">
+                    <label class="embed-label">Markdown</label>
+                    <div class="embed-code-row">
+                        <code class="embed-code">![HTTP {{ status_code }} {{ description }}]({{ request.url_root }}{{ status_code }}.jpg)</code>
+                        <button class="btn-embed-copy" data-copy="![HTTP {{ status_code }} {{ description }}]({{ request.url_root }}{{ status_code }}.jpg)">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </details>
 
         {% if info %}
         <div class="detail-info">
             <div class="detail-section">
+                {% if eli5 %}
+                <div class="eli5-toggle-row">
+                    <h2>What does it mean?</h2>
+                    <label class="eli5-toggle" for="eli5-switch">
+                        <input type="checkbox" id="eli5-switch" class="eli5-toggle-input" role="switch" aria-label="Toggle simple mode explanation">
+                        <span class="eli5-toggle-track">
+                            <span class="eli5-toggle-thumb"></span>
+                        </span>
+                        <span class="eli5-toggle-label">Simple mode</span>
+                    </label>
+                </div>
+                <p class="eli5-technical">{{ info.description }}</p>
+                <p class="eli5-simple" style="display:none;">{{ eli5 }}</p>
+                {% else %}
                 <h2>What does it mean?</h2>
                 <p>{{ info.description }}</p>
+                {% endif %}
             </div>
             <div class="detail-section">
                 <h2>History</h2>
@@ -129,14 +193,14 @@
             <div class="detail-section">
                 <h2>Example HTTP exchange</h2>
                 <div class="http-exchange">
-                    <div class="http-panel">
+                    <div class="http-panel http-panel-request">
                         <div class="http-panel-label http-request-label">Request</div>
-                        <pre class="http-block http-request">{{ http_example.request }}</pre>
+                        <pre class="http-block http-request">{{ http_example.request|highlight_http('request') }}</pre>
                     </div>
                     <div class="http-arrow" aria-hidden="true"></div>
-                    <div class="http-panel">
+                    <div class="http-panel http-panel-response">
                         <div class="http-panel-label http-response-label">Response</div>
-                        <pre class="http-block http-response">{{ http_example.response }}</pre>
+                        <pre class="http-block http-response">{{ http_example.response|highlight_http('response') }}</pre>
                     </div>
                 </div>
             </div>
@@ -159,23 +223,45 @@
         </div>
         {% endif %}
 
-        <div class="detail-nav">
+        <nav class="detail-nav" aria-label="Status code navigation">
             <div class="detail-nav-side">
                 {% if prev_code %}
-                <a href="/{{ prev_code }}" class="btn-nav">&larr; {{ prev_code }}</a>
+                <a href="/{{ prev_code }}" class="btn-nav" aria-label="Previous status code: {{ prev_code }}">&larr; {{ prev_code }}</a>
                 {% endif %}
             </div>
             <a href="/" class="btn-back">All parrots</a>
             <div class="detail-nav-side detail-nav-right">
                 {% if next_code %}
-                <a href="/{{ next_code }}" class="btn-nav">{{ next_code }} &rarr;</a>
+                <a href="/{{ next_code }}" class="btn-nav" aria-label="Next status code: {{ next_code }}">{{ next_code }} &rarr;</a>
                 {% endif %}
             </div>
-        </div>
+        </nav>
+
+        <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
     </main>
 {% endblock %}
 
 {% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        if (CSS.supports && CSS.supports('animation-timeline: view()')) return;
+        var sections = document.querySelectorAll('.detail-section');
+        if (!sections.length) return;
+        if ('IntersectionObserver' in window) {
+            var obs = new IntersectionObserver(function(entries) {
+                entries.forEach(function(e) {
+                    if (e.isIntersecting) {
+                        e.target.classList.add('revealed');
+                        obs.unobserve(e.target);
+                    }
+                });
+            }, {threshold: 0.1});
+            sections.forEach(function(s) { obs.observe(s); });
+        } else {
+            sections.forEach(function(s) { s.classList.add('revealed'); });
+        }
+    })();
+    </script>
     <script nonce="{{ csp_nonce }}">
     document.getElementById('copy-curl').addEventListener('click', function() {
         var text = {{ curl_cmd|tojson }};
@@ -202,11 +288,36 @@
                 setTimeout(function() { btn.textContent = orig; }, 2000);
             });
         }
+        var shareNative = document.getElementById('share-native');
+        if (navigator.share) {
+            shareNative.addEventListener('click', function() {
+                navigator.share({
+                    title: 'HTTP {{ status_code }} {{ description }}',
+                    text: {{ ('HTTP ' + status_code + ' means "' + description + '" — explained by parrots!')|tojson }},
+                    url: window.location.href
+                }).catch(function() {});
+            });
+        } else {
+            shareNative.addEventListener('click', function() {
+                copyWithFeedback(this, window.location.href);
+            });
+        }
         document.getElementById('share-link').addEventListener('click', function() {
             copyWithFeedback(this, window.location.href);
         });
         document.getElementById('share-image').addEventListener('click', function() {
             copyWithFeedback(this, window.location.origin + '/{{ status_code }}.jpg');
+        });
+        document.getElementById('share-slack').addEventListener('click', function() {
+            copyWithFeedback(this, {{ (':parrot: *' + status_code + ' ' + description + '* — ' + info.get('description', '') + ' | <' + request.url_root + status_code + '|Learn more>')|tojson }});
+        });
+        document.getElementById('share-discord').addEventListener('click', function() {
+            copyWithFeedback(this, {{ ('**' + status_code + ' ' + description + '** — ' + info.get('description', '') + ' | [Learn more](' + request.url_root + status_code + ')')|tojson }});
+        });
+        document.querySelectorAll('.btn-embed-copy').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                copyWithFeedback(this, btn.getAttribute('data-copy'));
+            });
         });
     })();
     </script>
@@ -244,6 +355,22 @@
     </script>
     <script nonce="{{ csp_nonce }}">
     (function() {
+        var btn = document.getElementById('back-to-top');
+        if (!btn) return;
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 400) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        }, {passive: true});
+        btn.addEventListener('click', function() {
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
         var code = '{{ status_code }}';
         var collected = JSON.parse(localStorage.getItem('parrotdex') || '[]');
         if (collected.indexOf(code) === -1) {
@@ -252,4 +379,26 @@
         }
     })();
     </script>
+    {% if eli5 %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var toggle = document.getElementById('eli5-switch');
+        if (!toggle) return;
+        var technical = document.querySelector('.eli5-technical');
+        var simple = document.querySelector('.eli5-simple');
+        function apply(on) {
+            technical.style.display = on ? 'none' : '';
+            simple.style.display = on ? '' : 'none';
+        }
+        if (localStorage.getItem('eli5') === 'on') {
+            toggle.checked = true;
+            apply(true);
+        }
+        toggle.addEventListener('change', function() {
+            localStorage.setItem('eli5', toggle.checked ? 'on' : 'off');
+            apply(toggle.checked);
+        });
+    })();
+    </script>
+    {% endif %}
 {% endblock %}

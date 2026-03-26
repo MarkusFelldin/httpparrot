@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Daily HTTP Challenge - HTTP Parrots{% endblock %}
+{% block subtitle %}Daily Challenge{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Daily HTTP status code challenge. One scenario, four choices, how long can you keep your streak?">
+{% endblock %}
+
+{% block content %}
+    <main class="quiz-container" id="main-content" role="main">
+        <div class="daily-header">
+            <h1 class="daily-title">Daily HTTP Challenge</h1>
+            <div class="daily-date">{{ date_str }}</div>
+        </div>
+
+        <div class="daily-streak-display" role="region" aria-label="Streak tracker">
+            <div class="score-item score-streak">
+                <div class="score-value" id="streak-count" aria-live="polite">0</div>
+                <div class="score-label">Day Streak</div>
+            </div>
+        </div>
+
+        <div class="daily-scenario" id="daily-scenario">
+            <div class="daily-scenario-label">Which HTTP status code fits this scenario?</div>
+            <div class="daily-scenario-text">{{ scenario }}</div>
+        </div>
+
+        <div class="quiz-choices" id="daily-choices" role="group" aria-label="Answer choices">
+            {% for opt in options %}
+            <button class="quiz-btn daily-btn" data-index="{{ loop.index0 }}">
+                <span class="quiz-btn-label">{{ ['A','B','C','D'][loop.index0] }}</span>
+                <span class="quiz-btn-text">{{ opt.code }} {{ opt.name }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="quiz-feedback" id="daily-feedback" aria-live="polite" role="status"></div>
+
+        <div class="daily-result" id="daily-result" style="display:none;">
+            <div class="daily-parrot">
+                <img id="daily-img" src="/static/{{ image }}" alt="{{ correct_code }} {{ correct_name }}" width="300" height="250">
+            </div>
+            <div class="daily-explanation" id="daily-explanation">
+                <strong>{{ correct_code }} {{ correct_name }}</strong> &mdash; {{ explanation }}
+            </div>
+            <div class="daily-share-buttons">
+                <button class="btn-back daily-share-copy" id="share-copy">Copy Result</button>
+                <a class="btn-back daily-share-twitter" id="share-twitter" href="#" target="_blank" rel="noopener">Share on Twitter</a>
+            </div>
+        </div>
+
+        <div class="daily-already" id="daily-already" style="display:none;">
+            <div class="daily-already-text">You already answered today's challenge!</div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var CORRECT_INDEX = {{ correct_index }};
+        var DAY_NUMBER = {{ day_number }};
+        var CORRECT_CODE = {{ correct_code | tojson }};
+        var CORRECT_NAME = {{ correct_name | tojson }};
+        var STORAGE_KEY = 'httpparrot_daily';
+
+        function getState() {
+            try {
+                var raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return { lastDay: 0, streak: 0, answered: false, wasCorrect: false };
+        }
+
+        function saveState(state) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        }
+
+        function updateStreakDisplay(streak) {
+            document.getElementById('streak-count').textContent = streak;
+            var el = document.querySelector('.score-streak');
+            el.classList.remove('on-fire', 'blazing');
+            if (streak >= 10) el.classList.add('blazing');
+            else if (streak >= 5) el.classList.add('on-fire');
+        }
+
+        function buildShareText(wasCorrect, streak) {
+            var emoji = wasCorrect ? '\uD83D\uDFE2' : '\uD83D\uDD34';
+            var result = wasCorrect ? 'correct' : 'wrong';
+            return 'I got today\'s HTTP Parrot ' + emoji + ' (' + result + ')!\n'
+                + (streak > 0 ? 'Day ' + streak + ' streak \uD83D\uDD25\n' : '')
+                + 'httpparrots.com/daily';
+        }
+
+        function showResult(wasCorrect, streak) {
+            document.getElementById('daily-result').style.display = '';
+            var shareText = buildShareText(wasCorrect, streak);
+            var copyBtn = document.getElementById('share-copy');
+            copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(shareText).then(function() {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                }).catch(function() {
+                    copyBtn.textContent = 'Failed';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                });
+            });
+            var twitterUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText);
+            document.getElementById('share-twitter').href = twitterUrl;
+        }
+
+        function disableButtons(selectedIndex) {
+            var btns = document.querySelectorAll('.daily-btn');
+            btns.forEach(function(b) {
+                b.disabled = true;
+                if (parseInt(b.dataset.index) === CORRECT_INDEX) {
+                    b.classList.add('correct');
+                    if (selectedIndex !== CORRECT_INDEX && selectedIndex >= 0) {
+                        b.classList.add('reveal-correct');
+                    }
+                }
+            });
+            if (selectedIndex >= 0 && selectedIndex !== CORRECT_INDEX) {
+                btns[selectedIndex].classList.add('wrong');
+            }
+        }
+
+        function spawnConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            for (var i = 0; i < 20; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 50 + Math.random() * 100;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        // Init
+        var state = getState();
+
+        // Handle streak: if they answered yesterday, streak continues; otherwise reset
+        if (state.lastDay === DAY_NUMBER - 1 && state.wasCorrect) {
+            // streak carries forward
+        } else if (state.lastDay !== DAY_NUMBER) {
+            // missed a day or first time — reset streak unless continuing today
+            if (state.lastDay < DAY_NUMBER - 1) {
+                state.streak = 0;
+            }
+        }
+
+        updateStreakDisplay(state.streak);
+
+        // If already answered today, show the result
+        if (state.lastDay === DAY_NUMBER && state.answered) {
+            disableButtons(-1); // disable all, mark correct
+            var fb = document.getElementById('daily-feedback');
+            if (state.wasCorrect) {
+                fb.textContent = 'Correct!';
+                fb.className = 'quiz-feedback right';
+            } else {
+                fb.textContent = 'Nope! It was ' + CORRECT_CODE + ' ' + CORRECT_NAME;
+                fb.className = 'quiz-feedback nope';
+            }
+            showResult(state.wasCorrect, state.streak);
+            document.getElementById('daily-already').style.display = '';
+            return;
+        }
+
+        // Attach click handlers
+        var btns = document.querySelectorAll('.daily-btn');
+        btns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var idx = parseInt(btn.dataset.index);
+                var wasCorrect = (idx === CORRECT_INDEX);
+
+                if (wasCorrect) {
+                    state.streak++;
+                    spawnConfetti(btn);
+                } else {
+                    state.streak = 0;
+                }
+                state.lastDay = DAY_NUMBER;
+                state.answered = true;
+                state.wasCorrect = wasCorrect;
+                saveState(state);
+
+                disableButtons(idx);
+                updateStreakDisplay(state.streak);
+
+                var sv = document.getElementById('streak-count');
+                sv.classList.remove('streak-bump');
+                void sv.offsetWidth;
+                sv.classList.add('streak-bump');
+
+                var fb = document.getElementById('daily-feedback');
+                if (wasCorrect) {
+                    fb.textContent = 'Correct!';
+                    fb.className = 'quiz-feedback right';
+                } else {
+                    fb.textContent = 'Nope! It was ' + CORRECT_CODE + ' ' + CORRECT_NAME;
+                    fb.className = 'quiz-feedback nope';
+                }
+
+                showResult(wasCorrect, state.streak);
+            });
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (state.answered && state.lastDay === DAY_NUMBER) return;
+            if (e.key >= '1' && e.key <= '4') {
+                var btns = document.querySelectorAll('.daily-btn');
+                if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
+            }
+        });
+    })();
+    </script>
+{% endblock %}

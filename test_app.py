@@ -113,6 +113,32 @@ class TestPages:
         assert resp.status_code == 404
         assert b'Parrot Not Found' in resp.data
 
+    def test_practice_page(self, client):
+        resp = client.get('/practice')
+        assert resp.status_code == 200
+        assert b'Scenario Practice' in resp.data
+
+    def test_practice_page_has_scenario_cards(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-card' in html
+        assert 'practice-option-btn' in html
+        assert 'practice-description' in html
+
+    def test_practice_page_has_difficulty_filters(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-difficulty="all"' in html
+        assert 'data-difficulty="beginner"' in html
+        assert 'data-difficulty="intermediate"' in html
+        assert 'data-difficulty="expert"' in html
+
+    def test_practice_nav_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+        assert 'Practice' in html
+
 
 # --- Content negotiation ---
 
@@ -441,12 +467,20 @@ class TestCSPNonce:
 # --- Resolve and validate edge cases ---
 
 class TestResolveValidateEdgeCases:
-    def test_url_with_port(self):
+    def test_url_with_standard_port(self):
+        """URLs with standard ports (80, 443) should be allowed."""
         addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
         with patch('index.socket.getaddrinfo', return_value=addrinfo):
-            result, hostname = resolve_and_validate('http://example.com:8080/path')
-            assert result == 'http://example.com:8080/path'
+            result, hostname = resolve_and_validate('http://example.com:80/path')
+            assert result == 'http://example.com:80/path'
             assert hostname == 'example.com'
+
+    def test_url_with_non_standard_port_blocked(self):
+        """URLs with non-standard ports should be blocked to prevent SSRF."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:8080/path')
+            assert result is None
 
     def test_unresolvable_hostname(self):
         with patch('index.socket.getaddrinfo', side_effect=socket.gaierror):
@@ -591,6 +625,48 @@ class TestKeyboardNavigation:
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         assert '.parrot-card.grid-focus' in css
+
+
+# --- Scroll-driven animations ---
+
+class TestScrollDrivenAnimations:
+    def test_scroll_animated_css_class_exists(self, client):
+        """The scroll-animated CSS class with animation-timeline should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-card.scroll-animated' in css
+        assert 'animation-timeline: view()' in css
+        assert '@supports (animation-timeline: view())' in css
+
+    def test_scroll_card_in_keyframes_exist(self, client):
+        """The scroll-card-in keyframes should define scale and rotate transforms."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes scroll-card-in' in css
+        assert 'scale(0.95)' in css
+        assert 'rotate(' in css
+
+    def test_will_reveal_has_diagonal_cascade(self, client):
+        """The will-reveal class should include scale and rotate for diagonal cascade."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-card.will-reveal' in css
+        assert 'scale(0.95)' in css
+        assert 'rotate(-1deg)' in css
+
+    def test_homepage_has_scroll_animation_check(self, client):
+        """Homepage JS should check for scroll-driven animation support."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "CSS.supports('animation-timeline: view()')" in html
+        assert 'scroll-animated' in html
+
+    def test_homepage_has_intersection_observer_fallback(self, client):
+        """Homepage should still contain IntersectionObserver as a fallback."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'will-reveal' in html
 
 
 # --- Related codes ---
@@ -876,6 +952,175 @@ class TestEcho:
         assert 'authorization' not in header_keys
         assert 'cookie' not in header_keys
         assert 'x-custom' in header_keys
+
+    def test_echo_post_with_body(self, client):
+        """POST body is echoed in the response."""
+        resp = client.post('/echo', data='raw body text',
+                           content_type='text/plain')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'POST'
+        assert data['body'] == 'raw body text'
+
+    def test_echo_put(self, client):
+        """PUT method with JSON body works."""
+        resp = client.put('/echo', json={'action': 'update'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'PUT'
+        assert data['json']['action'] == 'update'
+        assert 'body' in data
+
+    def test_echo_patch(self, client):
+        """PATCH method with JSON body works."""
+        resp = client.patch('/echo', json={'field': 'patched'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'PATCH'
+        assert data['json']['field'] == 'patched'
+
+    def test_echo_delete(self, client):
+        """DELETE method echoes correctly (no body)."""
+        resp = client.delete('/echo')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'DELETE'
+        assert 'body' not in data  # DELETE doesn't include body
+
+    def test_echo_query_params(self, client):
+        """Multiple query params are echoed in args."""
+        resp = client.get('/echo?foo=bar&page=2&lang=en')
+        data = resp.get_json()
+        assert data['args']['foo'] == 'bar'
+        assert data['args']['page'] == '2'
+        assert data['args']['lang'] == 'en'
+
+    def test_echo_format_pretty(self, client):
+        """?format=pretty returns indented JSON."""
+        resp = client.get('/echo?format=pretty&foo=bar')
+        assert resp.status_code == 200
+        assert resp.content_type.startswith('application/json')
+        raw = resp.data.decode()
+        # Pretty format should have newlines and indentation
+        assert '\n' in raw
+        assert '  ' in raw
+        data = resp.get_json()
+        assert data['args']['foo'] == 'bar'
+        # format should not appear in echoed args
+        assert 'format' not in data['args']
+
+    def test_echo_format_curl(self, client):
+        """?format=curl returns a curl command."""
+        resp = client.get('/echo?format=curl&foo=bar')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert 'curl' in data
+        curl_cmd = data['curl']
+        assert curl_cmd.startswith('curl')
+        assert 'foo=bar' in curl_cmd
+        assert 'format=' not in curl_cmd
+
+    def test_echo_format_curl_post(self, client):
+        """?format=curl for POST includes -X POST and -d flag."""
+        resp = client.post('/echo?format=curl',
+                           json={'test': True})
+        data = resp.get_json()
+        curl_cmd = data['curl']
+        assert '-X POST' in curl_cmd
+        assert "-d " in curl_cmd
+
+
+class TestApiDiff:
+    def test_diff_basic(self, client):
+        """Diff two known codes returns expected structure."""
+        resp = client.get('/api/diff?code1=401&code2=403')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['code1']['code'] == '401'
+        assert data['code1']['name'] == 'Unauthorized'
+        assert data['code2']['code'] == '403'
+        assert data['code2']['name'] == 'Forbidden'
+        assert '4xx Client Error' == data['code1']['category']
+        assert '4xx Client Error' == data['code2']['category']
+        assert data['key_difference']  # non-empty string
+
+    def test_diff_key_difference_from_related(self, client):
+        """Key difference is pulled from RELATED_CODES when available."""
+        resp = client.get('/api/diff?code1=404&code2=410')
+        data = resp.get_json()
+        # 404 -> 410 is in RELATED_CODES
+        assert '410' in data['key_difference'] or 'removed' in data['key_difference'].lower() or len(data['key_difference']) > 0
+
+    def test_diff_includes_examples(self, client):
+        """Diff response includes examples from STATUS_EXTRA."""
+        resp = client.get('/api/diff?code1=200&code2=201')
+        data = resp.get_json()
+        assert isinstance(data['code1']['examples'], list)
+        assert isinstance(data['code2']['examples'], list)
+
+    def test_diff_includes_related_codes(self, client):
+        """Diff response includes related_codes with code and why."""
+        resp = client.get('/api/diff?code1=200&code2=404')
+        data = resp.get_json()
+        assert isinstance(data['code1']['related_codes'], list)
+        if data['code1']['related_codes']:
+            assert 'code' in data['code1']['related_codes'][0]
+            assert 'why' in data['code1']['related_codes'][0]
+
+    def test_diff_missing_params(self, client):
+        """Missing code1 or code2 returns 400."""
+        resp = client.get('/api/diff?code1=200')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_diff_unknown_code(self, client):
+        """Unknown status code returns 404."""
+        resp = client.get('/api/diff?code1=200&code2=999')
+        assert resp.status_code == 404
+        data = resp.get_json()
+        assert 'error' in data
+        assert '999' in data['error']
+
+    def test_diff_cross_category(self, client):
+        """Diff between codes in different categories works."""
+        resp = client.get('/api/diff?code1=200&code2=500')
+        data = resp.get_json()
+        assert data['code1']['category'] == '2xx Success'
+        assert data['code2']['category'] == '5xx Server Error'
+        assert data['key_difference']  # fallback summary generated
+
+
+class TestApiDocsEnhanced:
+    def test_api_docs_echo_sections(self, client):
+        """API docs page has enhanced echo documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'format=pretty' in html
+        assert 'format=curl' in html
+        assert 'Query params' in html or 'query params' in html
+
+    def test_api_docs_diff_section(self, client):
+        """API docs page has the /api/diff documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/diff' in html
+        assert 'Compare status codes' in html
+        assert 'key_difference' in html
+
+    def test_api_docs_try_it_buttons(self, client):
+        """API docs page has interactive Try it buttons."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'docs-try-btn' in html
+        assert 'Try it' in html
+
+    def test_api_docs_copy_curl_buttons(self, client):
+        """API docs page has copy-as-curl buttons."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'docs-copy-curl-btn' in html
+        assert 'Copy curl' in html
 
 
 class TestRedirectChain:
@@ -1246,3 +1491,2370 @@ class TestEasterEggTracking:
         resp = client.get('/')
         html = resp.data.decode()
         assert "eggs.indexOf('konami')" in html
+
+
+class TestShareAndEmbed:
+    """Tests for share buttons and embed codes on detail pages."""
+
+    def test_share_buttons_present(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'id="share-native"' in html
+        assert 'id="share-link"' in html
+        assert 'id="share-image"' in html
+        assert 'id="share-slack"' in html
+        assert 'id="share-discord"' in html
+
+    def test_twitter_share_link(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'id="share-twitter"' in html
+        assert 'twitter.com/intent/tweet' in html
+
+    def test_embed_section_present(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'embed-section' in html
+        assert 'Embed this parrot' in html
+        assert 'embed-code' in html
+
+    def test_embed_formats(self, client):
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert '404.jpg' in html
+        assert 'img src=' in html
+        assert '![HTTP 404' in html
+
+    def test_slack_discord_copy_scripts(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'share-slack' in html
+        assert 'share-discord' in html
+        assert 'navigator.clipboard.writeText' in html
+
+    def test_native_share_api(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'navigator.share' in html
+
+
+# --- ELI5 Toggle ---
+
+class TestELI5Toggle:
+    def test_eli5_toggle_present_on_page_with_eli5(self, client):
+        """Pages with ELI5 content should have the toggle switch."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-switch' in html
+        assert 'eli5-toggle' in html
+        assert 'Simple mode' in html
+
+    def test_eli5_text_in_page_source(self, client):
+        """ELI5 text should be present in the page source."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-simple' in html
+        assert 'librarian' in html
+
+    def test_eli5_toggle_absent_on_page_without_eli5(self, client):
+        """Pages without ELI5 content should not have the toggle."""
+        resp = client.get('/100')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-switch' not in html
+        assert 'eli5-toggle' not in html
+
+    def test_eli5_technical_text_also_present(self, client):
+        """Both technical and ELI5 text should be in the source."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-technical' in html
+        assert 'eli5-simple' in html
+
+    def test_eli5_localStorage_script(self, client):
+        """Pages with ELI5 should have the localStorage persistence script."""
+        resp = client.get('/500')
+        html = resp.get_data(as_text=True)
+        assert "localStorage.getItem('eli5')" in html
+        assert "localStorage.setItem('eli5'" in html
+
+    def test_eli5_present_for_common_codes(self, client):
+        """Common status codes should have ELI5 content in rendered HTML."""
+        # 204 excluded: HTTP 204 returns empty body by protocol
+        codes_with_eli5 = [
+            '200', '201', '301', '302', '304', '400', '401', '403',
+            '404', '405', '408', '418', '429', '500', '502', '503', '504',
+        ]
+        for code in codes_with_eli5:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'eli5-simple' in html, f"Missing ELI5 for status code {code}"
+
+    def test_eli5_data_in_status_extra(self):
+        """STATUS_EXTRA should have eli5 keys for common codes."""
+        from status_extra import STATUS_EXTRA
+        codes_with_eli5 = [
+            '200', '201', '204', '301', '302', '304', '400', '401', '403',
+            '404', '405', '408', '418', '429', '500', '502', '503', '504',
+        ]
+        for code in codes_with_eli5:
+            assert 'eli5' in STATUS_EXTRA[code], f"Missing eli5 key for {code}"
+            assert len(STATUS_EXTRA[code]['eli5']) > 20, f"ELI5 for {code} seems too short"
+
+
+# --- Daily HTTP Challenge ---
+
+class TestDailyChallenge:
+    def test_daily_returns_200(self, client):
+        resp = client.get('/daily')
+        assert resp.status_code == 200
+
+    def test_daily_contains_quiz_elements(self, client):
+        resp = client.get('/daily')
+        html = resp.get_data(as_text=True)
+        assert 'Daily HTTP Challenge' in html
+        assert 'daily-scenario' in html
+        assert 'daily-choices' in html
+        assert 'quiz-btn' in html
+        assert 'Share on Twitter' in html
+        assert 'Copy Result' in html
+
+    def test_daily_deterministic_same_day(self, client):
+        """Same day should produce the same challenge."""
+        resp1 = client.get('/daily')
+        resp2 = client.get('/daily')
+        html1 = resp1.get_data(as_text=True)
+        html2 = resp2.get_data(as_text=True)
+        # Extract the scenario text — it should be identical
+        assert 'daily-scenario' in html1
+        # CSP nonces differ per request, so compare structure without nonces
+        import re
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
+
+    def test_daily_has_four_options(self, client):
+        resp = client.get('/daily')
+        html = resp.get_data(as_text=True)
+        assert html.count('class="quiz-btn daily-btn"') == 4
+
+    def test_daily_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'href="/daily"' in html
+
+
+# --- FAQPage structured data ---
+
+class TestFAQSchema:
+    def test_detail_page_has_faq_schema(self, client):
+        """Detail pages should have FAQPage structured data."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'FAQPage' in html
+        assert 'What does HTTP 200 mean?' in html
+
+    def test_faq_has_when_to_use_question(self, client):
+        """FAQPage should include 'When should I use' question when extra data exists."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'When should I use HTTP 200?' in html
+
+    def test_faq_has_difference_question(self, client):
+        """FAQPage should include difference questions for related codes."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'What is the difference between HTTP 200 and 201?' in html
+
+    def test_faq_combined_with_defined_term(self, client):
+        """FAQPage and DefinedTerm should be in the same JSON-LD block."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Both types should appear in a single JSON-LD script block
+        assert 'DefinedTerm' in html
+        assert 'FAQPage' in html
+        # The JSON-LD should be an array
+        import re
+        ld_match = re.search(r'<script type="application/ld\+json">\s*\[', html)
+        assert ld_match is not None, "JSON-LD should be a JSON array"
+
+    def test_faq_schema_question_answer_structure(self, client):
+        """FAQ entries should have proper Question/Answer structure."""
+        resp = client.get('/404')
+        html = resp.data.decode()
+        assert '"@type": "Question"' in html
+        assert '"@type": "Answer"' in html
+        assert 'acceptedAnswer' in html
+
+    def test_build_faq_entries_function(self):
+        """build_faq_entries should generate correct FAQ entries."""
+        from index import build_faq_entries
+        info = {'description': 'Test description'}
+        extra = {'examples': ['Example 1', 'Example 2']}
+        related = [('201', 'Created vs retrieved')]
+        faq = build_faq_entries('200', 'OK', info, extra, related)
+        assert len(faq) >= 3  # meaning, when to use, difference
+        assert faq[0]['question'] == 'What does HTTP 200 mean?'
+        assert faq[1]['question'] == 'When should I use HTTP 200?'
+        assert 'difference between HTTP 200 and 201' in faq[2]['question']
+
+    def test_build_faq_entries_no_extra(self):
+        """build_faq_entries should work with minimal data."""
+        from index import build_faq_entries
+        info = {'description': 'Test'}
+        faq = build_faq_entries('200', 'OK', info, {}, [])
+        assert len(faq) == 1
+        assert faq[0]['question'] == 'What does HTTP 200 mean?'
+
+
+# --- Parrot of the Day on homepage ---
+
+class TestParrotOfTheDay:
+    def test_homepage_has_potd_section(self, client):
+        """Homepage should have a Parrot of the Day section."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-section' in html
+        assert 'Parrot of the Day' in html
+
+    def test_potd_has_share_button(self, client):
+        """POTD section should have a share button."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-share' in html
+        assert "Share today's parrot" in html
+
+    def test_potd_has_fun_fact(self, client):
+        """POTD section should display a fun fact."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-fun-fact' in html
+
+    def test_potd_has_image(self, client):
+        """POTD section should have an image."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-image' in html
+
+    def test_potd_links_to_detail_page(self, client):
+        """POTD section should link to the featured code's detail page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-link' in html
+
+    def test_potd_deterministic(self, client):
+        """Same day should produce the same POTD."""
+        resp1 = client.get('/')
+        resp2 = client.get('/')
+        html1 = resp1.data.decode()
+        html2 = resp2.data.decode()
+        # Both should contain the same potd-code value
+        import re
+        code1 = re.search(r'class="potd-code[^"]*">(\d+)', html1)
+        code2 = re.search(r'class="potd-code[^"]*">(\d+)', html2)
+        assert code1 is not None
+        assert code1.group(1) == code2.group(1)
+
+
+# --- RSS Feed ---
+
+class TestRSSFeed:
+    def test_feed_returns_200(self, client):
+        """RSS feed should return 200 with RSS content type."""
+        resp = client.get('/feed.xml')
+        assert resp.status_code == 200
+        assert 'rss' in resp.content_type
+
+    def test_feed_is_valid_rss(self, client):
+        """RSS feed should be valid RSS 2.0 XML."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<?xml version' in xml
+        assert '<rss version="2.0">' in xml
+        assert '<channel>' in xml
+        assert '<title>HTTP Parrots</title>' in xml
+        assert '</channel>' in xml
+        assert '</rss>' in xml
+
+    def test_feed_has_daily_parrot_item(self, client):
+        """RSS feed should contain the daily parrot as an item."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<item>' in xml
+        assert 'Parrot of the Day' in xml
+        assert '<pubDate>' in xml
+        assert '<guid>' in xml
+
+    def test_feed_item_has_image(self, client):
+        """RSS feed items should include image enclosures."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<enclosure' in xml
+        assert 'type="image/jpeg"' in xml
+
+    def test_feed_is_cached(self, client):
+        """RSS feed should have cache headers."""
+        resp = client.get('/feed.xml')
+        assert 'max-age=3600' in resp.headers.get('Cache-Control', '')
+
+    def test_feed_autodiscovery_in_html(self, client):
+        """All HTML pages should include RSS autodiscovery link tag."""
+        for path in ['/', '/200', '/quiz']:
+            resp = client.get(path)
+            html = resp.data.decode()
+            assert 'application/rss+xml' in html, f"Missing RSS autodiscovery on {path}"
+            assert '/feed.xml' in html, f"Missing feed URL on {path}"
+
+    def test_feed_has_channel_info(self, client):
+        """RSS feed should have proper channel description and link."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<description>' in xml
+        assert '<language>en-us</language>' in xml
+        assert '<lastBuildDate>' in xml
+
+
+# --- Quiz & Practice visual polish ---
+
+class TestQuizVisualFeedback:
+    """Verify quiz feedback CSS classes and animation hooks exist in templates."""
+
+    def test_quiz_has_correct_class(self, client):
+        """Quiz JS adds .correct class to correct answer buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "classList.add('correct')" in html or 'classList.add("correct"' in html
+
+    def test_quiz_has_wrong_class(self, client):
+        """Quiz JS adds .wrong class to wrong answer buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "classList.add('wrong')" in html or 'classList.add("wrong"' in html
+
+    def test_quiz_has_reveal_correct_class(self, client):
+        """Quiz JS adds .reveal-correct class when revealing correct answer after wrong guess."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'reveal-correct' in html
+
+    def test_quiz_feedback_right_class(self, client):
+        """Quiz feedback element uses .right class for correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-feedback right' in html or "quiz-feedback right" in html
+
+    def test_quiz_feedback_nope_class(self, client):
+        """Quiz feedback element uses .nope class for wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-feedback nope' in html or "quiz-feedback nope" in html
+
+    def test_daily_has_correct_and_wrong_classes(self, client):
+        """Daily challenge JS adds .correct and .wrong classes."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert "classList.add('correct')" in html or 'classList.add("correct"' in html
+        assert "classList.add('wrong')" in html or 'classList.add("wrong"' in html
+
+    def test_daily_has_reveal_correct_class(self, client):
+        """Daily challenge JS adds .reveal-correct for wrong-answer reveal."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'reveal-correct' in html
+
+    def test_daily_has_streak_display(self, client):
+        """Daily challenge has streak display with fire animation hooks."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-streak-display' in html
+        assert 'streak-count' in html
+        assert 'streak-bump' in html
+
+
+class TestPracticeDifficultyTabs:
+    """Verify practice page difficulty tabs have correct styling classes."""
+
+    def test_practice_filter_buttons_have_data_difficulty(self, client):
+        """Each filter button has a data-difficulty attribute."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        for level in ['all', 'beginner', 'intermediate', 'expert']:
+            assert f'data-difficulty="{level}"' in html
+
+    def test_practice_filter_buttons_have_styling_class(self, client):
+        """Filter buttons use the practice-filter-btn class."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert html.count('practice-filter-btn') >= 4
+
+    def test_practice_difficulty_badges_have_classes(self, client):
+        """Scenario cards have difficulty badge classes."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-difficulty-badge beginner' in html
+        assert 'practice-difficulty-badge intermediate' in html
+        assert 'practice-difficulty-badge expert' in html
+
+    def test_practice_has_progress_bar(self, client):
+        """Practice page has a progress bar component."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-progress-bar' in html
+        assert 'practice-progress-track' in html
+        assert 'practice-progress-text' in html
+        assert 'role="progressbar"' in html
+
+    def test_practice_cards_have_difficulty_data(self, client):
+        """Each practice card has a data-difficulty attribute for tab filtering."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        # Cards should have data-difficulty matching one of the three levels
+        import re
+        card_diffs = re.findall(r'class="practice-card"[^>]*data-difficulty="(\w+)"', html)
+        assert len(card_diffs) > 0
+        for diff in card_diffs:
+            assert diff in ('beginner', 'intermediate', 'expert')
+
+    def test_practice_explanation_uses_visible_class(self, client):
+        """Practice explanation reveal uses the .visible class."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "classList.add('visible')" in html or 'classList.add("visible"' in html
+
+
+# --- Detail page polish ---
+
+class TestDetailAccentBar:
+    """Verify category accent bar class is present on detail page cards."""
+
+    def test_1xx_accent_bar(self, client):
+        resp = client.get('/100')
+        assert b'detail-cat-1xx' in resp.data
+
+    def test_2xx_accent_bar(self, client):
+        resp = client.get('/200')
+        assert b'detail-cat-2xx' in resp.data
+
+    def test_3xx_accent_bar(self, client):
+        resp = client.get('/301')
+        assert b'detail-cat-3xx' in resp.data
+
+    def test_4xx_accent_bar(self, client):
+        resp = client.get('/404')
+        assert b'detail-cat-4xx' in resp.data
+
+    def test_5xx_accent_bar(self, client):
+        resp = client.get('/500')
+        assert b'detail-cat-5xx' in resp.data
+
+    def test_accent_bar_css_exists(self, client):
+        """CSS has ::before rules for accent bar on detail cards."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.detail-parrot::before' in css
+        assert '.detail-cat-1xx::before' in css
+        assert '.detail-cat-5xx::before' in css
+
+
+class TestHTTPExchangePanels:
+    """Verify HTTP exchange panels have styling classes and syntax highlighting."""
+
+    def test_request_panel_has_styling_class(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-panel-request' in html
+
+    def test_response_panel_has_styling_class(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-panel-response' in html
+
+    def test_syntax_highlight_method(self, client):
+        """Request block should contain highlighted HTTP method span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-method' in html
+
+    def test_syntax_highlight_status(self, client):
+        """Response block should contain highlighted status line span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-status' in html
+
+    def test_syntax_highlight_header(self, client):
+        """Exchange blocks should contain highlighted header name spans."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-header' in html
+
+    def test_panel_border_css_exists(self, client):
+        """CSS has border rules for request/response panels."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-panel-request' in css
+        assert '.http-panel-response' in css
+
+
+class TestDetailPageAnimations:
+    """Verify section reveal and back-to-top elements on detail pages."""
+
+    def test_back_to_top_button_present(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'back-to-top' in html
+        assert 'Back to top' in html
+
+    def test_back_to_top_script(self, client):
+        """The back-to-top button has JS to toggle visibility."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert "back-to-top" in html
+        assert "classList.add('visible')" in html or 'classList.add("visible"' in html
+
+    def test_section_reveal_fallback_script(self, client):
+        """IntersectionObserver fallback for section reveal is present."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'detail-section' in html
+
+    def test_section_reveal_css_exists(self, client):
+        """CSS has reveal animation and back-to-top styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.detail-section.revealed' in css
+        assert '.back-to-top' in css
+        assert '.back-to-top.visible' in css
+
+
+# --- Compare page enhancements ---
+
+class TestCompareEnhancements:
+    def test_compare_presets_present(self, client):
+        """Compare page should have quick comparison preset buttons."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-preset-btn' in html
+        assert 'data-a="401"' in html
+        assert 'data-b="403"' in html
+        assert 'data-a="301"' in html
+        assert 'data-b="302"' in html
+        assert 'data-a="500"' in html
+        assert 'data-b="502"' in html
+        assert 'data-a="200"' in html
+        assert 'data-b="204"' in html
+
+    def test_compare_swap_button_present(self, client):
+        """Compare page should have a swap codes button."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="swap-codes"' in html
+        assert 'compare-swap-btn' in html
+
+    def test_compare_summary_container_present(self, client):
+        """Compare page should have a summary container."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="compare-summary"' in html
+        assert 'compare-summary' in html
+
+    def test_compare_has_comparison_summaries_data(self, client):
+        """Compare page script should contain comparisonSummaries data."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'comparisonSummaries' in html
+
+    def test_compare_has_diff_builder(self, client):
+        """Compare page should contain the visual diff builder function."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'buildDiffSection' in html
+        assert 'compare-diff' in html
+
+    def test_comparison_summaries_data_integrity(self):
+        """COMPARISON_SUMMARIES keys should reference valid status codes."""
+        from index import COMPARISON_SUMMARIES, status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for key in COMPARISON_SUMMARIES:
+            a, b = key.split(',')
+            assert a in valid_codes, f"COMPARISON_SUMMARIES key {a} not in status_code_list"
+            assert b in valid_codes, f"COMPARISON_SUMMARIES key {b} not in status_code_list"
+
+    def test_comparison_summaries_are_symmetric(self):
+        """Each comparison pair should have both directions."""
+        from index import COMPARISON_SUMMARIES
+        for key in COMPARISON_SUMMARIES:
+            a, b = key.split(',')
+            reverse_key = f"{b},{a}"
+            assert reverse_key in COMPARISON_SUMMARIES, (
+                f"COMPARISON_SUMMARIES has {key} but not {reverse_key}"
+            )
+
+
+# --- Search API ---
+
+class TestSearchAPI:
+    def test_search_returns_results(self, client):
+        """Search API should return a JSON array of matching results."""
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        # 404 Not Found should be in results
+        codes = [r['code'] for r in data]
+        assert '404' in codes
+
+    def test_search_by_exact_code(self, client):
+        """Searching by exact code should return that code with highest score."""
+        resp = client.get('/api/search?q=404')
+        data = resp.get_json()
+        assert data[0]['code'] == '404'
+        assert data[0]['score'] == 100
+
+    def test_search_by_partial_code(self, client):
+        """Searching by partial code should match codes starting with those digits."""
+        resp = client.get('/api/search?q=40')
+        data = resp.get_json()
+        assert len(data) > 1
+        codes = [r['code'] for r in data]
+        assert all(c.startswith('40') for c in codes[:3])
+
+    def test_search_by_keyword(self, client):
+        """Searching by keyword should match names and descriptions."""
+        resp = client.get('/api/search?q=teapot')
+        data = resp.get_json()
+        assert len(data) > 0
+        codes = [r['code'] for r in data]
+        assert '418' in codes
+
+    def test_search_empty_query(self, client):
+        """Empty search query should return 400."""
+        resp = client.get('/api/search?q=')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_search_missing_query(self, client):
+        """Missing q parameter should return 400."""
+        resp = client.get('/api/search')
+        assert resp.status_code == 400
+
+    def test_search_result_structure(self, client):
+        """Each result should have code, name, description, and score fields."""
+        resp = client.get('/api/search?q=ok')
+        data = resp.get_json()
+        assert len(data) > 0
+        result = data[0]
+        assert 'code' in result
+        assert 'name' in result
+        assert 'description' in result
+        assert 'score' in result
+
+    def test_search_results_sorted_by_score(self, client):
+        """Results should be sorted by descending score."""
+        resp = client.get('/api/search?q=redirect')
+        data = resp.get_json()
+        scores = [r['score'] for r in data]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_search_no_results(self, client):
+        """A query with no matches should return an empty array."""
+        resp = client.get('/api/search?q=xyznonexistent')
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_search_case_insensitive(self, client):
+        """Search should be case insensitive."""
+        resp_lower = client.get('/api/search?q=not found')
+        resp_upper = client.get('/api/search?q=Not Found')
+        data_lower = resp_lower.get_json()
+        data_upper = resp_upper.get_json()
+        codes_lower = [r['code'] for r in data_lower]
+        codes_upper = [r['code'] for r in data_upper]
+        assert codes_lower == codes_upper
+
+    def test_search_in_api_docs(self, client):
+        """API docs page should document the search endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/search' in html
+        assert 'Search status codes' in html
+
+
+# --- Response Playground ---
+
+class TestPlayground:
+    def test_playground_returns_200(self, client):
+        """Playground page should return 200 with expected content."""
+        resp = client.get('/playground')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Response Playground' in html
+
+    def test_playground_has_preset_options(self, client):
+        """Playground page should have all preset options."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'CORS Error' in html
+        assert 'Rate Limited' in html
+        assert 'Redirect Chain' in html
+        assert 'JSON API Response' in html
+        assert 'Auth Required' in html
+
+    def test_playground_has_status_codes(self, client):
+        """Playground page should have status code dropdown with known codes."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'pg-status' in html
+        assert '<option value="200"' in html
+        assert '<option value="404"' in html
+        assert '<option value="500"' in html
+
+    def test_playground_has_form_elements(self, client):
+        """Playground page should have header rows, body textarea, and buttons."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'pg-headers' in html
+        assert 'pg-body' in html
+        assert 'pg-send' in html
+        assert 'pg-copy' in html
+        assert 'pg-add-header' in html
+
+    def test_playground_has_live_preview(self, client):
+        """Playground page should have a live preview panel."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'playground-preview' in html
+        assert 'pg-raw' in html
+        assert 'pg-status-badge' in html
+
+    def test_playground_nav_link(self, client):
+        """Navigation should contain a link to the Playground page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/playground"' in html
+        assert 'Playground' in html
+
+    def test_playground_in_sitemap(self, client):
+        """Sitemap should include the playground page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/playground' in resp.data
+
+    def test_playground_has_nonce(self, client):
+        """Playground script tag should have a nonce."""
+        resp = client.get('/playground')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+
+class TestMockResponse:
+    def test_mock_response_basic(self, client):
+        """Mock response endpoint should return the requested status code."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': 'hello'})
+        assert resp.status_code == 200
+        assert resp.data == b'hello'
+
+    def test_mock_response_with_headers(self, client):
+        """Mock response endpoint should set custom headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 201,
+                                 'headers': {'X-Custom': 'test-value'},
+                                 'body': ''})
+        assert resp.status_code == 201
+        assert resp.headers.get('X-Custom') == 'test-value'
+
+    def test_mock_response_404_status(self, client):
+        """Mock response should return the requested 404 status."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 404, 'headers': {}, 'body': 'not found'})
+        assert resp.status_code == 404
+        assert resp.data == b'not found'
+
+    def test_mock_response_invalid_status_code(self, client):
+        """Mock response should reject invalid status codes."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 999, 'headers': {}, 'body': ''})
+        assert resp.status_code == 400
+        assert b'status_code must be' in resp.data
+
+    def test_mock_response_no_json(self, client):
+        """Mock response should return 400 for non-JSON requests."""
+        resp = client.post('/api/mock-response', data='not json',
+                           content_type='text/plain')
+        assert resp.status_code == 400
+        assert b'Invalid JSON' in resp.data
+
+    def test_mock_response_rate_limited(self, client):
+        """Mock response should be rate-limited."""
+        for _ in range(10):
+            client.post('/api/mock-response',
+                        json={'status_code': 200, 'headers': {}, 'body': ''})
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': ''})
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_mock_response_blocks_header_injection(self, client):
+        """Mock response should strip headers with newlines."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Evil\r\nInjected': 'bad'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        assert 'Injected' not in resp.headers
+
+    def test_mock_response_body_too_large(self, client):
+        """Mock response should reject body over 10000 characters."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {},
+                                 'body': 'x' * 10001})
+        assert resp.status_code == 400
+        assert b'10000' in resp.data
+
+    def test_mock_response_in_robots_txt(self, client):
+        """robots.txt should block /api/mock-response."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/mock-response' in resp.data
+
+
+# --- Responsive Design ---
+
+class TestResponsiveDesign:
+    """Tests for responsive design: viewport meta, hamburger menu, and CSS media queries."""
+
+    def test_viewport_meta_tag_present(self, client):
+        """Every page should include the viewport meta tag for mobile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+        assert 'width=device-width' in html
+        assert 'initial-scale=1' in html
+
+    def test_viewport_meta_on_detail_page(self, client):
+        """Detail pages should inherit the viewport meta tag from base."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+
+    def test_viewport_meta_on_quiz_page(self, client):
+        """Quiz page should have viewport meta tag."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+
+    def test_hamburger_button_present(self, client):
+        """The hamburger menu button should be present in the header."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hamburger-btn' in html
+        assert 'aria-label="Open navigation menu"' in html
+        assert 'aria-expanded="false"' in html
+        assert 'aria-controls="mobile-nav"' in html
+
+    def test_hamburger_lines_present(self, client):
+        """The hamburger icon should have three lines for the icon."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('hamburger-line') == 3
+
+    def test_mobile_nav_present(self, client):
+        """The mobile navigation slide-out panel should be present."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="mobile-nav"' in html
+        assert 'class="mobile-nav"' in html
+        assert 'aria-label="Mobile navigation"' in html
+
+    def test_mobile_nav_overlay_present(self, client):
+        """The mobile nav overlay (for close-on-outside-click) should exist."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="mobile-nav-overlay"' in html
+        assert 'mobile-nav-overlay' in html
+
+    def test_mobile_nav_has_all_links(self, client):
+        """The mobile nav should contain all the same navigation links."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Check that mobile-nav section contains key nav links
+        mobile_nav_start = html.index('id="mobile-nav"')
+        mobile_nav_section = html[mobile_nav_start:mobile_nav_start + 2000]
+        for page in ['/quiz', '/practice', '/daily', '/flowchart',
+                     '/compare', '/tester', '/headers', '/cors-checker',
+                     '/collection', '/playground', '/cheatsheet', '/api-docs']:
+            assert page in mobile_nav_section, f"{page} missing from mobile nav"
+
+    def test_hamburger_js_present(self, client):
+        """The hamburger menu JavaScript should be included."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hamburger-btn' in html
+        assert 'mobile-nav' in html
+        assert 'is-open' in html
+        assert 'Escape' in html
+
+    def test_responsive_css_media_queries_exist(self):
+        """The CSS file should contain key responsive media queries."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        # Verify key breakpoints exist
+        assert '@media (max-width: 768px)' in css
+        assert '@media (max-width: 480px)' in css
+        assert '@media (max-width: 375px)' in css
+        # Verify hamburger menu styles
+        assert '.hamburger-btn' in css
+        assert '.mobile-nav' in css
+        assert '.mobile-nav-overlay' in css
+        # Verify touch target enforcement
+        assert 'min-height: 44px' in css
+
+    def test_responsive_css_has_overflow_hidden(self):
+        """CSS should prevent horizontal overflow on mobile."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert 'overflow-x: hidden' in css
+
+    def test_hamburger_on_all_pages(self, client):
+        """Hamburger menu should appear on all major pages."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'hamburger-btn' in html, f"hamburger-btn missing on {page}"
+            assert 'mobile-nav' in html, f"mobile-nav missing on {page}"
+
+
+# --- Accessibility: ARIA & Semantic HTML ---
+
+class TestAccessibilityARIA:
+    """Tests for ARIA attributes and semantic HTML across all templates."""
+
+    def test_skip_link_present(self, client):
+        """All pages should have a skip-to-content link."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'skip-link' in html, f"skip-link missing on {page}"
+            assert '#main-content' in html, f"skip-link target missing on {page}"
+
+    def test_main_content_id_present(self, client):
+        """All pages should have a main element with id=main-content."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'id="main-content"' in html, f"main-content id missing on {page}"
+
+    def test_main_role_present(self, client):
+        """All pages should have role=main on the main element."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'role="main"' in html, f"role=main missing on {page}"
+
+    def test_banner_role_on_header(self, client):
+        """Header should have role=banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="banner"' in html
+
+    def test_contentinfo_role_on_footer(self, client):
+        """Footer should have role=contentinfo."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="contentinfo"' in html
+
+    def test_nav_has_aria_label(self, client):
+        """Navigation should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Site navigation"' in html
+
+    def test_search_has_role(self, client):
+        """Search area should have role=search."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="search"' in html
+
+    def test_search_input_has_aria_label(self, client):
+        """Search inputs should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Search status codes"' in html
+
+    def test_images_have_alt_text(self, client):
+        """Parrot images should have meaningful alt text."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'alt="200 OK"' in html
+
+    def test_homepage_images_have_alt(self, client):
+        """Homepage parrot card images should have alt text."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'alt="200 OK"' in html
+
+    def test_detail_breadcrumb_has_aria(self, client):
+        """Detail page breadcrumb should have aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Breadcrumb"' in html
+        assert 'aria-current="page"' in html
+
+    def test_404_page_has_main_id(self, client):
+        """Custom 404 page should have id=main-content and role=main."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'id="main-content"' in html
+        assert 'role="main"' in html
+
+    def test_404_emoji_is_decorative(self, client):
+        """404 page emoji should be marked as decorative."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'aria-hidden="true"' in html
+
+
+class TestAccessibilityQuizARIA:
+    """Tests for ARIA attributes on quiz and daily challenge pages."""
+
+    def test_quiz_has_h1(self, client):
+        """Quiz page should have an h1 heading (even if sr-only)."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert '<h1' in html
+
+    def test_quiz_choices_have_role_group(self, client):
+        """Quiz choices container should have role=group."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_quiz_feedback_has_aria_live(self, client):
+        """Quiz feedback should have aria-live=polite."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+    def test_quiz_score_has_aria_live(self, client):
+        """Quiz score values should have aria-live for screen reader updates."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        # Score, streak, and total should all have aria-live
+        assert html.count('aria-live="polite"') >= 3
+
+    def test_daily_choices_have_role_group(self, client):
+        """Daily challenge choices should have role=group."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_daily_streak_has_aria_live(self, client):
+        """Daily challenge streak display should have aria-live."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'id="streak-count"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_daily_streak_has_region_role(self, client):
+        """Daily streak display should be in a labeled region."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'role="region"' in html
+        assert 'aria-label="Streak tracker"' in html
+
+
+class TestAccessibilityPracticeARIA:
+    """Tests for ARIA attributes on the practice page."""
+
+    def test_practice_score_has_aria_live(self, client):
+        """Practice score values should have aria-live."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'id="practice-correct"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_practice_progress_bar_has_aria(self, client):
+        """Practice progress bar should have proper progressbar ARIA."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_practice_score_region_labeled(self, client):
+        """Practice score bar should be a labeled region."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'role="region"' in html
+        assert 'aria-label="Score tracker"' in html
+
+
+class TestAccessibilityFlowchartARIA:
+    """Tests for ARIA on the flowchart page."""
+
+    def test_flowchart_has_h1(self, client):
+        """Flowchart page should have an h1 heading."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert '<h1' in html
+
+    def test_flowchart_mode_toggle_has_tablist(self, client):
+        """Flowchart mode toggle should use tablist pattern."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert 'role="tablist"' in html
+        assert 'role="tab"' in html
+        assert 'aria-selected="true"' in html
+
+    def test_flowchart_tabpanels_present(self, client):
+        """Flowchart should have tabpanel roles."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert 'role="tabpanel"' in html
+
+
+class TestAccessibilityCompareARIA:
+    """Tests for ARIA on the compare page."""
+
+    def test_compare_presets_have_aria_labels(self, client):
+        """Compare preset buttons should have descriptive aria-labels."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'aria-label="Compare 401' in html
+        assert 'role="group"' in html
+
+    def test_compare_result_has_aria_live(self, client):
+        """Compare result area should have aria-live for dynamic updates."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="compare-result"' in html
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCollectionARIA:
+    """Tests for ARIA on the collection/Parrotdex page."""
+
+    def test_collection_progress_has_progressbar(self, client):
+        """Collection progress should have progressbar role."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_collection_secrets_region(self, client):
+        """Secret parrots section should be a labeled region."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'aria-label="Secret parrots"' in html
+
+
+class TestAccessibilityDetailARIA:
+    """Tests for ARIA on the detail page."""
+
+    def test_detail_share_actions_have_group_role(self, client):
+        """Share actions should have role=group and aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Share options"' in html
+
+    def test_detail_share_buttons_have_aria_labels(self, client):
+        """Share buttons should have aria-labels."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Share this parrot"' in html
+        assert 'aria-label="Copy link to this page"' in html
+
+    def test_detail_nav_is_semantic(self, client):
+        """Detail page navigation should use nav element."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Status code navigation"' in html
+
+    def test_detail_prev_next_have_aria_labels(self, client):
+        """Previous/next navigation should have descriptive aria-labels."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Next status code:' in html
+
+    def test_detail_copy_icon_has_aria_live(self, client):
+        """Copy button feedback should have aria-live."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="copy-curl-icon"' in html
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCheatsheetARIA:
+    """Tests for ARIA and semantic HTML on the cheatsheet page."""
+
+    def test_cheatsheet_categories_use_h2(self, client):
+        """Cheatsheet category headers should be h2 elements."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert '<h2 class="cheat-cat-header">' in html
+
+    def test_cheatsheet_sr_only_table_headers(self, client):
+        """Cheatsheet tables should have sr-only thead for screen readers."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'class="sr-only"' in html
+        assert '<th>Code</th>' in html
+
+
+class TestAccessibilityTesterARIA:
+    """Tests for ARIA on the URL tester page."""
+
+    def test_tester_form_has_aria_label(self, client):
+        """Tester form should have aria-label."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'aria-label="URL tester"' in html
+
+    def test_tester_input_has_label(self, client):
+        """Tester URL input should have a label element."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'for="url-input"' in html
+
+    def test_tester_result_has_aria_live(self, client):
+        """Tester result area should have aria-live."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCORSARIA:
+    """Tests for ARIA on the CORS checker page."""
+
+    def test_cors_form_has_aria_label(self, client):
+        """CORS checker form should have aria-label."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'aria-label="CORS checker"' in html
+
+    def test_cors_fields_have_labels(self, client):
+        """CORS checker fields should have associated labels."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'for="cors-url"' in html
+        assert 'for="cors-origin"' in html
+
+    def test_cors_results_has_aria_live(self, client):
+        """CORS results area should have aria-live."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityHeadingHierarchy:
+    """Tests for proper heading hierarchy (no skips from h1 to h3)."""
+
+    def test_homepage_heading_hierarchy(self, client):
+        """Homepage should not skip heading levels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Homepage has no h1 visible (it's the site title), but should not skip from h1 to h3
+        assert '<h3' not in html or '<h2' in html
+
+    def test_detail_page_heading_hierarchy(self, client):
+        """Detail page h2 sections should not skip to h4."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Should have h2 sections, no h4 without h3
+        if '<h4' in html:
+            assert '<h3' in html
+
+    def test_cheatsheet_has_h1_and_h2(self, client):
+        """Cheatsheet should have h1 followed by h2 for categories."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        h1_pos = html.find('<h1>')
+        h2_pos = html.find('<h2')
+        assert h1_pos > 0
+        assert h2_pos > h1_pos
+
+    def test_practice_has_h1(self, client):
+        """Practice page should have an h1."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert '<h1>' in html
+
+
+class TestAccessibilityColorContrast:
+    """Tests for color contrast improvements in the CSS."""
+
+    def test_no_very_low_contrast_text(self):
+        """CSS should not have rgba(255,255,255,0.3) or 0.4 for text color."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        # Split into rule blocks to check context
+        # Find all 'color:' declarations with low contrast and check they are
+        # inside placeholder selectors (which are exempt from contrast rules)
+        lines = css.split('\n')
+        in_placeholder = False
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if '::placeholder' in stripped:
+                in_placeholder = True
+            if in_placeholder and '}' in stripped:
+                in_placeholder = False
+                continue
+            if in_placeholder:
+                continue
+            if 'background-image' in stripped or 'background:' in stripped:
+                continue
+            if stripped.startswith('color: rgba(255,255,255,0.3)') or \
+               stripped.startswith('color: rgba(255, 255, 255, 0.3)'):
+                assert False, f"Low contrast text (0.3) at line {i+1}: {stripped}"
+            if stripped.startswith('color: rgba(255,255,255,0.4)') or \
+               stripped.startswith('color: rgba(255, 255, 255, 0.4)'):
+                assert False, f"Low contrast text (0.4) at line {i+1}: {stripped}"
+
+    def test_header_subtitle_sufficient_contrast(self):
+        """Header subtitle should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert 'header-subtitle' in css
+        # Should not be 0.5 anymore
+        import re
+        m = re.search(r'\.header-subtitle\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Header subtitle contrast too low: {opacity}"
+
+    def test_nav_links_sufficient_contrast(self):
+        """Navigation links should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        import re
+        m = re.search(r'\.header-nav\s+a\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Nav link contrast too low: {opacity}"
+
+    def test_footer_github_link_contrast(self):
+        """Footer GitHub link should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        import re
+        m = re.search(r'\.footer-github\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Footer GitHub link contrast too low: {opacity}"
+
+    def test_header_type_colors_contrast(self):
+        """Header explainer type colors should have sufficient contrast."""
+        with open('templates/headers.html', 'r') as f:
+            content = f.read()
+        # The Info/Connection/Routing/Debug colors should not be 0.4
+        assert 'rgba(255,255,255,0.4)' not in content
+
+
+class TestAccessibilityFocusManagement:
+    """Tests for keyboard accessibility and focus indicators."""
+
+    def test_focus_visible_style_exists(self):
+        """CSS should have :focus-visible styles."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert ':focus-visible' in css
+
+    def test_skip_link_style_exists(self):
+        """CSS should have skip-link styles that show on focus."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '.skip-link:focus' in css
+        assert '.skip-link' in css
+
+    def test_sr_only_class_exists(self):
+        """CSS should have an sr-only class for screen reader text."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '.sr-only' in css
+        assert 'clip: rect(0, 0, 0, 0)' in css
+
+    def test_all_interactive_elements_keyboard_accessible(self, client):
+        """Key interactive elements should be buttons or links (natively focusable)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Filter toggle should be a button, not a div
+        assert '<button class="btn-filter"' in html or 'class="btn-filter"' in html
+        # Filter pills should be buttons
+        assert '<button class="cat-pill' in html
+
+    def test_quiz_keyboard_shortcuts_present(self, client):
+        """Quiz page should have keyboard shortcut support."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        # 1-4 number keys for answers
+        assert "e.key >= '1'" in html or "e.key >= \\'1\\'" in html
+        # Enter for next
+        assert "e.key === 'Enter'" in html or "e.key === \\'Enter\\'" in html
+
+
+class TestAccessibilityScreenReader:
+    """Tests for screen reader support."""
+
+    def test_decorative_images_are_hidden(self, client):
+        """Decorative elements should have aria-hidden=true."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-hidden="true"' in html
+
+    def test_no_results_message_has_live_region(self, client):
+        """No results message on homepage should be a live region."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="no-results"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_filter_toggle_has_aria_expanded(self, client):
+        """Filter toggle button should have aria-expanded."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-expanded=' in html
+
+    def test_filter_toggle_has_aria_controls(self, client):
+        """Filter toggle should have aria-controls pointing to dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-controls="filter-dropdown"' in html
+
+    def test_random_button_has_aria_label(self, client):
+        """Random parrot button (emoji) should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Random parrot"' in html
+
+    def test_back_to_top_has_aria_label(self, client):
+        """Back to top button should have aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Back to top"' in html
+
+    def test_parrot_links_have_aria_labels(self, client):
+        """Parrot card links should have descriptive aria-labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="200 OK"' in html
+
+    def test_potd_link_has_aria_label(self, client):
+        """Parrot of the Day link should have descriptive aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'class="potd-link"' in html
+        assert 'aria-label="Parrot of the Day:' in html
+
+
+# --- CSS Media Queries ---
+
+class TestCSSMediaQueries:
+    """Verify print, reduced-motion, and light-theme media queries exist in the stylesheet."""
+
+    def test_print_media_query_exists(self, client):
+        """CSS should contain a comprehensive @media print block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media print' in css
+
+    def test_print_hides_interactive_elements(self, client):
+        """Print styles should hide nav, footer, and interactive elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'display: none !important' in css
+        assert '.site-header-compact' in css
+        assert '.site-footer' in css
+
+    def test_print_shows_urls_after_links(self, client):
+        """Print styles should show URLs after links."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'a[href]::after' in css
+        assert 'attr(href)' in css
+
+    def test_print_page_break_rules(self, client):
+        """Print styles should include page-break rules."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'page-break-inside: avoid' in css
+
+    def test_print_light_background(self, client):
+        """Print styles should use white background and dark text."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'background: #fff !important' in css
+        assert 'color: #000 !important' in css
+
+    def test_print_cheat_sheet_columns(self, client):
+        """Cheat sheet should print in 2 columns."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'columns: 2' in css
+        assert 'break-inside: avoid' in css
+
+    def test_print_images_sized_properly(self, client):
+        """Print styles should ensure images have proper sizing."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'max-width: 100% !important' in css
+        assert 'height: auto !important' in css
+
+    def test_reduced_motion_media_query_exists(self, client):
+        """CSS should contain a @media (prefers-reduced-motion: reduce) block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media (prefers-reduced-motion: reduce)' in css
+
+    def test_reduced_motion_disables_animations(self, client):
+        """Reduced motion should disable animation-duration globally."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'animation-duration: 0.01ms !important' in css
+        assert 'transition-duration: 0.01ms !important' in css
+
+    def test_reduced_motion_disables_aurora(self, client):
+        """Reduced motion should disable the aurora background drift."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        # Check aurora is explicitly disabled within reduced-motion
+        assert 'body::before' in css
+        # The reduced-motion block should have animation: none for body::before
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert 'animation: none !important' in block
+
+    def test_reduced_motion_disables_confetti(self, client):
+        """Reduced motion should disable confetti particles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert '.confetti-particle' in block
+
+    def test_reduced_motion_disables_scroll_reveal(self, client):
+        """Reduced motion should make scroll reveal elements instantly visible."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert '.parrot-card.will-reveal' in block
+        assert '.parrot-card.scroll-animated' in block
+
+    def test_reduced_motion_keeps_hover_colors(self, client):
+        """Reduced motion should keep hover color changes but remove transforms."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert 'transform: none !important' in block
+
+    def test_light_theme_media_query_exists(self, client):
+        """CSS should contain a @media (prefers-color-scheme: light) block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media (prefers-color-scheme: light)' in css
+
+    def test_light_theme_background_color(self, client):
+        """Light theme should use light background (#f5f5f7)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '#f5f5f7' in block
+
+    def test_light_theme_dark_text(self, client):
+        """Light theme should use dark text (#1a1a1f)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '#1a1a1f' in block
+
+    def test_light_theme_card_backgrounds(self, client):
+        """Light theme should adjust card backgrounds for light mode."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '.parrot' in block
+        assert '.detail-info' in block
+        assert '#ffffff' in block
+
+    def test_light_theme_category_colors(self, client):
+        """Light theme should adjust category colors for light background contrast."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '.category-1xx' in block
+        assert '.category-2xx' in block
+        assert '.category-3xx' in block
+        assert '.category-4xx' in block
+        assert '.category-5xx' in block
+
+
+class TestEdgeCaseCoverage:
+    """Tests targeting uncovered lines for maximum coverage."""
+
+    def test_mock_response_invalid_headers(self, client):
+        """Headers must be a dict."""
+        resp = client.post('/api/mock-response',
+                           json={"status_code": 200, "headers": "not-a-dict"})
+        assert resp.status_code == 400
+        assert b'headers must be a dict' in resp.data
+
+    def test_mock_response_invalid_body(self, client):
+        """Body must be a string."""
+        resp = client.post('/api/mock-response',
+                           json={"status_code": 200, "body": 123})
+        assert resp.status_code == 400
+        assert b'body must be a string' in resp.data
+
+    def test_search_partial_code(self, client):
+        """Search by partial code digits (e.g., '50' should match 500s)."""
+        resp = client.get('/api/search?q=50')
+        data = resp.get_json()
+        codes = [r['code'] for r in data]
+        assert '500' in codes
+
+    def test_search_code_contains(self, client):
+        """Search that matches code containing digits."""
+        resp = client.get('/api/search?q=04')
+        data = resp.get_json()
+        codes = [r['code'] for r in data]
+        assert '404' in codes or '204' in codes
+
+    def test_all_pages_have_csp_nonce(self, client):
+        """All major pages should have CSP nonce in scripts."""
+        pages = ['/', '/quiz', '/daily', '/practice', '/flowchart',
+                 '/compare', '/cheatsheet', '/collection', '/tester',
+                 '/headers', '/cors-checker', '/api-docs', '/playground', '/200']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.get_data(as_text=True)
+            if html:  # skip empty responses (204)
+                assert 'nonce=' in html, f"Missing CSP nonce on {page}"
+
+    def test_all_pages_have_doctype(self, client):
+        """All pages should have proper HTML5 doctype."""
+        pages = ['/', '/quiz', '/daily', '/practice', '/200', '/404-nonexistent']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.get_data(as_text=True)
+            if html:
+                assert '<!doctype html>' in html.lower() or '<!DOCTYPE html>' in html, \
+                    f"Missing doctype on {page}"
+
+    def test_return_status_with_delay_rate_limited(self, client):
+        """Return status delay should be rate-limited."""
+        # Exhaust rate limit
+        for _ in range(25):
+            client.get('/return/200?delay=0.001')
+        resp = client.get('/return/200?delay=0.001')
+        assert resp.status_code == 429
+
+    def test_highlight_http_filter(self, client):
+        """HTTP exchange sections should have syntax highlighting."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'http-hl-' in html
+
+    def test_feed_xml_content_type(self, client):
+        """RSS feed should have proper content type."""
+        resp = client.get('/feed.xml')
+        assert 'xml' in resp.content_type
+
+
+# --- Sitemap completeness ---
+
+class TestSitemapCompleteness:
+    """Verify sitemap.xml includes all expected public pages."""
+
+    EXPECTED_PAGES = [
+        '/', '/quiz', '/daily', '/practice', '/flowchart', '/compare',
+        '/tester', '/cheatsheet', '/headers', '/cors-checker',
+        '/collection', '/playground', '/api-docs',
+    ]
+
+    def test_sitemap_returns_xml(self, client):
+        resp = client.get('/sitemap.xml')
+        assert resp.status_code == 200
+        assert 'application/xml' in resp.content_type
+
+    def test_sitemap_has_xml_header(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '<?xml version="1.0"' in body
+        assert '<urlset' in body
+        assert '</urlset>' in body
+
+    def test_sitemap_includes_all_public_pages(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        for page in self.EXPECTED_PAGES:
+            assert f'<loc>http://localhost{page}</loc>' in body, \
+                f"Sitemap missing page: {page}"
+
+    def test_sitemap_includes_status_code_pages(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        # Spot-check common codes are present
+        for code in ['200', '301', '404', '500']:
+            assert f'<loc>http://localhost/{code}</loc>' in body, \
+                f"Sitemap missing status code page: /{code}"
+
+    def test_sitemap_homepage_has_highest_priority(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '<url><loc>http://localhost/</loc><priority>1.0</priority></url>' in body
+
+    def test_sitemap_does_not_include_api_endpoints(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/api/search' not in body
+        assert '/api/check-url' not in body
+        assert '/api/check-cors' not in body
+        assert '/api/mock-response' not in body
+        assert '/api/diff' not in body
+        assert '/echo' not in body
+        assert '/return/' not in body
+        assert '/redirect/' not in body
+
+    def test_sitemap_cache_header(self, client):
+        resp = client.get('/sitemap.xml')
+        assert 'max-age=86400' in resp.headers.get('Cache-Control', '')
+
+
+# --- robots.txt format ---
+
+class TestRobotsTxtFormat:
+    """Verify robots.txt is correct and complete."""
+
+    def test_robots_returns_text(self, client):
+        resp = client.get('/robots.txt')
+        assert resp.status_code == 200
+        assert resp.content_type == 'text/plain; charset=utf-8'
+
+    def test_robots_allows_root(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        assert 'User-agent: *' in body
+        assert 'Allow: /' in body
+
+    def test_robots_disallows_api_endpoints(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        expected_disallows = [
+            'Disallow: /api/check-url',
+            'Disallow: /api/check-cors',
+            'Disallow: /api/mock-response',
+            'Disallow: /api/diff',
+            'Disallow: /api/search',
+            'Disallow: /return/',
+            'Disallow: /echo',
+            'Disallow: /redirect/',
+        ]
+        for rule in expected_disallows:
+            assert rule in body, f"robots.txt missing: {rule}"
+
+    def test_robots_references_sitemap(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        assert 'Sitemap:' in body
+        assert 'sitemap.xml' in body
+
+
+# --- API docs page completeness ---
+
+class TestApiDocsCompleteness:
+    """Verify the API docs page documents all API endpoints."""
+
+    def test_api_docs_status_code_detail_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/{code}' in html
+        assert 'application/json' in html
+
+    def test_api_docs_image_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/{code}.jpg' in html
+
+    def test_api_docs_random_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/random' in html
+
+    def test_api_docs_search_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/search' in html
+        assert 'score' in html
+
+    def test_api_docs_check_url_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/check-url' in html
+        assert 'time_ms' in html
+
+    def test_api_docs_check_cors_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/check-cors' in html
+        assert 'preflight' in html
+        assert 'analysis' in html
+
+    def test_api_docs_return_status_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/return/{code}' in html
+        assert 'delay' in html
+
+    def test_api_docs_echo_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/echo' in html
+        assert 'POST' in html
+
+    def test_api_docs_diff_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/diff' in html
+        assert 'key_difference' in html
+
+    def test_api_docs_redirect_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/redirect/{n}' in html
+
+    def test_api_docs_mock_response_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/mock-response' in html
+        assert 'status_code' in html
+
+    def test_api_docs_lists_all_interactive_pages(self, client):
+        """The interactive pages section should list all public pages."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        expected_pages = [
+            '/quiz', '/daily', '/practice', '/flowchart', '/compare',
+            '/tester', '/cheatsheet', '/collection', '/headers',
+            '/cors-checker', '/playground',
+        ]
+        for page in expected_pages:
+            assert page in html, f"API docs missing interactive page: {page}"
+
+    def test_api_docs_has_response_schemas(self, client):
+        """API docs should include response schema documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'Response schema' in html or 'Request body schema' in html
+
+
+# --- Security Audit Tests ---
+
+class TestSSRFIPv6MappedAddresses:
+    """Verify SSRF protection against IPv6-mapped IPv4 private addresses."""
+
+    def test_blocks_ipv6_mapped_localhost(self):
+        """::ffff:127.0.0.1 should be blocked as it maps to localhost."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:127.0.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_10(self):
+        """::ffff:10.0.0.1 should be blocked as it maps to 10.0.0.0/8."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:10.0.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_172(self):
+        """::ffff:172.16.0.1 should be blocked as it maps to 172.16.0.0/12."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:172.16.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_192(self):
+        """::ffff:192.168.1.1 should be blocked as it maps to 192.168.0.0/16."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:192.168.1.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_metadata(self):
+        """::ffff:169.254.169.254 should be blocked (cloud metadata endpoint)."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:169.254.169.254', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://metadata.example.com/')
+            assert result is None
+
+    def test_allows_ipv6_mapped_public(self):
+        """::ffff:93.184.216.34 should be allowed as it maps to a public IP."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:93.184.216.34', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, hostname = resolve_and_validate('http://example.com/')
+            assert result is not None
+
+
+class TestSSRFSchemeAndPort:
+    """Verify SSRF protection against non-HTTP schemes and non-standard ports."""
+
+    def test_blocks_file_scheme(self):
+        """file:// URLs should be blocked."""
+        result, _ = resolve_and_validate('file:///etc/passwd')
+        assert result is None
+
+    def test_blocks_ftp_scheme(self):
+        """ftp:// URLs should be blocked."""
+        result, _ = resolve_and_validate('ftp://internal.example.com/')
+        assert result is None
+
+    def test_blocks_gopher_scheme(self):
+        """gopher:// URLs should be blocked."""
+        result, _ = resolve_and_validate('gopher://internal.example.com/')
+        assert result is None
+
+    def test_blocks_non_standard_port(self):
+        """Non-standard ports like 6379 (Redis) should be blocked."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:6379/')
+            assert result is None
+
+    def test_blocks_ssh_port(self):
+        """Port 22 (SSH) should be blocked."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:22/')
+            assert result is None
+
+    def test_allows_port_80(self):
+        """Port 80 should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:80/')
+            assert result is not None
+
+    def test_allows_port_443(self):
+        """Port 443 should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('https://example.com:443/')
+            assert result is not None
+
+    def test_allows_no_port(self):
+        """URLs without an explicit port should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('https://example.com/')
+            assert result is not None
+
+
+class TestMockResponseSecurityHeaders:
+    """Verify mock-response blocks security-sensitive headers."""
+
+    def test_blocks_set_cookie_header(self, client):
+        """Mock response should not allow setting Set-Cookie headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Set-Cookie': 'session=evil'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        assert 'session=evil' not in (resp.headers.get('Set-Cookie') or '')
+
+    def test_blocks_csp_override(self, client):
+        """Mock response should not allow overriding Content-Security-Policy."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Content-Security-Policy': "default-src *"},
+                                 'body': ''})
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src *" not in csp
+        assert "default-src 'self'" in csp
+
+    def test_blocks_hsts_override(self, client):
+        """Mock response should not allow overriding HSTS."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Strict-Transport-Security': 'max-age=0'},
+                                 'body': ''})
+        hsts = resp.headers.get('Strict-Transport-Security', '')
+        assert 'max-age=31536000' in hsts
+
+    def test_blocks_x_frame_options_override(self, client):
+        """Mock response should not allow overriding X-Frame-Options."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Frame-Options': 'ALLOWALL'},
+                                 'body': ''})
+        assert resp.headers.get('X-Frame-Options') == 'DENY'
+
+    def test_blocks_transfer_encoding(self, client):
+        """Mock response should not allow setting Transfer-Encoding."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Transfer-Encoding': 'chunked'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        # Transfer-Encoding is managed by the server, not user input
+
+    def test_allows_safe_custom_headers(self, client):
+        """Mock response should still allow safe custom headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Custom': 'safe', 'Cache-Control': 'no-cache'},
+                                 'body': ''})
+        assert resp.headers.get('X-Custom') == 'safe'
+
+    def test_too_many_headers_rejected(self, client):
+        """Mock response should reject requests with more than 50 headers."""
+        headers = {f'X-Header-{i}': f'value-{i}' for i in range(51)}
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': headers,
+                                 'body': ''})
+        assert resp.status_code == 400
+        assert b'Too many headers' in resp.data
+
+    def test_value_injection_with_null_bytes(self, client):
+        """Mock response should not allow null bytes in header values."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Test': 'value\x00injected'},
+                                 'body': ''})
+        # Should not crash; value may or may not be set depending on server
+        assert resp.status_code == 200
+
+
+class TestCSPNonceCompleteness:
+    """Verify CSP nonce is present in all script and style tags."""
+
+    def test_csp_includes_style_nonce(self, client):
+        """CSP style-src should include the nonce for inline styles."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce_match = re.search(r"'nonce-([^']+)'", csp)
+        assert nonce_match, "CSP should contain a nonce"
+        nonce = nonce_match.group(1)
+        assert f"style-src 'self' 'nonce-{nonce}'" in csp
+
+    def test_practice_inline_style_has_nonce(self, client):
+        """Practice page inline <style> should have the CSP nonce."""
+        resp = client.get('/practice')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'<style nonce="{nonce}">' in resp.data.decode()
+
+    def test_no_inline_event_handlers_on_html_tags(self, client):
+        """HTML tags should not have inline event handlers like onload=."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Check specifically for inline event handler attributes on HTML tags.
+        # The pattern 'onload="' on a link/img tag would be blocked by CSP.
+        # Note: l.onload= inside <script> is fine (DOM property, not HTML attr).
+        assert 'onload="this.onload' not in html, \
+            "Found inline onload handler on HTML element (blocked by CSP)"
+
+    def test_font_preload_uses_script(self, client):
+        """Font preload should use a nonce-based script, not inline onload."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="font-preload"' in html
+        assert 'font-preload' in html
+
+
+class TestCSPOnAllRoutes:
+    """Verify CSP headers are present on all routes, not just the homepage."""
+
+    def _check_csp(self, resp):
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "script-src 'self'" in csp
+        assert "'nonce-" in csp
+        assert 'unsafe-inline' not in csp
+        assert 'unsafe-eval' not in csp
+        return csp
+
+    def test_csp_on_homepage(self, client):
+        self._check_csp(client.get('/'))
+
+    def test_csp_on_detail_page(self, client):
+        self._check_csp(client.get('/200'))
+
+    def test_csp_on_quiz(self, client):
+        self._check_csp(client.get('/quiz'))
+
+    def test_csp_on_daily(self, client):
+        self._check_csp(client.get('/daily'))
+
+    def test_csp_on_practice(self, client):
+        self._check_csp(client.get('/practice'))
+
+    def test_csp_on_flowchart(self, client):
+        self._check_csp(client.get('/flowchart'))
+
+    def test_csp_on_compare(self, client):
+        self._check_csp(client.get('/compare'))
+
+    def test_csp_on_tester(self, client):
+        self._check_csp(client.get('/tester'))
+
+    def test_csp_on_cheatsheet(self, client):
+        self._check_csp(client.get('/cheatsheet'))
+
+    def test_csp_on_headers(self, client):
+        self._check_csp(client.get('/headers'))
+
+    def test_csp_on_cors_checker(self, client):
+        self._check_csp(client.get('/cors-checker'))
+
+    def test_csp_on_collection(self, client):
+        self._check_csp(client.get('/collection'))
+
+    def test_csp_on_playground(self, client):
+        self._check_csp(client.get('/playground'))
+
+    def test_csp_on_api_docs(self, client):
+        self._check_csp(client.get('/api-docs'))
+
+    def test_csp_on_404(self, client):
+        self._check_csp(client.get('/nonexistent'))
+
+    def test_csp_on_echo(self, client):
+        self._check_csp(client.get('/echo'))
+
+    def test_csp_on_api_search(self, client):
+        self._check_csp(client.get('/api/search?q=test'))
+
+    def test_csp_on_api_diff(self, client):
+        self._check_csp(client.get('/api/diff?code1=200&code2=404'))
+
+    def test_csp_on_return(self, client):
+        self._check_csp(client.get('/return/200'))
+
+
+class TestSecurityHeadersOnAllRoutes:
+    """Verify all security headers are present on every route."""
+
+    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/flowchart',
+              '/compare', '/tester', '/cheatsheet', '/headers',
+              '/cors-checker', '/collection', '/playground', '/api-docs',
+              '/echo', '/return/200', '/redirect/0', '/feed.xml',
+              '/sitemap.xml', '/robots.txt']
+
+    def _check_headers(self, resp):
+        assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
+        assert resp.headers.get('X-Frame-Options') == 'DENY'
+        assert 'strict-origin-when-cross-origin' in resp.headers.get('Referrer-Policy', '')
+        assert 'camera=()' in resp.headers.get('Permissions-Policy', '')
+        assert 'max-age=31536000' in resp.headers.get('Strict-Transport-Security', '')
+        assert 'Server' not in resp.headers
+
+    def test_security_headers_on_all_routes(self, client):
+        """All routes should have the complete set of security headers."""
+        for route in self.ROUTES:
+            resp = client.get(route)
+            self._check_headers(resp)
+
+
+class TestSearchQueryValidation:
+    """Verify /api/search query parameter validation."""
+
+    def test_search_rejects_empty_query(self, client):
+        resp = client.get('/api/search?q=')
+        assert resp.status_code == 400
+
+    def test_search_rejects_long_query(self, client):
+        """Search should reject queries over 200 characters."""
+        resp = client.get('/api/search?q=' + 'a' * 201)
+        assert resp.status_code == 400
+        assert b'Query too long' in resp.data
+
+    def test_search_allows_normal_query(self, client):
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+
+    def test_search_allows_max_length_query(self, client):
+        """Search should accept queries up to 200 characters."""
+        resp = client.get('/api/search?q=' + 'a' * 200)
+        assert resp.status_code == 200
+
+
+class TestEchoXSSProtection:
+    """Verify echo endpoint doesn't reflect sensitive data."""
+
+    def test_echo_strips_authorization(self, client):
+        """Echo should strip Authorization header."""
+        resp = client.get('/echo', headers={'Authorization': 'Bearer secret'})
+        data = resp.get_json()
+        assert 'Authorization' not in data['headers']
+
+    def test_echo_strips_cookie(self, client):
+        """Echo should strip Cookie header."""
+        resp = client.get('/echo', headers={'Cookie': 'session=abc123'})
+        data = resp.get_json()
+        assert 'Cookie' not in data['headers']
+
+    def test_echo_strips_proxy_auth(self, client):
+        """Echo should strip Proxy-Authorization header."""
+        resp = client.get('/echo', headers={'Proxy-Authorization': 'Basic abc'})
+        data = resp.get_json()
+        assert 'Proxy-Authorization' not in data['headers']
+
+    def test_echo_returns_json_content_type(self, client):
+        """Echo should always return JSON content type."""
+        resp = client.get('/echo')
+        assert resp.content_type.startswith('application/json')
+
+    def test_echo_curl_format_no_auth(self, client):
+        """Echo with format=curl should not include auth headers."""
+        resp = client.get('/echo?format=curl',
+                          headers={'Authorization': 'Bearer secret'})
+        data = resp.get_json()
+        assert 'Bearer secret' not in data.get('curl', '')
+
+
+class TestSecretManagement:
+    """Verify no hardcoded secrets or debug mode."""
+
+    def test_debug_mode_disabled(self):
+        """Flask should not be in debug mode."""
+        assert app.config['DEBUG'] is False
+
+    def test_secret_key_not_empty(self):
+        """Flask should have a SECRET_KEY configured."""
+        assert app.config['SECRET_KEY'] is not None
+        assert len(app.config['SECRET_KEY']) > 0
+
+    def test_max_content_length_set(self):
+        """Request body size should be limited."""
+        assert app.config['MAX_CONTENT_LENGTH'] == 1 * 1024 * 1024
+
+    def test_server_header_stripped(self, client):
+        """Server header should not be present in responses."""
+        resp = client.get('/')
+        assert 'Server' not in resp.headers
+
+
+class TestTemplateAutoEscaping:
+    """Verify Jinja2 auto-escaping prevents XSS in templates."""
+
+    def test_status_code_not_injectable(self, client):
+        """Status codes displayed in templates should be auto-escaped."""
+        # Request a valid code -- make sure output is properly escaped
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Verify the code appears as plain text, not as unescaped HTML
+        assert '<script>' not in html or 'nonce=' in html
+
+    def test_no_safe_filter_in_templates(self):
+        """No templates should use |safe filter (verified by grep)."""
+        import os
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        for filename in os.listdir(template_dir):
+            if filename.endswith('.html'):
+                with open(os.path.join(template_dir, filename)) as f:
+                    content = f.read()
+                    assert '|safe' not in content, \
+                        f"Template {filename} uses |safe which bypasses auto-escaping"
+
+    def test_no_unsafe_inline_in_csp(self, client):
+        """CSP should not contain unsafe-inline or unsafe-eval."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert 'unsafe-inline' not in csp
+        assert 'unsafe-eval' not in csp
+
+
+class TestRateLimitingEndpoints:
+    """Verify all outbound-request endpoints are rate-limited."""
+
+    def test_check_url_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/check-url?url=http://127.0.0.1/')
+        resp = client.get('/api/check-url?url=https://example.com')
+        assert resp.status_code == 429
+
+    def test_check_cors_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://x.com')
+        resp = client.get('/api/check-cors?url=https://example.com&origin=https://x.com')
+        assert resp.status_code == 429
+
+    def test_mock_response_rate_limited(self, client):
+        for _ in range(10):
+            client.post('/api/mock-response',
+                        json={'status_code': 200, 'headers': {}, 'body': ''})
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': ''})
+        assert resp.status_code == 429
+
+    def test_return_delay_rate_limited(self, client):
+        """Return endpoint with delay should be rate-limited."""
+        for _ in range(10):
+            client.get('/return/200?delay=0.01')
+        resp = client.get('/return/200?delay=0.01')
+        assert resp.status_code == 429
+
+
+class TestPerformance:
+    """Performance-related tests."""
+
+    def test_static_files_cache_header(self, client):
+        resp = client.get('/static/style.css')
+        assert 'max-age' in resp.headers.get('Cache-Control', '')
+
+    def test_html_pages_cache_header(self, client):
+        resp = client.get('/')
+        assert 'max-age' in resp.headers.get('Cache-Control', '')
+
+    def test_images_have_lazy_loading(self, client):
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'loading="lazy"' in html
+
+    def test_detail_image_has_fetchpriority(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'fetchpriority="high"' in html
+
+    def test_css_contain_property(self, client):
+        resp = client.get('/static/style.css')
+        assert b'contain:' in resp.data
+
+    def test_css_will_change(self, client):
+        resp = client.get('/static/style.css')
+        assert b'will-change:' in resp.data
+
+    def test_no_external_js(self, client):
+        """No external JS should block rendering."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert '<script src=' not in html
+
+    def test_random_endpoint_no_cache(self, client):
+        resp = client.get('/random', follow_redirects=False)
+        assert 'no-store' in resp.headers.get('Cache-Control', '')

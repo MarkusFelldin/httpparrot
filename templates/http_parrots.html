@@ -42,6 +42,26 @@
 
 {% block content %}
     <main id="main-content" class="container-fluid parrot-grid" role="main">
+        <!-- Parrot of the Day -->
+        <section class="potd-section" id="potd-section" aria-label="Parrot of the Day">
+            <div class="potd-card">
+                <div class="potd-badge">Parrot of the Day</div>
+                <a href="/{{ featured }}" class="potd-link" aria-label="Parrot of the Day: {{ featured }} {{ featured_description }}">
+                    <div class="potd-image">
+                        <img src="/static/{{ featured_image }}" alt="{{ featured }} {{ featured_description }}" width="600" height="500" fetchpriority="high">
+                    </div>
+                    <div class="potd-info">
+                        <div class="potd-code category-{{ featured[0] }}xx">{{ featured }}</div>
+                        <div class="potd-name">{{ featured_description }}</div>
+                        {% if featured_fun_fact %}
+                        <p class="potd-fun-fact">{{ featured_fun_fact }}</p>
+                        {% endif %}
+                    </div>
+                </a>
+                <button class="potd-share-btn" id="potd-share" title="Share today's parrot" aria-label="Share today's parrot">Share today's parrot</button>
+            </div>
+        </section>
+
         <div class="row g-4" id="parrot-grid">
             {% for status_code in status_code_list %}
                 <div class="col-lg-3 col-md-4 col-sm-6 col-12 parrot-card" data-code="{{ status_code[0] }}" data-name="{{ status_code[1]|lower }}" data-desc="{{ status_info.get(status_code[0], {}).get('description', '')|lower }}">
@@ -68,6 +88,29 @@
 {% block scripts %}
     <script nonce="{{ csp_nonce }}">
     (function() {
+        /* Parrot of the Day share button */
+        var shareBtn = document.getElementById('potd-share');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', function() {
+                var text = {{ ("Today's Parrot of the Day: HTTP " + featured + " " + featured_description + " — explained by parrots!")|tojson }};
+                var url = window.location.origin + '/{{ featured }}';
+                if (navigator.share) {
+                    navigator.share({ title: 'Parrot of the Day', text: text, url: url }).catch(function() {});
+                } else {
+                    navigator.clipboard.writeText(text + ' ' + url).then(function() {
+                        shareBtn.textContent = 'Copied!';
+                        setTimeout(function() { shareBtn.textContent = "Share today's parrot"; }, 2000);
+                    }).catch(function() {
+                        shareBtn.textContent = 'Failed';
+                        setTimeout(function() { shareBtn.textContent = "Share today's parrot"; }, 2000);
+                    });
+                }
+            });
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
         let activeCat = 'all';
         const searchEl = document.getElementById('search');
         const cards = document.querySelectorAll('.parrot-card');
@@ -75,6 +118,7 @@
         const pills = document.querySelectorAll('.cat-pill');
         const toggleBtn = document.getElementById('filter-toggle');
         const dropdown = document.getElementById('filter-dropdown');
+        const potdSection = document.getElementById('potd-section');
 
         function filterCards() {
             const q = searchEl.value.toLowerCase().trim();
@@ -90,6 +134,10 @@
                 if (show) visible++;
             });
             noResults.style.display = visible ? 'none' : 'block';
+            /* Hide POTD section when filtering or searching */
+            if (potdSection) {
+                potdSection.style.display = (q || activeCat !== 'all') ? 'none' : '';
+            }
             updateURL();
         }
 
@@ -222,7 +270,23 @@
 
     <script nonce="{{ csp_nonce }}">
     (function() {
-        const observer = new IntersectionObserver(function(entries) {
+        var cards = document.querySelectorAll('.parrot-card');
+
+        /* If the browser supports CSS scroll-driven animations, use them */
+        if (CSS.supports('animation-timeline: view()')) {
+            cards.forEach(function(card) {
+                card.classList.add('scroll-animated');
+            });
+            return;
+        }
+
+        /* Fallback: IntersectionObserver with diagonal cascade delays */
+        var cols = 4;
+        if (window.matchMedia('(max-width: 575px)').matches) cols = 1;
+        else if (window.matchMedia('(max-width: 767px)').matches) cols = 2;
+        else if (window.matchMedia('(max-width: 991px)').matches) cols = 3;
+
+        var observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('revealed');
@@ -231,10 +295,11 @@
             });
         }, { threshold: 0.1 });
 
-        var cards = document.querySelectorAll('.parrot-card');
-        cards.forEach(function(card) { card.classList.add('will-reveal'); });
         cards.forEach(function(card, i) {
-            card.style.transitionDelay = (i % 8) * 0.05 + 's';
+            card.classList.add('will-reveal');
+            var row = Math.floor(i / cols);
+            var col = i % cols;
+            card.style.transitionDelay = ((row + col) * 0.06) + 's';
             observer.observe(card);
         });
     })();
@@ -485,7 +550,8 @@
         function activatePartyParrot() {
             const overlay = document.getElementById('party-parrot-overlay');
             const container = document.getElementById('party-parrot-container');
-            container.innerHTML = '';
+            /* Clear existing party parrots safely */
+            while (container.firstChild) { container.removeChild(container.firstChild); }
 
             for (let i = 0; i < 20; i++) {
                 const parrot = document.createElement('div');
@@ -504,7 +570,7 @@
             setTimeout(function() {
                 overlay.classList.remove('active');
                 document.body.style.animation = '';
-                container.innerHTML = '';
+                while (container.firstChild) { container.removeChild(container.firstChild); }
             }, 5000);
         }
     })();

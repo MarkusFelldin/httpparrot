@@ -6,11 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {% block meta %}{% endblock %}
     <link rel="canonical" href="{{ request.url.split('?')[0] }}">
+    <link rel="alternate" type="application/rss+xml" title="HTTP Parrots RSS Feed" href="/feed.xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="/static/style.css" as="style">
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" as="style" id="font-preload">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet"></noscript>
+    <script nonce="{{ csp_nonce }}">
+    (function(){var l=document.getElementById('font-preload');if(l){l.onload=function(){l.onload=null;l.rel='stylesheet';};}})();
+    </script>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon"/>
     {% block head %}{% endblock %}
@@ -22,14 +26,22 @@
             <div class="header-left">
                 <a href="/" class="header-title">HTTP Parrots</a>
                 <span class="header-subtitle">{% block subtitle %}Every HTTP status code, explained by parrots{% endblock %}</span>
-                <nav class="header-nav" aria-label="Site navigation">
+                <button class="hamburger-btn" id="hamburger-btn" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-nav">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
+                <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+                    <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
+                    <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
                     <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
                     <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
                     <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
                     <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
                     <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
                     <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
+                    <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
                     <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
                     <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
                 </nav>
@@ -43,11 +55,26 @@
             </div>
             {% endblock %}
         </div>
+        <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
+        <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" role="navigation">
+            <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+            <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
+            <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
+            <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
+            <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+            <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
+            <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
+            <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
+            <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
+            <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
+            <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
+            <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
+        </nav>
     </header>
 
     {% block content %}{% endblock %}
 
-    <footer class="site-footer">
+    <footer class="site-footer" role="contentinfo">
         <div class="footer-inner">
             <span>Made by <a href="https://github.com/MarkusFelldin" class="footer-link" target="_blank" rel="noopener">Markus Felldin</a></span>
             <span class="footer-sep">&middot;</span>
@@ -72,6 +99,49 @@
             if (e.key === '/' && document.activeElement !== gs && document.activeElement.tagName !== 'INPUT') {
                 e.preventDefault();
                 gs.focus();
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var btn = document.getElementById('hamburger-btn');
+        var nav = document.getElementById('mobile-nav');
+        var overlay = document.getElementById('mobile-nav-overlay');
+        if (!btn || !nav) return;
+
+        function openMenu() {
+            btn.classList.add('is-active');
+            btn.setAttribute('aria-expanded', 'true');
+            btn.setAttribute('aria-label', 'Close navigation menu');
+            nav.classList.add('is-open');
+            overlay.classList.add('is-visible');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMenu() {
+            btn.classList.remove('is-active');
+            btn.setAttribute('aria-expanded', 'false');
+            btn.setAttribute('aria-label', 'Open navigation menu');
+            nav.classList.remove('is-open');
+            overlay.classList.remove('is-visible');
+            document.body.style.overflow = '';
+        }
+
+        btn.addEventListener('click', function() {
+            if (nav.classList.contains('is-open')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
+        });
+
+        overlay.addEventListener('click', closeMenu);
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && nav.classList.contains('is-open')) {
+                closeMenu();
+                btn.focus();
             }
         });
     })();

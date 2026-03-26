@@ -9,12 +9,13 @@
 
 {% block content %}
     <main class="flow-container" id="main-content" role="main">
-        <div class="flow-mode-toggle">
-            <button class="flow-mode-btn active" id="mode-interactive">Interactive</button>
-            <button class="flow-mode-btn" id="mode-full">Full Tree</button>
+        <h1 class="sr-only">Which HTTP Status Code Should I Use?</h1>
+        <div class="flow-mode-toggle" role="tablist" aria-label="View mode">
+            <button class="flow-mode-btn active" id="mode-interactive" role="tab" aria-selected="true" aria-controls="flow">Interactive</button>
+            <button class="flow-mode-btn" id="mode-full" role="tab" aria-selected="false" aria-controls="flow-full">Full Tree</button>
         </div>
-        <div id="flow"></div>
-        <div id="flow-full" style="display:none"></div>
+        <div id="flow" role="tabpanel" aria-labelledby="mode-interactive"></div>
+        <div id="flow-full" style="display:none" role="tabpanel" aria-labelledby="mode-full"></div>
     </main>
 {% endblock %}
 
@@ -386,14 +387,18 @@
 
         modeInteractive.addEventListener('click', function() {
             modeInteractive.classList.add('active');
+            modeInteractive.setAttribute('aria-selected', 'true');
             modeFull.classList.remove('active');
+            modeFull.setAttribute('aria-selected', 'false');
             flowEl.style.display = '';
             fullEl.style.display = 'none';
         });
 
         modeFull.addEventListener('click', function() {
             modeFull.classList.add('active');
+            modeFull.setAttribute('aria-selected', 'true');
             modeInteractive.classList.remove('active');
+            modeInteractive.setAttribute('aria-selected', 'false');
             flowEl.style.display = 'none';
             fullEl.style.display = '';
             if (!fullTreeBuilt) {

@@ -17,10 +17,10 @@
         {% for cat_code, cat_name, codes in categories %}
         {% if codes %}
         <div class="cheat-category">
-            <div class="cheat-cat-header">
+            <h2 class="cheat-cat-header">
                 <span class="cheat-cat-badge cat-badge-{{ cat_code }}">{{ cat_code }}</span>
                 <span class="cheat-cat-name">{{ cat_name }}</span>
-            </div>
+            </h2>
             <table class="cheat-table">
                 <thead class="sr-only">
                     <tr><th>Image</th><th>Code</th><th>Name</th></tr>

@@ -13,9 +13,10 @@
             <div class="tester-hero-content">
                 <h1 class="tester-headline">Test any URL</h1>
                 <p class="tester-hero-text">Enter a URL and this parrot will fetch it for you</p>
-                <form class="tester-form" id="tester-form">
+                <form class="tester-form" id="tester-form" aria-label="URL tester">
                     <div class="tester-input-wrap">
                         <span class="tester-input-icon" aria-hidden="true">&#x1F50D;</span>
+                        <label for="url-input" class="sr-only">URL to test</label>
                         <input type="text" class="tester-input" id="url-input" placeholder="example.com" autocomplete="off" aria-label="URL to test">
                         <button type="submit" class="tester-submit" id="submit-btn">Ping</button>
                     </div>
