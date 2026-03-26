@@ -9,7 +9,7 @@ import socket
 import time
 from collections import namedtuple
 from datetime import date, datetime, timezone
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 from xml.sax.saxutils import escape as xml_escape
 
 import requests as req
@@ -103,6 +103,15 @@ BLOCKED_NETWORKS = [
 ]
 
 
+def _is_blocked_ip(ip):
+    """Return True if the IP address falls within any blocked network."""
+    # Normalize IPv6-mapped IPv4 addresses (e.g. ::ffff:127.0.0.1)
+    # to their IPv4 equivalent so they match the IPv4 blocked networks.
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+        ip = ip.ipv4_mapped
+    return any(ip in net for net in BLOCKED_NETWORKS)
+
+
 def resolve_and_validate(url):
     """Resolve hostname to IP and validate it's not private.
 
@@ -117,36 +126,32 @@ def resolve_and_validate(url):
     Full elimination would require a custom transport adapter that pins the
     resolved IP, which is beyond scope for this application.
     """
+    _FAIL = (None, None)
     parsed = urlparse(url)
     if parsed.scheme not in ('http', 'https'):
-        return None, None
+        return _FAIL
     hostname = parsed.hostname
     if not hostname:
-        return None, None
+        return _FAIL
     if parsed.username or parsed.password:
-        return None, None
+        return _FAIL
     # Only allow standard HTTP(S) ports to prevent SSRF to internal services
-    port = parsed.port
-    if port is not None and port not in (80, 443):
-        return None, None
+    if parsed.port is not None and parsed.port not in (80, 443):
+        return _FAIL
     try:
         addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC,
                                         socket.SOCK_STREAM)
     except (socket.gaierror, OSError):
-        return None, None
+        return _FAIL
     if not addr_infos:
-        return None, None
-    for family, _type, _proto, _canonname, sockaddr in addr_infos:
+        return _FAIL
+    for _family, _type, _proto, _canonname, sockaddr in addr_infos:
         try:
             ip = ipaddress.ip_address(sockaddr[0])
         except ValueError:
-            return None, None
-        # Normalize IPv6-mapped IPv4 addresses (e.g. ::ffff:127.0.0.1)
-        # to their IPv4 equivalent so they match the IPv4 blocked networks.
-        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
-            ip = ip.ipv4_mapped
-        if any(ip in net for net in BLOCKED_NETWORKS):
-            return None, None
+            return _FAIL
+        if _is_blocked_ip(ip):
+            return _FAIL
     return url, hostname
 
 
@@ -168,13 +173,13 @@ def is_rate_limited(client_ip):
                  if not ts or now - ts[-1] > RATE_LIMIT_WINDOW]
         for ip in stale:
             del _rate_limit[ip]
-    if client_ip not in _rate_limit:
-        _rate_limit[client_ip] = []
-    # Clean old entries for this IP
-    _rate_limit[client_ip] = [t for t in _rate_limit[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    if len(_rate_limit[client_ip]) >= RATE_LIMIT_MAX:
+    # Clean old entries for this IP and check the limit
+    timestamps = [t for t in _rate_limit.get(client_ip, []) if now - t < RATE_LIMIT_WINDOW]
+    if len(timestamps) >= RATE_LIMIT_MAX:
+        _rate_limit[client_ip] = timestamps
         return True
-    _rate_limit[client_ip].append(now)
+    timestamps.append(now)
+    _rate_limit[client_ip] = timestamps
     return False
 
 
@@ -561,27 +566,23 @@ def build_faq_entries(status_code, description, info, extra, related):
     and related codes to produce FAQPage schema entries.
     """
     faq = []
-    # Q1: What does HTTP {code} mean?
-    if info and info.get('description'):
+    if info.get('description'):
         faq.append({
             "question": f"What does HTTP {status_code} mean?",
             "answer": info['description'],
         })
-    # Q2: When should I use HTTP {code}?
-    if extra and extra.get('examples'):
+    if extra.get('examples'):
         examples_text = " ".join(f"- {ex}" for ex in extra['examples'])
         faq.append({
             "question": f"When should I use HTTP {status_code}?",
             "answer": f"Common scenarios for HTTP {status_code} {description}: {examples_text}",
         })
-    # Q3+: Difference questions for related codes
-    if related:
-        for rel_code, diff in related[:3]:  # Limit to first 3 for brevity
-            rel_name = status_name(rel_code) or rel_code
-            faq.append({
-                "question": f"What is the difference between HTTP {status_code} and {rel_code}?",
-                "answer": f"HTTP {status_code} ({description}) vs HTTP {rel_code} ({rel_name}): {diff}",
-            })
+    for rel_code, diff in related[:3]:
+        rel_name = status_name(rel_code) or rel_code
+        faq.append({
+            "question": f"What is the difference between HTTP {status_code} and {rel_code}?",
+            "answer": f"HTTP {status_code} ({description}) vs HTTP {rel_code} ({rel_name}): {diff}",
+        })
     return faq
 
 
@@ -654,13 +655,9 @@ def daily():
                      and c.code[0] == correct.code[0]]
     others = [c for c in candidates if c.code != correct.code
               and c.code[0] != correct.code[0]]
-    distractors = []
     pool = same_category + others
     rng.shuffle(pool)
-    for c in pool:
-        if len(distractors) >= 3:
-            break
-        distractors.append(c)
+    distractors = pool[:3]
 
     options = [correct] + distractors
     rng.shuffle(options)
@@ -699,11 +696,8 @@ def cheatsheet():
     """Render the printable cheat sheet of all status codes by category."""
     codes = pruned_status_codes()
     categories = [
-        ("1xx", "Informational", [c for c in codes if c.code.startswith('1')]),
-        ("2xx", "Success", [c for c in codes if c.code.startswith('2')]),
-        ("3xx", "Redirection", [c for c in codes if c.code.startswith('3')]),
-        ("4xx", "Client Error", [c for c in codes if c.code.startswith('4')]),
-        ("5xx", "Server Error", [c for c in codes if c.code.startswith('5')]),
+        (prefix, name, [c for c in codes if c.code.startswith(digit)])
+        for digit, (prefix, name) in sorted(_CATEGORY_LABELS.items())
     ]
     return render_template('cheatsheet.html', categories=categories)
 
@@ -808,14 +802,16 @@ def check_cors():
         }
     except req.RequestException:
         results['actual'] = {'error': 'Could not connect'}
-    # Analysis
-    acao = (results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Origin', '')
-            or results.get('preflight', {}).get('headers', {}).get('Access-Control-Allow-Origin', ''))
-    actual_creds = results.get('actual', {}).get('headers', {}).get('Access-Control-Allow-Credentials', '')
+    # Analysis — extract CORS headers from whichever response returned them
+    def _cors_header(section, name):
+        return results.get(section, {}).get('headers', {}).get(name, '')
+
+    acao = _cors_header('actual', 'Access-Control-Allow-Origin') or _cors_header('preflight', 'Access-Control-Allow-Origin')
+    actual_creds = _cors_header('actual', 'Access-Control-Allow-Credentials')
     results['analysis'] = {
         'cors_enabled': bool(acao),
-        'allows_origin': acao == '*' or acao == origin,
-        'allows_credentials': actual_creds.lower() == 'true' if isinstance(actual_creds, str) else False,
+        'allows_origin': acao in ('*', origin),
+        'allows_credentials': isinstance(actual_creds, str) and actual_creds.lower() == 'true',
     }
     return jsonify(results)
 
@@ -915,6 +911,20 @@ def playground():
     return render_template('playground.html', all_codes=codes)
 
 
+# Security-sensitive headers that mock-response users must not override
+_BLOCKED_MOCK_HEADERS = frozenset({
+    'set-cookie', 'content-security-policy', 'x-frame-options',
+    'x-content-type-options', 'strict-transport-security',
+    'referrer-policy', 'permissions-policy', 'server',
+    'transfer-encoding',
+})
+
+
+def _is_safe_header_value(s):
+    """Return True if the string contains no newline/carriage-return characters."""
+    return '\n' not in s and '\r' not in s
+
+
 @app.route('/api/mock-response', methods=['POST'])
 def mock_response():
     """Return an HTTP response with user-specified status, headers, and body.
@@ -940,26 +950,15 @@ def mock_response():
         return jsonify({"error": "body must be 10000 characters or fewer"}), 400
     if len(headers) > 50:
         return jsonify({"error": "Too many headers (max 50)"}), 400
-    # Build the response
     resp = app.response_class(body, status=status)
-    # Block security-sensitive headers that users must not override
-    _BLOCKED_MOCK_HEADERS = {
-        'set-cookie', 'content-security-policy', 'x-frame-options',
-        'x-content-type-options', 'strict-transport-security',
-        'referrer-policy', 'permissions-policy', 'server',
-        'transfer-encoding',
-    }
-    # Only allow safe header names (no injection)
     for key, value in headers.items():
         key_clean = str(key).strip()
         value_clean = str(value).strip()
-        if not key_clean or '\n' in key_clean or '\r' in key_clean:
-            continue
-        if '\n' in value_clean or '\r' in value_clean:
-            continue
-        if key_clean.lower() in _BLOCKED_MOCK_HEADERS:
-            continue
-        resp.headers[key_clean] = value_clean
+        if (key_clean
+                and _is_safe_header_value(key_clean)
+                and _is_safe_header_value(value_clean)
+                and key_clean.lower() not in _BLOCKED_MOCK_HEADERS):
+            resp.headers[key_clean] = value_clean
     return resp
 
 
@@ -1117,16 +1116,20 @@ def echo():
     return jsonify(data)
 
 
+_CATEGORY_LABELS = {
+    '1': ('1xx', 'Informational'),
+    '2': ('2xx', 'Success'),
+    '3': ('3xx', 'Redirection'),
+    '4': ('4xx', 'Client Error'),
+    '5': ('5xx', 'Server Error'),
+}
+
+
 def _code_category(code_str):
     """Return the category label for a status code string, e.g. '404' -> '4xx Client Error'."""
     first = code_str[0] if code_str else '?'
-    return {
-        '1': '1xx Informational',
-        '2': '2xx Success',
-        '3': '3xx Redirection',
-        '4': '4xx Client Error',
-        '5': '5xx Server Error',
-    }.get(first, 'Unknown')
+    prefix, name = _CATEGORY_LABELS.get(first, (None, None))
+    return f'{prefix} {name}' if prefix else 'Unknown'
 
 
 @app.route('/api/diff')
