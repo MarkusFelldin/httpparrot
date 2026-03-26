@@ -118,10 +118,16 @@ def resolve_and_validate(url):
     resolved IP, which is beyond scope for this application.
     """
     parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        return None, None
     hostname = parsed.hostname
     if not hostname:
         return None, None
     if parsed.username or parsed.password:
+        return None, None
+    # Only allow standard HTTP(S) ports to prevent SSRF to internal services
+    port = parsed.port
+    if port is not None and port not in (80, 443):
         return None, None
     try:
         addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC,
@@ -135,6 +141,10 @@ def resolve_and_validate(url):
             ip = ipaddress.ip_address(sockaddr[0])
         except ValueError:
             return None, None
+        # Normalize IPv6-mapped IPv4 addresses (e.g. ::ffff:127.0.0.1)
+        # to their IPv4 equivalent so they match the IPv4 blocked networks.
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
         if any(ip in net for net in BLOCKED_NETWORKS):
             return None, None
     return url, hostname
@@ -186,7 +196,7 @@ def set_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         f"script-src 'self' 'nonce-{nonce}'; "
-        "style-src 'self' https://fonts.googleapis.com; "
+        f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
         "font-src https://fonts.gstatic.com; "
         "img-src 'self'; "
         "connect-src 'self'"
@@ -272,6 +282,9 @@ def _build_caches():
 
 _pruned_cache, _image_cache = _build_caches()
 
+# O(1) name lookup dict — eliminates repeated linear scans of status_code_list
+_name_cache = {sc.code: sc.name for sc in status_code_list}
+
 
 def pruned_status_codes():
     return _pruned_cache
@@ -279,6 +292,11 @@ def pruned_status_codes():
 
 def find_image(code):
     return _image_cache.get(code)
+
+
+def status_name(code):
+    """Look up the human name for a status code in O(1)."""
+    return _name_cache.get(code, '')
 
 
 # --- Related codes ---
@@ -552,7 +570,7 @@ def build_faq_entries(status_code, description, info, extra, related):
     # Q3+: Difference questions for related codes
     if related:
         for rel_code, diff in related[:3]:  # Limit to first 3 for brevity
-            rel_name = next((s.name for s in status_code_list if s.code == rel_code), rel_code)
+            rel_name = status_name(rel_code) or rel_code
             faq.append({
                 "question": f"What is the difference between HTTP {status_code} and {rel_code}?",
                 "answer": f"HTTP {status_code} ({description}) vs HTTP {rel_code} ({rel_name}): {diff}",
@@ -585,7 +603,7 @@ def http_parrots():
     # Get a fun fact for the featured parrot
     featured_info = STATUS_INFO.get(featured, {})
     featured_extra = STATUS_EXTRA.get(featured, {})
-    featured_description = next((s.name for s in status_code_list if s.code == featured), '')
+    featured_description = status_name(featured)
     featured_fun_fact = None
     if featured_extra and featured_extra.get('examples'):
         featured_fun_fact = featured_extra['examples'][0]
@@ -807,6 +825,8 @@ def api_search():
     query = request.args.get('q', '').strip().lower()
     if not query:
         return jsonify({"error": "Missing required query parameter: q"}), 400
+    if len(query) > 200:
+        return jsonify({"error": "Query too long (max 200 characters)"}), 400
 
     results = []
     for sc in status_code_list:
@@ -914,8 +934,17 @@ def mock_response():
         return jsonify({"error": "body must be a string"}), 400
     if len(body) > 10000:
         return jsonify({"error": "body must be 10000 characters or fewer"}), 400
+    if len(headers) > 50:
+        return jsonify({"error": "Too many headers (max 50)"}), 400
     # Build the response
     resp = app.response_class(body, status=status)
+    # Block security-sensitive headers that users must not override
+    _BLOCKED_MOCK_HEADERS = {
+        'set-cookie', 'content-security-policy', 'x-frame-options',
+        'x-content-type-options', 'strict-transport-security',
+        'referrer-policy', 'permissions-policy', 'server',
+        'transfer-encoding',
+    }
     # Only allow safe header names (no injection)
     for key, value in headers.items():
         key_clean = str(key).strip()
@@ -923,6 +952,8 @@ def mock_response():
         if not key_clean or '\n' in key_clean or '\r' in key_clean:
             continue
         if '\n' in value_clean or '\r' in value_clean:
+            continue
+        if key_clean.lower() in _BLOCKED_MOCK_HEADERS:
             continue
         resp.headers[key_clean] = value_clean
     return resp
@@ -942,7 +973,7 @@ def return_status(code):
         if is_rate_limited(request.remote_addr):
             return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
         time.sleep(delay)
-    description = next((s.name for s in status_code_list if s.code == str(code)), 'Unknown')
+    description = status_name(str(code)) or 'Unknown'
     response = jsonify({
         "code": code,
         "description": description,

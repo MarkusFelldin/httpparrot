@@ -65,7 +65,7 @@
             }
         });
         document.getElementById('collect-count').textContent = count;
-        document.getElementById('progress-bar').style.width = (count / cards.length * 100) + '%';
+        document.getElementById('progress-bar').style.transform = 'scaleX(' + (count / cards.length) + ')';
         var progressEl = document.getElementById('progress-bar').parentElement;
         if (progressEl) progressEl.setAttribute('aria-valuenow', count);
 

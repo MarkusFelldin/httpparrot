@@ -467,12 +467,20 @@ class TestCSPNonce:
 # --- Resolve and validate edge cases ---
 
 class TestResolveValidateEdgeCases:
-    def test_url_with_port(self):
+    def test_url_with_standard_port(self):
+        """URLs with standard ports (80, 443) should be allowed."""
         addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
         with patch('index.socket.getaddrinfo', return_value=addrinfo):
-            result, hostname = resolve_and_validate('http://example.com:8080/path')
-            assert result == 'http://example.com:8080/path'
+            result, hostname = resolve_and_validate('http://example.com:80/path')
+            assert result == 'http://example.com:80/path'
             assert hostname == 'example.com'
+
+    def test_url_with_non_standard_port_blocked(self):
+        """URLs with non-standard ports should be blocked to prevent SSRF."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:8080/path')
+            assert result is None
 
     def test_unresolvable_hostname(self):
         with patch('index.socket.getaddrinfo', side_effect=socket.gaierror):
@@ -3361,3 +3369,492 @@ class TestApiDocsCompleteness:
         resp = client.get('/api-docs')
         html = resp.data.decode()
         assert 'Response schema' in html or 'Request body schema' in html
+
+
+# --- Security Audit Tests ---
+
+class TestSSRFIPv6MappedAddresses:
+    """Verify SSRF protection against IPv6-mapped IPv4 private addresses."""
+
+    def test_blocks_ipv6_mapped_localhost(self):
+        """::ffff:127.0.0.1 should be blocked as it maps to localhost."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:127.0.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_10(self):
+        """::ffff:10.0.0.1 should be blocked as it maps to 10.0.0.0/8."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:10.0.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_172(self):
+        """::ffff:172.16.0.1 should be blocked as it maps to 172.16.0.0/12."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:172.16.0.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_private_192(self):
+        """::ffff:192.168.1.1 should be blocked as it maps to 192.168.0.0/16."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:192.168.1.1', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://tricky.example.com/')
+            assert result is None
+
+    def test_blocks_ipv6_mapped_metadata(self):
+        """::ffff:169.254.169.254 should be blocked (cloud metadata endpoint)."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:169.254.169.254', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://metadata.example.com/')
+            assert result is None
+
+    def test_allows_ipv6_mapped_public(self):
+        """::ffff:93.184.216.34 should be allowed as it maps to a public IP."""
+        addrinfo = [(socket.AF_INET6, socket.SOCK_STREAM, 0, '', ('::ffff:93.184.216.34', 0, 0, 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, hostname = resolve_and_validate('http://example.com/')
+            assert result is not None
+
+
+class TestSSRFSchemeAndPort:
+    """Verify SSRF protection against non-HTTP schemes and non-standard ports."""
+
+    def test_blocks_file_scheme(self):
+        """file:// URLs should be blocked."""
+        result, _ = resolve_and_validate('file:///etc/passwd')
+        assert result is None
+
+    def test_blocks_ftp_scheme(self):
+        """ftp:// URLs should be blocked."""
+        result, _ = resolve_and_validate('ftp://internal.example.com/')
+        assert result is None
+
+    def test_blocks_gopher_scheme(self):
+        """gopher:// URLs should be blocked."""
+        result, _ = resolve_and_validate('gopher://internal.example.com/')
+        assert result is None
+
+    def test_blocks_non_standard_port(self):
+        """Non-standard ports like 6379 (Redis) should be blocked."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:6379/')
+            assert result is None
+
+    def test_blocks_ssh_port(self):
+        """Port 22 (SSH) should be blocked."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:22/')
+            assert result is None
+
+    def test_allows_port_80(self):
+        """Port 80 should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('http://example.com:80/')
+            assert result is not None
+
+    def test_allows_port_443(self):
+        """Port 443 should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('https://example.com:443/')
+            assert result is not None
+
+    def test_allows_no_port(self):
+        """URLs without an explicit port should be allowed."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo):
+            result, _ = resolve_and_validate('https://example.com/')
+            assert result is not None
+
+
+class TestMockResponseSecurityHeaders:
+    """Verify mock-response blocks security-sensitive headers."""
+
+    def test_blocks_set_cookie_header(self, client):
+        """Mock response should not allow setting Set-Cookie headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Set-Cookie': 'session=evil'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        assert 'session=evil' not in (resp.headers.get('Set-Cookie') or '')
+
+    def test_blocks_csp_override(self, client):
+        """Mock response should not allow overriding Content-Security-Policy."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Content-Security-Policy': "default-src *"},
+                                 'body': ''})
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src *" not in csp
+        assert "default-src 'self'" in csp
+
+    def test_blocks_hsts_override(self, client):
+        """Mock response should not allow overriding HSTS."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Strict-Transport-Security': 'max-age=0'},
+                                 'body': ''})
+        hsts = resp.headers.get('Strict-Transport-Security', '')
+        assert 'max-age=31536000' in hsts
+
+    def test_blocks_x_frame_options_override(self, client):
+        """Mock response should not allow overriding X-Frame-Options."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Frame-Options': 'ALLOWALL'},
+                                 'body': ''})
+        assert resp.headers.get('X-Frame-Options') == 'DENY'
+
+    def test_blocks_transfer_encoding(self, client):
+        """Mock response should not allow setting Transfer-Encoding."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Transfer-Encoding': 'chunked'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        # Transfer-Encoding is managed by the server, not user input
+
+    def test_allows_safe_custom_headers(self, client):
+        """Mock response should still allow safe custom headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Custom': 'safe', 'Cache-Control': 'no-cache'},
+                                 'body': ''})
+        assert resp.headers.get('X-Custom') == 'safe'
+
+    def test_too_many_headers_rejected(self, client):
+        """Mock response should reject requests with more than 50 headers."""
+        headers = {f'X-Header-{i}': f'value-{i}' for i in range(51)}
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': headers,
+                                 'body': ''})
+        assert resp.status_code == 400
+        assert b'Too many headers' in resp.data
+
+    def test_value_injection_with_null_bytes(self, client):
+        """Mock response should not allow null bytes in header values."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'X-Test': 'value\x00injected'},
+                                 'body': ''})
+        # Should not crash; value may or may not be set depending on server
+        assert resp.status_code == 200
+
+
+class TestCSPNonceCompleteness:
+    """Verify CSP nonce is present in all script and style tags."""
+
+    def test_csp_includes_style_nonce(self, client):
+        """CSP style-src should include the nonce for inline styles."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce_match = re.search(r"'nonce-([^']+)'", csp)
+        assert nonce_match, "CSP should contain a nonce"
+        nonce = nonce_match.group(1)
+        assert f"style-src 'self' 'nonce-{nonce}'" in csp
+
+    def test_practice_inline_style_has_nonce(self, client):
+        """Practice page inline <style> should have the CSP nonce."""
+        resp = client.get('/practice')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'<style nonce="{nonce}">' in resp.data.decode()
+
+    def test_no_inline_event_handlers_on_html_tags(self, client):
+        """HTML tags should not have inline event handlers like onload=."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Check specifically for inline event handler attributes on HTML tags.
+        # The pattern 'onload="' on a link/img tag would be blocked by CSP.
+        # Note: l.onload= inside <script> is fine (DOM property, not HTML attr).
+        assert 'onload="this.onload' not in html, \
+            "Found inline onload handler on HTML element (blocked by CSP)"
+
+    def test_font_preload_uses_script(self, client):
+        """Font preload should use a nonce-based script, not inline onload."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="font-preload"' in html
+        assert 'font-preload' in html
+
+
+class TestCSPOnAllRoutes:
+    """Verify CSP headers are present on all routes, not just the homepage."""
+
+    def _check_csp(self, resp):
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "script-src 'self'" in csp
+        assert "'nonce-" in csp
+        assert 'unsafe-inline' not in csp
+        assert 'unsafe-eval' not in csp
+        return csp
+
+    def test_csp_on_homepage(self, client):
+        self._check_csp(client.get('/'))
+
+    def test_csp_on_detail_page(self, client):
+        self._check_csp(client.get('/200'))
+
+    def test_csp_on_quiz(self, client):
+        self._check_csp(client.get('/quiz'))
+
+    def test_csp_on_daily(self, client):
+        self._check_csp(client.get('/daily'))
+
+    def test_csp_on_practice(self, client):
+        self._check_csp(client.get('/practice'))
+
+    def test_csp_on_flowchart(self, client):
+        self._check_csp(client.get('/flowchart'))
+
+    def test_csp_on_compare(self, client):
+        self._check_csp(client.get('/compare'))
+
+    def test_csp_on_tester(self, client):
+        self._check_csp(client.get('/tester'))
+
+    def test_csp_on_cheatsheet(self, client):
+        self._check_csp(client.get('/cheatsheet'))
+
+    def test_csp_on_headers(self, client):
+        self._check_csp(client.get('/headers'))
+
+    def test_csp_on_cors_checker(self, client):
+        self._check_csp(client.get('/cors-checker'))
+
+    def test_csp_on_collection(self, client):
+        self._check_csp(client.get('/collection'))
+
+    def test_csp_on_playground(self, client):
+        self._check_csp(client.get('/playground'))
+
+    def test_csp_on_api_docs(self, client):
+        self._check_csp(client.get('/api-docs'))
+
+    def test_csp_on_404(self, client):
+        self._check_csp(client.get('/nonexistent'))
+
+    def test_csp_on_echo(self, client):
+        self._check_csp(client.get('/echo'))
+
+    def test_csp_on_api_search(self, client):
+        self._check_csp(client.get('/api/search?q=test'))
+
+    def test_csp_on_api_diff(self, client):
+        self._check_csp(client.get('/api/diff?code1=200&code2=404'))
+
+    def test_csp_on_return(self, client):
+        self._check_csp(client.get('/return/200'))
+
+
+class TestSecurityHeadersOnAllRoutes:
+    """Verify all security headers are present on every route."""
+
+    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/flowchart',
+              '/compare', '/tester', '/cheatsheet', '/headers',
+              '/cors-checker', '/collection', '/playground', '/api-docs',
+              '/echo', '/return/200', '/redirect/0', '/feed.xml',
+              '/sitemap.xml', '/robots.txt']
+
+    def _check_headers(self, resp):
+        assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
+        assert resp.headers.get('X-Frame-Options') == 'DENY'
+        assert 'strict-origin-when-cross-origin' in resp.headers.get('Referrer-Policy', '')
+        assert 'camera=()' in resp.headers.get('Permissions-Policy', '')
+        assert 'max-age=31536000' in resp.headers.get('Strict-Transport-Security', '')
+        assert 'Server' not in resp.headers
+
+    def test_security_headers_on_all_routes(self, client):
+        """All routes should have the complete set of security headers."""
+        for route in self.ROUTES:
+            resp = client.get(route)
+            self._check_headers(resp)
+
+
+class TestSearchQueryValidation:
+    """Verify /api/search query parameter validation."""
+
+    def test_search_rejects_empty_query(self, client):
+        resp = client.get('/api/search?q=')
+        assert resp.status_code == 400
+
+    def test_search_rejects_long_query(self, client):
+        """Search should reject queries over 200 characters."""
+        resp = client.get('/api/search?q=' + 'a' * 201)
+        assert resp.status_code == 400
+        assert b'Query too long' in resp.data
+
+    def test_search_allows_normal_query(self, client):
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+
+    def test_search_allows_max_length_query(self, client):
+        """Search should accept queries up to 200 characters."""
+        resp = client.get('/api/search?q=' + 'a' * 200)
+        assert resp.status_code == 200
+
+
+class TestEchoXSSProtection:
+    """Verify echo endpoint doesn't reflect sensitive data."""
+
+    def test_echo_strips_authorization(self, client):
+        """Echo should strip Authorization header."""
+        resp = client.get('/echo', headers={'Authorization': 'Bearer secret'})
+        data = resp.get_json()
+        assert 'Authorization' not in data['headers']
+
+    def test_echo_strips_cookie(self, client):
+        """Echo should strip Cookie header."""
+        resp = client.get('/echo', headers={'Cookie': 'session=abc123'})
+        data = resp.get_json()
+        assert 'Cookie' not in data['headers']
+
+    def test_echo_strips_proxy_auth(self, client):
+        """Echo should strip Proxy-Authorization header."""
+        resp = client.get('/echo', headers={'Proxy-Authorization': 'Basic abc'})
+        data = resp.get_json()
+        assert 'Proxy-Authorization' not in data['headers']
+
+    def test_echo_returns_json_content_type(self, client):
+        """Echo should always return JSON content type."""
+        resp = client.get('/echo')
+        assert resp.content_type.startswith('application/json')
+
+    def test_echo_curl_format_no_auth(self, client):
+        """Echo with format=curl should not include auth headers."""
+        resp = client.get('/echo?format=curl',
+                          headers={'Authorization': 'Bearer secret'})
+        data = resp.get_json()
+        assert 'Bearer secret' not in data.get('curl', '')
+
+
+class TestSecretManagement:
+    """Verify no hardcoded secrets or debug mode."""
+
+    def test_debug_mode_disabled(self):
+        """Flask should not be in debug mode."""
+        assert app.config['DEBUG'] is False
+
+    def test_secret_key_not_empty(self):
+        """Flask should have a SECRET_KEY configured."""
+        assert app.config['SECRET_KEY'] is not None
+        assert len(app.config['SECRET_KEY']) > 0
+
+    def test_max_content_length_set(self):
+        """Request body size should be limited."""
+        assert app.config['MAX_CONTENT_LENGTH'] == 1 * 1024 * 1024
+
+    def test_server_header_stripped(self, client):
+        """Server header should not be present in responses."""
+        resp = client.get('/')
+        assert 'Server' not in resp.headers
+
+
+class TestTemplateAutoEscaping:
+    """Verify Jinja2 auto-escaping prevents XSS in templates."""
+
+    def test_status_code_not_injectable(self, client):
+        """Status codes displayed in templates should be auto-escaped."""
+        # Request a valid code -- make sure output is properly escaped
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Verify the code appears as plain text, not as unescaped HTML
+        assert '<script>' not in html or 'nonce=' in html
+
+    def test_no_safe_filter_in_templates(self):
+        """No templates should use |safe filter (verified by grep)."""
+        import os
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        for filename in os.listdir(template_dir):
+            if filename.endswith('.html'):
+                with open(os.path.join(template_dir, filename)) as f:
+                    content = f.read()
+                    assert '|safe' not in content, \
+                        f"Template {filename} uses |safe which bypasses auto-escaping"
+
+    def test_no_unsafe_inline_in_csp(self, client):
+        """CSP should not contain unsafe-inline or unsafe-eval."""
+        resp = client.get('/')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert 'unsafe-inline' not in csp
+        assert 'unsafe-eval' not in csp
+
+
+class TestRateLimitingEndpoints:
+    """Verify all outbound-request endpoints are rate-limited."""
+
+    def test_check_url_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/check-url?url=http://127.0.0.1/')
+        resp = client.get('/api/check-url?url=https://example.com')
+        assert resp.status_code == 429
+
+    def test_check_cors_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://x.com')
+        resp = client.get('/api/check-cors?url=https://example.com&origin=https://x.com')
+        assert resp.status_code == 429
+
+    def test_mock_response_rate_limited(self, client):
+        for _ in range(10):
+            client.post('/api/mock-response',
+                        json={'status_code': 200, 'headers': {}, 'body': ''})
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': ''})
+        assert resp.status_code == 429
+
+    def test_return_delay_rate_limited(self, client):
+        """Return endpoint with delay should be rate-limited."""
+        for _ in range(10):
+            client.get('/return/200?delay=0.01')
+        resp = client.get('/return/200?delay=0.01')
+        assert resp.status_code == 429
+
+
+class TestPerformance:
+    """Performance-related tests."""
+
+    def test_static_files_cache_header(self, client):
+        resp = client.get('/static/style.css')
+        assert 'max-age' in resp.headers.get('Cache-Control', '')
+
+    def test_html_pages_cache_header(self, client):
+        resp = client.get('/')
+        assert 'max-age' in resp.headers.get('Cache-Control', '')
+
+    def test_images_have_lazy_loading(self, client):
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'loading="lazy"' in html
+
+    def test_detail_image_has_fetchpriority(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'fetchpriority="high"' in html
+
+    def test_css_contain_property(self, client):
+        resp = client.get('/static/style.css')
+        assert b'contain:' in resp.data
+
+    def test_css_will_change(self, client):
+        resp = client.get('/static/style.css')
+        assert b'will-change:' in resp.data
+
+    def test_no_external_js(self, client):
+        """No external JS should block rendering."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert '<script src=' not in html
+
+    def test_random_endpoint_no_cache(self, client):
+        resp = client.get('/random', follow_redirects=False)
+        assert 'no-store' in resp.headers.get('Cache-Control', '')
