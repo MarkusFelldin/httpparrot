@@ -3102,3 +3102,262 @@ class TestCSSMediaQueries:
         assert '.category-3xx' in block
         assert '.category-4xx' in block
         assert '.category-5xx' in block
+
+
+class TestEdgeCaseCoverage:
+    """Tests targeting uncovered lines for maximum coverage."""
+
+    def test_mock_response_invalid_headers(self, client):
+        """Headers must be a dict."""
+        resp = client.post('/api/mock-response',
+                           json={"status_code": 200, "headers": "not-a-dict"})
+        assert resp.status_code == 400
+        assert b'headers must be a dict' in resp.data
+
+    def test_mock_response_invalid_body(self, client):
+        """Body must be a string."""
+        resp = client.post('/api/mock-response',
+                           json={"status_code": 200, "body": 123})
+        assert resp.status_code == 400
+        assert b'body must be a string' in resp.data
+
+    def test_search_partial_code(self, client):
+        """Search by partial code digits (e.g., '50' should match 500s)."""
+        resp = client.get('/api/search?q=50')
+        data = resp.get_json()
+        codes = [r['code'] for r in data]
+        assert '500' in codes
+
+    def test_search_code_contains(self, client):
+        """Search that matches code containing digits."""
+        resp = client.get('/api/search?q=04')
+        data = resp.get_json()
+        codes = [r['code'] for r in data]
+        assert '404' in codes or '204' in codes
+
+    def test_all_pages_have_csp_nonce(self, client):
+        """All major pages should have CSP nonce in scripts."""
+        pages = ['/', '/quiz', '/daily', '/practice', '/flowchart',
+                 '/compare', '/cheatsheet', '/collection', '/tester',
+                 '/headers', '/cors-checker', '/api-docs', '/playground', '/200']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.get_data(as_text=True)
+            if html:  # skip empty responses (204)
+                assert 'nonce=' in html, f"Missing CSP nonce on {page}"
+
+    def test_all_pages_have_doctype(self, client):
+        """All pages should have proper HTML5 doctype."""
+        pages = ['/', '/quiz', '/daily', '/practice', '/200', '/404-nonexistent']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.get_data(as_text=True)
+            if html:
+                assert '<!doctype html>' in html.lower() or '<!DOCTYPE html>' in html, \
+                    f"Missing doctype on {page}"
+
+    def test_return_status_with_delay_rate_limited(self, client):
+        """Return status delay should be rate-limited."""
+        # Exhaust rate limit
+        for _ in range(25):
+            client.get('/return/200?delay=0.001')
+        resp = client.get('/return/200?delay=0.001')
+        assert resp.status_code == 429
+
+    def test_highlight_http_filter(self, client):
+        """HTTP exchange sections should have syntax highlighting."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'http-hl-' in html
+
+    def test_feed_xml_content_type(self, client):
+        """RSS feed should have proper content type."""
+        resp = client.get('/feed.xml')
+        assert 'xml' in resp.content_type
+
+
+# --- Sitemap completeness ---
+
+class TestSitemapCompleteness:
+    """Verify sitemap.xml includes all expected public pages."""
+
+    EXPECTED_PAGES = [
+        '/', '/quiz', '/daily', '/practice', '/flowchart', '/compare',
+        '/tester', '/cheatsheet', '/headers', '/cors-checker',
+        '/collection', '/playground', '/api-docs',
+    ]
+
+    def test_sitemap_returns_xml(self, client):
+        resp = client.get('/sitemap.xml')
+        assert resp.status_code == 200
+        assert resp.content_type == 'application/xml'
+
+    def test_sitemap_has_xml_header(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '<?xml version="1.0"' in body
+        assert '<urlset' in body
+        assert '</urlset>' in body
+
+    def test_sitemap_includes_all_public_pages(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        for page in self.EXPECTED_PAGES:
+            assert f'<loc>http://localhost{page}</loc>' in body, \
+                f"Sitemap missing page: {page}"
+
+    def test_sitemap_includes_status_code_pages(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        # Spot-check common codes are present
+        for code in ['200', '301', '404', '500']:
+            assert f'<loc>http://localhost/{code}</loc>' in body, \
+                f"Sitemap missing status code page: /{code}"
+
+    def test_sitemap_homepage_has_highest_priority(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '<url><loc>http://localhost/</loc><priority>1.0</priority></url>' in body
+
+    def test_sitemap_does_not_include_api_endpoints(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/api/search' not in body
+        assert '/api/check-url' not in body
+        assert '/api/check-cors' not in body
+        assert '/api/mock-response' not in body
+        assert '/api/diff' not in body
+        assert '/echo' not in body
+        assert '/return/' not in body
+        assert '/redirect/' not in body
+
+    def test_sitemap_cache_header(self, client):
+        resp = client.get('/sitemap.xml')
+        assert 'max-age=86400' in resp.headers.get('Cache-Control', '')
+
+
+# --- robots.txt format ---
+
+class TestRobotsTxtFormat:
+    """Verify robots.txt is correct and complete."""
+
+    def test_robots_returns_text(self, client):
+        resp = client.get('/robots.txt')
+        assert resp.status_code == 200
+        assert resp.content_type == 'text/plain; charset=utf-8'
+
+    def test_robots_allows_root(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        assert 'User-agent: *' in body
+        assert 'Allow: /' in body
+
+    def test_robots_disallows_api_endpoints(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        expected_disallows = [
+            'Disallow: /api/check-url',
+            'Disallow: /api/check-cors',
+            'Disallow: /api/mock-response',
+            'Disallow: /api/diff',
+            'Disallow: /api/search',
+            'Disallow: /return/',
+            'Disallow: /echo',
+            'Disallow: /redirect/',
+        ]
+        for rule in expected_disallows:
+            assert rule in body, f"robots.txt missing: {rule}"
+
+    def test_robots_references_sitemap(self, client):
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        assert 'Sitemap:' in body
+        assert 'sitemap.xml' in body
+
+
+# --- API docs page completeness ---
+
+class TestApiDocsCompleteness:
+    """Verify the API docs page documents all API endpoints."""
+
+    def test_api_docs_status_code_detail_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/{code}' in html
+        assert 'application/json' in html
+
+    def test_api_docs_image_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/{code}.jpg' in html
+
+    def test_api_docs_random_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/random' in html
+
+    def test_api_docs_search_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/search' in html
+        assert 'score' in html
+
+    def test_api_docs_check_url_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/check-url' in html
+        assert 'time_ms' in html
+
+    def test_api_docs_check_cors_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/check-cors' in html
+        assert 'preflight' in html
+        assert 'analysis' in html
+
+    def test_api_docs_return_status_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/return/{code}' in html
+        assert 'delay' in html
+
+    def test_api_docs_echo_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/echo' in html
+        assert 'POST' in html
+
+    def test_api_docs_diff_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/diff' in html
+        assert 'key_difference' in html
+
+    def test_api_docs_redirect_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/redirect/{n}' in html
+
+    def test_api_docs_mock_response_endpoint(self, client):
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/mock-response' in html
+        assert 'status_code' in html
+
+    def test_api_docs_lists_all_interactive_pages(self, client):
+        """The interactive pages section should list all public pages."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        expected_pages = [
+            '/quiz', '/daily', '/practice', '/flowchart', '/compare',
+            '/tester', '/cheatsheet', '/collection', '/headers',
+            '/cors-checker', '/playground',
+        ]
+        for page in expected_pages:
+            assert page in html, f"API docs missing interactive page: {page}"
+
+    def test_api_docs_has_response_schemas(self, client):
+        """API docs should include response schema documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'Response schema' in html or 'Request body schema' in html

@@ -1224,9 +1224,9 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
-                 '/cheatsheet', '/headers', '/cors-checker', '/collection',
-                 '/playground', '/api-docs']:
+    for rule in ['/', '/quiz', '/daily', '/practice', '/flowchart',
+                 '/compare', '/tester', '/cheatsheet', '/headers',
+                 '/cors-checker', '/collection', '/playground', '/api-docs']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
