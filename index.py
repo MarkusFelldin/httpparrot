@@ -178,6 +178,13 @@ def is_rate_limited(client_ip):
     return False
 
 
+def _ensure_scheme(url):
+    """Prepend https:// if the URL has no scheme."""
+    if not url.startswith(('http://', 'https://')):
+        return 'https://' + url
+    return url
+
+
 @app.context_processor
 def inject_csp_nonce():
     nonce = secrets.token_urlsafe(32)
@@ -706,28 +713,27 @@ def flowchart():
     return render_template('flowchart.html')
 
 
-COMPARISON_SUMMARIES = {
-    "401,403": "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
-    "403,401": "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
-    "301,302": "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
-    "302,301": "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
-    "500,502": "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
-    "502,500": "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
-    "200,204": "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
-    "204,200": "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
-    "301,308": "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
-    "308,301": "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
-    "302,307": "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
-    "307,302": "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
-    "404,410": "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
-    "410,404": "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
-    "502,504": "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
-    "504,502": "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
-    "400,422": "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
-    "422,400": "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
-    "503,500": "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
-    "500,503": "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
-}
+def _build_symmetric_summaries(pairs):
+    """Build a dict with both orderings (a,b and b,a) from single-direction pairs."""
+    result = {}
+    for (a, b), text in pairs.items():
+        result[f"{a},{b}"] = text
+        result[f"{b},{a}"] = text
+    return result
+
+
+COMPARISON_SUMMARIES = _build_symmetric_summaries({
+    ("401", "403"): "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
+    ("301", "302"): "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
+    ("500", "502"): "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
+    ("200", "204"): "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
+    ("301", "308"): "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
+    ("302", "307"): "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
+    ("404", "410"): "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
+    ("502", "504"): "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
+    ("400", "422"): "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
+    ("503", "500"): "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
+})
 
 
 @app.route('/compare')
@@ -772,8 +778,7 @@ def check_cors():
     origin = request.args.get('origin', '')
     if not url or not origin:
         return jsonify({"error": "Both url and origin are required"}), 400
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    url = _ensure_scheme(url)
     safe_url, hostname = resolve_and_validate(url)
     if not safe_url:
         return jsonify({"error": "URL not allowed"}), 403
@@ -884,8 +889,7 @@ def check_url():
     url = request.args.get('url', '')
     if not url:
         return jsonify({"error": "No URL provided"}), 400
-    if not url.startswith(('http://', 'https://')):
-        url = 'https://' + url
+    url = _ensure_scheme(url)
     safe_url, hostname = resolve_and_validate(url)
     if not safe_url:
         logger.warning('SSRF blocked: %s from %s', url, request.remote_addr)
@@ -1000,7 +1004,8 @@ def http_parrot(status_code):
         code = int(status_code)
     except ValueError:
         abort(404)
-    if not any(s.code == status_code for s in status_code_list):
+    description = status_name(status_code)
+    if not description:
         abort(404)
     # Only return the actual status code for 2xx/4xx/5xx.
     # 1xx and 3xx codes have special HTTP semantics that break the response.
@@ -1010,10 +1015,8 @@ def http_parrot(status_code):
     best = request.accept_mimetypes.best_match(['text/html', 'image/*', 'application/json'])
     if image and best == 'image/*':
         return send_from_directory('static', image), code
-    description = next((s.name for s in status_code_list if s.code == status_code), '')
     info = STATUS_INFO.get(status_code, {})
     extra = STATUS_EXTRA.get(status_code, {})
-    http_example = HTTP_EXAMPLES.get(status_code, {})
     if best == 'application/json':
         return jsonify({
             "code": status_code,
@@ -1022,6 +1025,7 @@ def http_parrot(status_code):
             "meaning": info.get("description", ""),
             "history": info.get("history", ""),
         }), code
+    http_example = HTTP_EXAMPLES.get(status_code, {})
     codes = pruned_status_codes()
     code_list = [c.code for c in codes]
     try:
@@ -1032,9 +1036,8 @@ def http_parrot(status_code):
     next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
     related = RELATED_CODES.get(status_code, [])
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
-    # Build FAQ entries for structured data
     faq_entries = build_faq_entries(status_code, description, info, extra, related)
-    eli5 = extra.get('eli5', '') if extra else ''
+    eli5 = extra.get('eli5', '')
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
@@ -1142,60 +1145,40 @@ def api_diff():
     if not code1 or not code2:
         return jsonify({'error': 'Both code1 and code2 query params are required.'}), 400
 
-    sc1 = next((s for s in status_code_list if s.code == code1), None)
-    sc2 = next((s for s in status_code_list if s.code == code2), None)
-    if not sc1 or not sc2:
-        missing = []
-        if not sc1:
-            missing.append(code1)
-        if not sc2:
-            missing.append(code2)
+    name1 = status_name(code1)
+    name2 = status_name(code2)
+    if not name1 or not name2:
+        missing = [c for c, n in [(code1, name1), (code2, name2)] if not n]
         return jsonify({'error': f"Unknown status code(s): {', '.join(missing)}"}), 404
 
-    info1 = STATUS_INFO.get(code1, {})
-    info2 = STATUS_INFO.get(code2, {})
-    extra1 = STATUS_EXTRA.get(code1, {})
-    extra2 = STATUS_EXTRA.get(code2, {})
     related1 = RELATED_CODES.get(code1, [])
     related2 = RELATED_CODES.get(code2, [])
 
     # Try to find a direct key_difference from RELATED_CODES
-    key_diff = None
-    for rel_code, explanation in related1:
-        if rel_code == code2:
-            key_diff = explanation
-            break
-    if not key_diff:
-        for rel_code, explanation in related2:
-            if rel_code == code1:
-                key_diff = explanation
-                break
-    if not key_diff:
-        key_diff = (
-            f"{code1} ({sc1.name}) is a {_code_category(code1).split(' ', 1)[1].lower()} response; "
-            f"{code2} ({sc2.name}) is a {_code_category(code2).split(' ', 1)[1].lower()} response."
-        )
+    key_diff = (
+        next((exp for rc, exp in related1 if rc == code2), None)
+        or next((exp for rc, exp in related2 if rc == code1), None)
+        or (f"{code1} ({name1}) is a {_code_category(code1).split(' ', 1)[1].lower()} response; "
+            f"{code2} ({name2}) is a {_code_category(code2).split(' ', 1)[1].lower()} response.")
+    )
 
-    result = {
-        'code1': {
-            'code': code1,
-            'name': sc1.name,
-            'category': _code_category(code1),
-            'description': info1.get('description', ''),
-            'examples': extra1.get('examples', []),
-            'related_codes': [{'code': c, 'why': w} for c, w in related1],
-        },
-        'code2': {
-            'code': code2,
-            'name': sc2.name,
-            'category': _code_category(code2),
-            'description': info2.get('description', ''),
-            'examples': extra2.get('examples', []),
-            'related_codes': [{'code': c, 'why': w} for c, w in related2],
-        },
+    def _code_detail(code, name, related):
+        info = STATUS_INFO.get(code, {})
+        extra = STATUS_EXTRA.get(code, {})
+        return {
+            'code': code,
+            'name': name,
+            'category': _code_category(code),
+            'description': info.get('description', ''),
+            'examples': extra.get('examples', []),
+            'related_codes': [{'code': c, 'why': w} for c, w in related],
+        }
+
+    return jsonify({
+        'code1': _code_detail(code1, name1, related1),
+        'code2': _code_detail(code2, name2, related2),
         'key_difference': key_diff,
-    }
-    return jsonify(result)
+    })
 
 
 @app.route('/redirect/<int:n>')
