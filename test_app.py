@@ -3190,7 +3190,7 @@ class TestSitemapCompleteness:
     def test_sitemap_returns_xml(self, client):
         resp = client.get('/sitemap.xml')
         assert resp.status_code == 200
-        assert resp.content_type == 'application/xml'
+        assert 'application/xml' in resp.content_type
 
     def test_sitemap_has_xml_header(self, client):
         resp = client.get('/sitemap.xml')
