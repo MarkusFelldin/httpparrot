@@ -64,6 +64,7 @@
         var CORRECT_CODE = {{ correct_code | tojson }};
         var CORRECT_NAME = {{ correct_name | tojson }};
         var STORAGE_KEY = 'httpparrot_daily';
+        var dailyLoadTime = Date.now();
 
         function getState() {
             try {
@@ -187,6 +188,10 @@
                 if (wasCorrect) {
                     state.streak++;
                     spawnConfetti(btn);
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(50, 'daily_correct');
+                    if ((Date.now() - dailyLoadTime) <= 5000) {
+                        localStorage.setItem('httpparrot_speed_demon', 'true');
+                    }
                 } else {
                     state.streak = 0;
                 }

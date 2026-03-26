@@ -3190,8 +3190,8 @@ class TestSitemapCompleteness:
     """Verify sitemap.xml includes all expected public pages."""
 
     EXPECTED_PAGES = [
-        '/', '/quiz', '/daily', '/practice', '/flowchart', '/compare',
-        '/tester', '/cheatsheet', '/headers', '/cors-checker',
+        '/', '/quiz', '/daily', '/practice', '/debug', '/flowchart',
+        '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
         '/collection', '/playground', '/api-docs', '/profile',
     ]
 
@@ -3662,8 +3662,8 @@ class TestCSPOnAllRoutes:
 class TestSecurityHeadersOnAllRoutes:
     """Verify all security headers are present on every route."""
 
-    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/flowchart',
-              '/compare', '/tester', '/cheatsheet', '/headers',
+    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/debug',
+              '/flowchart', '/compare', '/tester', '/cheatsheet', '/headers',
               '/cors-checker', '/collection', '/playground', '/api-docs',
               '/profile', '/echo', '/return/200', '/redirect/0', '/feed.xml',
               '/sitemap.xml', '/robots.txt']
@@ -3820,6 +3820,12 @@ class TestRateLimitingEndpoints:
         for _ in range(10):
             client.get('/return/200?delay=0.01')
         resp = client.get('/return/200?delay=0.01')
+        assert resp.status_code == 429
+
+    def test_trace_redirects_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        resp = client.get('/api/trace-redirects?url=https://example.com')
         assert resp.status_code == 429
 
 
@@ -4288,3 +4294,729 @@ class TestProfilePage:
         resp = client.get('/profile')
         html = resp.data.decode()
         assert 'Profile - HTTP Parrots' in html
+
+
+class TestRedirectTracer:
+    """Tests for the Redirect Tracer feature."""
+
+    def test_trace_page_renders(self, client):
+        """Trace page should return 200 with expected content."""
+        resp = client.get('/trace')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Redirect Tracer' in html
+        assert 'trace-url' in html
+        assert 'trace-form' in html
+
+    def test_trace_nav_link(self, client):
+        """Navigation should contain a link to the Trace page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/trace"' in html
+
+    def test_trace_redirects_no_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/trace-redirects')
+        assert resp.status_code == 400
+        assert b'No URL provided' in resp.data
+
+    def test_trace_redirects_ssrf_blocked(self, client):
+        """API should block private/internal URLs at each hop."""
+        resp = client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data) == 1
+        assert 'SSRF' in data[0].get('error', '') or 'not allowed' in data[0].get('error', '')
+
+    def test_trace_redirects_single_hop(self, client):
+        """Non-redirect response should return a single hop."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html', 'Server': 'nginx'}
+        mock_resp.elapsed.total_seconds.return_value = 0.03
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert len(data) == 1
+            assert data[0]['status_code'] == 200
+            assert data[0]['url'] == 'https://example.com'
+            assert 'time_ms' in data[0]
+            assert data[0]['headers']['Content-Type'] == 'text/html'
+
+    def test_trace_redirects_chain(self, client):
+        """API should follow a redirect chain through multiple hops."""
+        mock_301 = MagicMock()
+        mock_301.status_code = 301
+        mock_301.headers = {
+            'Location': 'https://www.example.com/',
+            'Server': 'nginx',
+        }
+        mock_301.elapsed.total_seconds.return_value = 0.02
+        mock_302 = MagicMock()
+        mock_302.status_code = 302
+        mock_302.headers = {
+            'Location': 'https://www.example.com/home',
+            'Set-Cookie': 'sid=abc123',
+        }
+        mock_302.elapsed.total_seconds.return_value = 0.04
+        mock_200 = MagicMock()
+        mock_200.status_code = 200
+        mock_200.headers = {
+            'Content-Type': 'text/html',
+            'Strict-Transport-Security': 'max-age=31536000',
+        }
+        mock_200.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=[mock_301, mock_302, mock_200]):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert len(data) == 3
+            assert data[0]['status_code'] == 301
+            assert data[0]['location'] == 'https://www.example.com/'
+            assert data[1]['status_code'] == 302
+            assert data[1]['headers'].get('Set-Cookie') == '(present)'
+            assert data[2]['status_code'] == 200
+            assert 'Strict-Transport-Security' in data[2]['headers']
+
+    def test_trace_redirects_ssrf_on_intermediate_hop(self, client):
+        """SSRF protection should apply to each redirect target."""
+        mock_301 = MagicMock()
+        mock_301.status_code = 301
+        mock_301.headers = {'Location': 'http://192.168.1.1/admin'}
+        mock_301.elapsed.total_seconds.return_value = 0.02
+
+        def fake_getaddrinfo(host, *args, **kwargs):
+            if host == '192.168.1.1':
+                return [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0))]
+            return [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+
+        with patch('index.socket.getaddrinfo', side_effect=fake_getaddrinfo), \
+             patch('requests.head', return_value=mock_301):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            # First hop is the 301, second hop is the blocked internal URL
+            assert len(data) == 2
+            assert data[0]['status_code'] == 301
+            assert 'not allowed' in data[1].get('error', '') or 'SSRF' in data[1].get('error', '')
+
+    def test_trace_redirects_max_hops(self, client):
+        """API should stop after 10 redirect hops."""
+        mock_redirect = MagicMock()
+        mock_redirect.status_code = 302
+        mock_redirect.headers = {'Location': 'https://example.com/loop'}
+        mock_redirect.elapsed.total_seconds.return_value = 0.01
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_redirect):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            # 10 redirect hops + 1 "too many redirects" error entry
+            assert len(data) == 11
+            assert 'Too many redirects' in data[-1].get('error', '')
+
+    def test_trace_redirects_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html'}
+        mock_resp.elapsed.total_seconds.return_value = 0.03
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/trace-redirects?url=example.com')
+            data = resp.get_json()
+            assert data[0]['url'] == 'https://example.com'
+
+    def test_trace_redirects_timeout(self, client):
+        """API should handle timeout errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=requests.Timeout):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            assert len(data) == 1
+            assert 'timed out' in data[0]['error'].lower()
+
+    def test_trace_redirects_connection_error(self, client):
+        """API should handle connection errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=requests.ConnectionError):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            assert len(data) == 1
+            assert 'connect' in data[0]['error'].lower()
+
+    def test_trace_redirects_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        resp = client.get('/api/trace-redirects?url=https://example.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_trace_in_sitemap(self, client):
+        """Sitemap should include the trace page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/trace' in resp.data
+
+    def test_trace_redirects_in_robots_disallow(self, client):
+        """robots.txt should disallow the trace API endpoint."""
+        resp = client.get('/robots.txt')
+        assert b'/api/trace-redirects' in resp.data
+
+
+# --- XP award() calls wired into templates ---
+
+class TestXPAwardCalls:
+    """Verify ParrotXP.award() is actually called in each template."""
+
+    def test_quiz_awards_xp_on_correct(self, client):
+        """Quiz template should call ParrotXP.award(10, 'quiz_correct')."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "ParrotXP.award(10, 'quiz_correct')" in html
+
+    def test_daily_awards_xp_on_correct(self, client):
+        """Daily template should call ParrotXP.award(50, 'daily_correct')."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert "ParrotXP.award(50, 'daily_correct')" in html
+
+    def test_practice_awards_xp_on_correct(self, client):
+        """Practice template should call ParrotXP.award(15, 'practice_correct')."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "ParrotXP.award(15, 'practice_correct')" in html
+
+    def test_detail_page_awards_xp_on_first_visit(self, client):
+        """Detail page should call ParrotXP.award(5, 'page_visit') for new codes."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert "ParrotXP.award(5, 'page_visit')" in html
+
+    def test_collection_awards_xp_for_easter_egg(self, client):
+        """Collection page should call ParrotXP.award(100, 'easter_egg')."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_coffee_awards_xp_for_easter_egg(self, client):
+        """Coffee page should call ParrotXP.award(100, 'easter_egg') on first visit."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_quiz_perfect_10_flag(self, client):
+        """Quiz should set httpparrot_perfect_quiz flag on 10/10 score."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'httpparrot_perfect_quiz' in html
+
+    def test_daily_speed_demon_flag(self, client):
+        """Daily should set httpparrot_speed_demon flag for fast answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'httpparrot_speed_demon' in html
+
+
+# --- Achievement Badges (Feathers) ---
+
+class TestFeatherBadges:
+    """Verify Feathers system is defined and integrated."""
+
+    def test_feathers_defined_in_base(self, client):
+        """Base template should define the FEATHERS array."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'FEATHERS' in html
+        assert 'httpparrot_feathers' in html
+
+    def test_all_14_badges_defined(self, client):
+        """All 14 feather badge IDs should appear in the base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        badge_ids = [
+            'first_flight', 'quiz_whiz', 'perfect_10', 'streak_starter',
+            'on_fire', 'centurion', 'wing_commander', 'completionist',
+            'error_expert', 'server_sage', 'egg_hunter', 'scholar',
+            'night_owl', 'speed_demon'
+        ]
+        for badge_id in badge_ids:
+            assert badge_id in html, f"Badge '{badge_id}' not found in base template"
+
+    def test_check_feathers_method_exists(self, client):
+        """ParrotXP should expose checkFeathers method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'checkFeathers:' in html or 'checkFeathers: checkFeathers' in html
+
+    def test_get_feathers_method_exists(self, client):
+        """ParrotXP should expose getFeathers method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'getFeathers:' in html or 'getFeathers: getFeathers' in html
+
+    def test_feather_toast_css_exists(self, client):
+        """Feather toast CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-toast' in css
+        assert '.feather-toast-visible' in css
+
+    def test_feather_toast_function_exists(self, client):
+        """Base template should contain showFeatherToast function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'showFeatherToast' in html
+
+    def test_award_calls_check_feathers(self, client):
+        """The award function should call checkFeathers after awarding XP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'awardWithFeathers' in html
+        assert 'checkFeathers()' in html
+
+
+# --- Profile Feathers section ---
+
+class TestProfileFeathers:
+    """Verify the Feathers section appears on the profile page."""
+
+    def test_profile_has_feathers_section(self, client):
+        """Profile page should contain a Feathers section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-feathers-section' in html
+        assert 'Feathers' in html
+
+    def test_profile_has_feathers_grid(self, client):
+        """Profile page should contain the feathers grid container."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-feathers-grid' in html
+
+    def test_profile_feathers_js_populates_grid(self, client):
+        """Profile script should populate the feathers grid from ParrotXP.FEATHERS."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotXP.FEATHERS' in html
+        assert 'feather-card' in html
+
+    def test_profile_feathers_shows_earned_and_locked(self, client):
+        """Profile script should distinguish earned vs locked feathers."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'earned' in html
+        assert 'locked' in html
+
+    def test_feather_card_css_exists(self, client):
+        """Feather card CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-card' in css
+        assert '.feather-card.earned' in css
+        assert '.feather-card.locked' in css
+        assert '.profile-feathers-grid' in css
+
+
+class TestSurfaceElevationSystem:
+    """Tests for CSS surface elevation tokens and gradient border hover."""
+
+    def test_surface_elevation_tokens_defined(self, client):
+        """Surface elevation tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-0:' in css
+        assert '--surface-1:' in css
+        assert '--surface-2:' in css
+        assert '--surface-3:' in css
+
+    def test_shadow_tokens_defined(self, client):
+        """Shadow elevation tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--shadow-sm:' in css
+        assert '--shadow-md:' in css
+        assert '--shadow-lg:' in css
+
+    def test_level1_parrot_cards(self, client):
+        """Surface-1 token should be used for card-level elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-1)' in css
+
+    def test_level1_detail_info(self, client):
+        """Detail info should use surface-1 and shadow-sm."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.detail-info {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-1)' in block
+        assert 'var(--shadow-sm)' in block
+
+    def test_level1_header_card(self, client):
+        """Header card should use surface-1 and shadow-sm."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.header-card {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-1)' in block
+        assert 'var(--shadow-sm)' in block
+
+    def test_level2_filter_dropdown(self, client):
+        """Filter dropdown should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.filter-dropdown {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-2)' in block
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_quiz_image(self, client):
+        """Quiz image should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-2)' in css
+        idx = css.index('.quiz-image {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_tester_result(self, client):
+        """Tester result should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.tester-result {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-2)' in block
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_compare_card(self, client):
+        """Compare card should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-2)' in css
+
+    def test_level3_mobile_nav(self, client):
+        """Mobile nav should use surface-3 and shadow-lg."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.mobile-nav {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-3)' in block
+        assert 'var(--shadow-lg)' in block
+
+
+class TestGradientBorderHover:
+    """Tests for CSS gradient border card hover effect."""
+
+    def test_category_glow_colors_defined(self, client):
+        """Each parrot category should define --cat-glow-color."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-1xx { --cat-glow-color: var(--color-cyan)' in css
+        assert '.parrot-2xx { --cat-glow-color: var(--color-emerald)' in css
+        assert '.parrot-3xx { --cat-glow-color: var(--color-gold)' in css
+        assert '.parrot-4xx { --cat-glow-color: var(--color-coral)' in css
+        assert '.parrot-5xx { --cat-glow-color: var(--color-lavender)' in css
+
+    def test_parrot_after_pseudo_element(self, client):
+        """Parrot ::after should have the gradient border setup."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot::after' in css
+        assert 'conic-gradient' in css
+
+    def test_parrot_after_mask_technique(self, client):
+        """Parrot ::after should use mask-composite: exclude for border effect."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'mask-composite: exclude' in block
+        assert '-webkit-mask-composite: xor' in block
+
+    def test_parrot_after_default_hidden(self, client):
+        """Parrot ::after should be invisible by default (opacity: 0)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'opacity: 0' in block
+
+    def test_parrot_hover_after_visible(self, client):
+        """Parrot hover ::after should become visible (opacity: 1)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot:hover::after' in css
+        idx = css.index('.parrot:hover::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'opacity: 1' in block
+
+    def test_parrot_after_uses_duration_normal(self, client):
+        """Parrot ::after transition should use --duration-normal and --ease-out."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--duration-normal)' in block
+        assert 'var(--ease-out)' in block
+
+    def test_parrot_after_pointer_events_none(self, client):
+        """Parrot ::after should not capture pointer events."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'pointer-events: none' in block
+
+
+class TestLightThemeSurfaceTokens:
+    """Tests for light theme surface elevation overrides."""
+
+    def test_light_theme_surface_tokens(self, client):
+        """Light theme should override surface and shadow tokens."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        light_idx = css.index('@media (prefers-color-scheme: light)')
+        light_block = css[light_idx:]
+        assert '--surface-0:' in light_block
+        assert '--surface-1:' in light_block
+        assert '--surface-2:' in light_block
+        assert '--surface-3:' in light_block
+        assert '--shadow-sm:' in light_block
+        assert '--shadow-md:' in light_block
+        assert '--shadow-lg:' in light_block
+
+
+class TestReducedMotionGradientBorder:
+    """Tests for reduced motion handling of gradient border."""
+
+    def test_reduced_motion_disables_gradient_transition(self, client):
+        """Reduced motion should disable gradient border animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        light_idx = css.index('/* === Light Theme', idx)
+        block = css[idx:light_idx]
+        assert '.parrot::after' in block
+
+
+class TestDebugExercises:
+    """Tests for the Debug This Response page."""
+
+    def test_debug_page_returns_200(self, client):
+        resp = client.get('/debug')
+        assert resp.status_code == 200
+
+    def test_debug_page_has_title(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'Debug This Response' in html
+        assert 'Debug This Response - HTTP Parrots' in html
+
+    def test_debug_page_has_exercise_cards(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-card' in html
+        assert 'debug-submit-btn' in html
+        assert 'debug-description' in html
+
+    def test_debug_page_has_difficulty_filters(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'data-difficulty="all"' in html
+        assert 'data-difficulty="beginner"' in html
+        assert 'data-difficulty="intermediate"' in html
+        assert 'data-difficulty="expert"' in html
+
+    def test_debug_page_has_score_bar(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-score-bar' in html
+        assert 'debug-found' in html
+        assert 'debug-missed' in html
+        assert 'debug-remaining' in html
+
+    def test_debug_page_has_http_exchange_panels(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-exchange' in html
+        assert 'debug-panel' in html
+        assert 'request-label' in html
+        assert 'response-label' in html
+
+    def test_debug_page_uses_highlight_http_filter(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'http-hl-status' in html
+        assert 'http-hl-method' in html
+        assert 'http-hl-header' in html
+
+    def test_debug_page_has_bug_checkboxes(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-bug-option' in html
+        assert 'type="checkbox"' in html
+
+    def test_debug_page_has_distractor_options(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'distractor-1' in html
+
+    def test_debug_page_has_result_containers(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results' in html
+        assert 'debug-result-summary' in html
+
+    def test_debug_page_has_related_code_links(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-detail-link' in html
+        assert 'Learn about' in html
+
+    def test_debug_page_has_xp_integration(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'ParrotXP.award' in html
+        assert 'debug_correct' in html
+
+    def test_debug_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/debug"' in html
+        assert '>Debug<' in html
+
+    def test_debug_nav_link_in_mobile_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/debug"') >= 2
+
+    def test_debug_page_has_h1(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert '<h1>' in html
+
+    def test_debug_page_has_aria_labels(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'aria-label="Score tracker"' in html
+        assert 'aria-label="Filter by difficulty"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_debug_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/debug</loc>' in body
+
+    def test_debug_csp_header(self, client):
+        resp = client.get('/debug')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "'nonce-" in csp
+
+    def test_debug_page_inline_style_has_nonce(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'style nonce=' in html
+
+    def test_debug_page_inline_script_has_nonce(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'script nonce=' in html
+
+
+class TestDebugExerciseData:
+    """Tests for the debug_exercises.py data module."""
+
+    def test_exercises_not_empty(self):
+        from debug_exercises import DEBUG_EXERCISES
+        assert len(DEBUG_EXERCISES) >= 15
+
+    def test_exercise_has_required_fields(self):
+        from debug_exercises import DEBUG_EXERCISES
+        required = {'id', 'difficulty', 'title', 'description', 'request',
+                     'response', 'bugs', 'related_codes'}
+        for ex in DEBUG_EXERCISES:
+            missing = required - set(ex.keys())
+            assert not missing, f"Exercise {ex.get('id', '?')} missing fields: {missing}"
+
+    def test_exercise_ids_unique(self):
+        from debug_exercises import DEBUG_EXERCISES
+        ids = [ex['id'] for ex in DEBUG_EXERCISES]
+        assert len(ids) == len(set(ids)), "Duplicate exercise IDs found"
+
+    def test_exercise_difficulties_valid(self):
+        from debug_exercises import DEBUG_EXERCISES
+        valid = {'beginner', 'intermediate', 'expert'}
+        for ex in DEBUG_EXERCISES:
+            assert ex['difficulty'] in valid, \
+                f"Exercise {ex['id']} has invalid difficulty: {ex['difficulty']}"
+
+    def test_each_exercise_has_at_least_one_bug(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            assert len(ex['bugs']) >= 1, \
+                f"Exercise {ex['id']} has no bugs"
+
+    def test_bugs_have_required_fields(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            for bug in ex['bugs']:
+                assert 'id' in bug, f"Bug in {ex['id']} missing id"
+                assert 'description' in bug, f"Bug in {ex['id']} missing description"
+                assert 'explanation' in bug, f"Bug in {ex['id']} missing explanation"
+
+    def test_bug_ids_unique_within_exercise(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            bug_ids = [b['id'] for b in ex['bugs']]
+            assert len(bug_ids) == len(set(bug_ids)), \
+                f"Exercise {ex['id']} has duplicate bug IDs"
+
+    def test_all_difficulty_levels_represented(self):
+        from debug_exercises import DEBUG_EXERCISES
+        difficulties = {ex['difficulty'] for ex in DEBUG_EXERCISES}
+        assert 'beginner' in difficulties
+        assert 'intermediate' in difficulties
+        assert 'expert' in difficulties
+
+    def test_related_codes_are_strings(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            for code in ex['related_codes']:
+                assert isinstance(code, str), \
+                    f"Exercise {ex['id']} has non-string related code: {code}"
+
+    def test_request_contains_http_method(self):
+        from debug_exercises import DEBUG_EXERCISES
+        import re
+        method_re = re.compile(r'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)')
+        for ex in DEBUG_EXERCISES:
+            assert method_re.match(ex['request']), \
+                f"Exercise {ex['id']} request doesn't start with HTTP method"
+
+    def test_response_contains_status_line(self):
+        from debug_exercises import DEBUG_EXERCISES
+        import re
+        status_re = re.compile(r'^HTTP/\d\.\d\s+\d{3}')
+        for ex in DEBUG_EXERCISES:
+            assert status_re.match(ex['response']), \
+                f"Exercise {ex['id']} response doesn't start with status line"

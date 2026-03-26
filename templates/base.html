@@ -34,12 +34,14 @@
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
                     <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
+                    <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug</a>
                     <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
                     <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
                     <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
                     <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
                     <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
                     <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
+                    <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
                     <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
                     <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
                     <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
@@ -65,12 +67,14 @@
         <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" role="navigation">
             <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
             <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
+            <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug</a>
             <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
             <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
             <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
+            <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
             <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
             <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
@@ -222,17 +226,181 @@
             if (xpEl) xpEl.textContent = total + ' XP';
         }
 
+        /* --- Feathers (Achievement Badges) --- */
+        var FEATHERS = [
+            {id: 'first_flight', name: 'First Flight', desc: 'Earn any XP', icon: '\uD83D\uDD30', bonus: 10},
+            {id: 'quiz_whiz', name: 'Quiz Whiz', desc: 'Get 10 quiz questions correct', icon: '\uD83E\uDDE0', bonus: 25},
+            {id: 'perfect_10', name: 'Perfect 10', desc: 'Score 10/10 on a single quiz round', icon: '\uD83C\uDFC6', bonus: 50},
+            {id: 'streak_starter', name: 'Streak Starter', desc: '7-day daily streak', icon: '\uD83D\uDD25', bonus: 50},
+            {id: 'on_fire', name: 'On Fire', desc: '14-day daily streak', icon: '\u2B50', bonus: 100},
+            {id: 'centurion', name: 'Centurion', desc: 'Earn 100+ total XP', icon: '\uD83D\uDEE1\uFE0F', bonus: 25},
+            {id: 'wing_commander', name: 'Wing Commander', desc: 'Reach Wing Commander rank', icon: '\uD83E\uDE96', bonus: 100},
+            {id: 'completionist', name: 'Completionist', desc: 'Collect all 72 parrots in Parrotdex', icon: '\uD83C\uDF1F', bonus: 200},
+            {id: 'error_expert', name: 'Error Expert', desc: 'Visit all 4xx codes', icon: '\uD83D\uDEA8', bonus: 50},
+            {id: 'server_sage', name: 'Server Sage', desc: 'Visit all 5xx codes', icon: '\uD83D\uDDA5\uFE0F', bonus: 50},
+            {id: 'egg_hunter', name: 'Egg Hunter', desc: 'Find 5 easter eggs', icon: '\uD83E\uDD5A', bonus: 75},
+            {id: 'scholar', name: 'Scholar', desc: 'Complete 10 practice scenarios', icon: '\uD83C\uDF93', bonus: 50},
+            {id: 'night_owl', name: 'Night Owl', desc: 'Use the site between midnight and 5 AM', icon: '\uD83E\uDD89', bonus: 25},
+            {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75}
+        ];
+
+        var CODES_4XX = ['400','401','402','403','404','405','406','407','408','409','410','411','412','413','414','415','416','417','418','421','422','423','424','425','426','428','429','431','451'];
+        var CODES_5XX = ['500','501','502','503','504','505','506','507','508','510','511'];
+
+        function getFeathers() {
+            try { return JSON.parse(localStorage.getItem('httpparrot_feathers') || '[]'); }
+            catch(e) { return []; }
+        }
+
+        function saveFeathers(list) {
+            localStorage.setItem('httpparrot_feathers', JSON.stringify(list));
+        }
+
+        function showFeatherToast(feather) {
+            var toast = document.createElement('div');
+            toast.className = 'feather-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            toast.innerHTML = '<span class="feather-toast-icon">' + feather.icon + '</span>'
+                + '<span class="feather-toast-text"><strong>' + feather.name + '</strong><br>'
+                + feather.desc + '<br><small>+' + feather.bonus + ' bonus XP</small></span>';
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.classList.add('feather-toast-visible'); }, 50);
+            setTimeout(function() {
+                toast.classList.remove('feather-toast-visible');
+                setTimeout(function() { toast.remove(); }, 400);
+            }, 4000);
+        }
+
+        function checkFeathers() {
+            var earned = getFeathers();
+            var total = getTotal();
+            var activity = getActivity();
+            var newlyEarned = [];
+
+            function has(id) { return earned.indexOf(id) !== -1; }
+
+            /* First Flight */
+            if (!has('first_flight') && total > 0) newlyEarned.push('first_flight');
+
+            /* Centurion */
+            if (!has('centurion') && total >= 100) newlyEarned.push('centurion');
+
+            /* Wing Commander */
+            if (!has('wing_commander') && getRankInfo(total).rank === 'Wing Commander') newlyEarned.push('wing_commander');
+
+            /* Quiz Whiz */
+            var quizCorrect = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
+            if (!has('quiz_whiz') && quizCorrect >= 10) newlyEarned.push('quiz_whiz');
+
+            /* Perfect 10 — check via stored flag */
+            if (!has('perfect_10') && localStorage.getItem('httpparrot_perfect_quiz') === 'true') newlyEarned.push('perfect_10');
+
+            /* Streak Starter & On Fire — daily streak from activity */
+            var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })
+                .map(function(e) { return e.date; })
+                .filter(function(v, i, a) { return a.indexOf(v) === i; })
+                .sort();
+            var streak = 0;
+            if (dailyDays.length > 0) {
+                streak = 1;
+                for (var si = dailyDays.length - 1; si > 0; si--) {
+                    var d1 = new Date(dailyDays[si]);
+                    var d2 = new Date(dailyDays[si - 1]);
+                    if ((d1 - d2) / 86400000 === 1) streak++; else break;
+                }
+            }
+            if (!has('streak_starter') && streak >= 7) newlyEarned.push('streak_starter');
+            if (!has('on_fire') && streak >= 14) newlyEarned.push('on_fire');
+
+            /* Completionist */
+            var parrotdex = [];
+            try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+            if (!has('completionist') && parrotdex.length >= 72) newlyEarned.push('completionist');
+
+            /* Error Expert — all 4xx */
+            if (!has('error_expert')) {
+                var has4xx = CODES_4XX.every(function(c) { return parrotdex.indexOf(c) !== -1; });
+                if (has4xx) newlyEarned.push('error_expert');
+            }
+
+            /* Server Sage — all 5xx */
+            if (!has('server_sage')) {
+                var has5xx = CODES_5XX.every(function(c) { return parrotdex.indexOf(c) !== -1; });
+                if (has5xx) newlyEarned.push('server_sage');
+            }
+
+            /* Egg Hunter */
+            var eggs = [];
+            try { eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]'); } catch(e) {}
+            if (!has('egg_hunter') && eggs.length >= 5) newlyEarned.push('egg_hunter');
+
+            /* Scholar */
+            var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
+            if (!has('scholar') && practiceCount >= 10) newlyEarned.push('scholar');
+
+            /* Night Owl */
+            var hour = new Date().getHours();
+            if (!has('night_owl') && hour >= 0 && hour < 5) newlyEarned.push('night_owl');
+
+            /* Speed Demon — check via stored flag */
+            if (!has('speed_demon') && localStorage.getItem('httpparrot_speed_demon') === 'true') newlyEarned.push('speed_demon');
+
+            /* Award bonus XP and show toasts for new feathers */
+            if (newlyEarned.length > 0) {
+                for (var fi = 0; fi < newlyEarned.length; fi++) {
+                    earned.push(newlyEarned[fi]);
+                    var featherDef = null;
+                    for (var fj = 0; fj < FEATHERS.length; fj++) {
+                        if (FEATHERS[fj].id === newlyEarned[fi]) { featherDef = FEATHERS[fj]; break; }
+                    }
+                    if (featherDef) {
+                        /* Award bonus XP without recursion */
+                        var bonusTotal = getTotal() + featherDef.bonus;
+                        localStorage.setItem('httpparrot_xp', String(bonusTotal));
+                        var bonusActivity = getActivity();
+                        bonusActivity.push({date: new Date().toISOString().slice(0, 10), action: 'feather_bonus', xp: featherDef.bonus});
+                        localStorage.setItem('httpparrot_activity', JSON.stringify(bonusActivity));
+                        showFeatherToast(featherDef);
+                    }
+                }
+                saveFeathers(earned);
+                updateBadge();
+            }
+        }
+
+        function awardWithFeathers(amount, action) {
+            if (!amount || amount <= 0) return;
+            var total = getTotal() + amount;
+            localStorage.setItem('httpparrot_xp', String(total));
+            var activity = getActivity();
+            var today = new Date().toISOString().slice(0, 10);
+            activity.push({date: today, action: action || 'unknown', xp: amount});
+            var cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            var cutoffStr = cutoff.toISOString().slice(0, 10);
+            activity = activity.filter(function(e) { return e.date >= cutoffStr; });
+            localStorage.setItem('httpparrot_activity', JSON.stringify(activity));
+            updateBadge();
+            checkFeathers();
+        }
+
         window.ParrotXP = {
-            award: award,
+            award: awardWithFeathers,
             getTotal: getTotal,
             getLevel: getLevel,
             getRank: getRank,
             getRankInfo: getRankInfo,
             getActivity: getActivity,
-            RANKS: RANKS
+            getFeathers: getFeathers,
+            checkFeathers: checkFeathers,
+            RANKS: RANKS,
+            FEATHERS: FEATHERS
         };
 
         updateBadge();
+        /* Check feathers on every page load for time-based badges like Night Owl */
+        checkFeathers();
     })();
     </script>
     <script nonce="{{ csp_nonce }}">

@@ -63,6 +63,11 @@
             </div>
         </section>
 
+        <section class="profile-feathers-section" aria-label="Achievement badges">
+            <h2>Feathers</h2>
+            <div class="profile-feathers-grid" id="profile-feathers-grid"></div>
+        </section>
+
         <section class="profile-ranks-section" aria-label="Rank definitions">
             <h2>Ranks</h2>
             <div class="profile-ranks-list" id="profile-ranks-list">
@@ -179,6 +184,39 @@
         if (thresh === info.currentThreshold) {
             rows[r].classList.add('rank-current');
         }
+    }
+
+    /* Feathers grid */
+    var feathersGrid = document.getElementById('profile-feathers-grid');
+    if (feathersGrid && ParrotXP.FEATHERS) {
+        var earned = ParrotXP.getFeathers();
+        ParrotXP.FEATHERS.forEach(function(f) {
+            var card = document.createElement('div');
+            var isEarned = earned.indexOf(f.id) !== -1;
+            card.className = 'feather-card ' + (isEarned ? 'earned' : 'locked');
+
+            var iconEl = document.createElement('span');
+            iconEl.className = 'feather-card-icon';
+            iconEl.textContent = f.icon;
+            card.appendChild(iconEl);
+
+            var nameEl = document.createElement('div');
+            nameEl.className = 'feather-card-name';
+            nameEl.textContent = f.name;
+            card.appendChild(nameEl);
+
+            var descEl = document.createElement('div');
+            descEl.className = 'feather-card-desc';
+            descEl.textContent = f.desc;
+            card.appendChild(descEl);
+
+            var bonusEl = document.createElement('div');
+            bonusEl.className = 'feather-card-bonus';
+            bonusEl.textContent = '+' + f.bonus + ' XP';
+            card.appendChild(bonusEl);
+
+            feathersGrid.appendChild(card);
+        });
     }
 })();
 </script>

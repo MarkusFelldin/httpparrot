@@ -23,6 +23,7 @@ from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
 from scenarios import SCENARIOS
+from debug_exercises import DEBUG_EXERCISES
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -686,6 +687,12 @@ def practice():
     return render_template('practice.html', scenarios=SCENARIOS)
 
 
+@app.route('/debug')
+def debug_page():
+    """Render the Debug This Response exercise page."""
+    return render_template('debug.html', exercises=DEBUG_EXERCISES)
+
+
 @app.route('/api-docs')
 def api_docs():
     return render_template('api_docs.html')
@@ -908,6 +915,83 @@ def check_url():
         })
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
+
+
+@app.route('/trace')
+def trace_page():
+    """Render the Redirect Tracer page for visualizing redirect chains."""
+    return render_template('trace.html')
+
+
+@app.route('/api/trace-redirects')
+def trace_redirects():
+    """Follow redirects manually and return a JSON array of hops.
+
+    Each hop contains: url, status_code, location, time_ms, and key
+    response headers (Strict-Transport-Security, Set-Cookie presence,
+    Cache-Control).  SSRF protection is applied at every hop.
+    Max 10 hops to prevent infinite loops.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    url = _ensure_scheme(url)
+
+    hops = []
+    current_url = url
+    max_hops = 10
+
+    for _ in range(max_hops):
+        safe_url, hostname = resolve_and_validate(current_url)
+        if not safe_url:
+            hops.append({"url": current_url, "error": "URL not allowed (SSRF protection)"})
+            break
+        try:
+            resp = req.head(safe_url, allow_redirects=False, timeout=10)
+        except req.Timeout:
+            hops.append({"url": current_url, "error": "Request timed out"})
+            break
+        except req.ConnectionError:
+            hops.append({"url": current_url, "error": "Could not connect"})
+            break
+        except req.RequestException:
+            hops.append({"url": current_url, "error": "Request failed"})
+            break
+
+        hop = {
+            "url": current_url,
+            "status_code": resp.status_code,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+            "headers": {},
+        }
+        # Collect key security/caching headers
+        for hdr in ('Strict-Transport-Security', 'Cache-Control',
+                     'Content-Type', 'Server'):
+            if hdr in resp.headers:
+                hop["headers"][hdr] = resp.headers[hdr]
+        if 'Set-Cookie' in resp.headers:
+            hop["headers"]["Set-Cookie"] = "(present)"
+
+        location = resp.headers.get('Location')
+        if location:
+            hop["location"] = location
+
+        hops.append(hop)
+
+        # If not a redirect status, we've reached the final destination
+        if resp.status_code not in (301, 302, 303, 307, 308):
+            break
+
+        if not location:
+            break
+        current_url = location
+    else:
+        # Loop completed without break — max hops exceeded
+        hops.append({"url": current_url, "error": "Too many redirects (max 10)"})
+
+    return jsonify(hops)
 
 
 @app.route('/playground')
@@ -1247,10 +1331,10 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/daily', '/practice', '/flowchart',
-                 '/compare', '/tester', '/cheatsheet', '/headers',
-                 '/cors-checker', '/collection', '/playground', '/api-docs',
-                 '/profile']:
+    for rule in ['/', '/quiz', '/daily', '/practice', '/debug',
+                 '/flowchart', '/compare', '/tester', '/cheatsheet',
+                 '/headers', '/cors-checker', '/trace', '/collection',
+                 '/playground', '/api-docs', '/profile']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -1280,6 +1364,7 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /api/check-cors\n"
+        "Disallow: /api/trace-redirects\n"
         "Disallow: /api/mock-response\n"
         "Disallow: /api/diff\n"
         "Disallow: /api/search\n"

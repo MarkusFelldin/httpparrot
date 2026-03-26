@@ -94,12 +94,18 @@
         if (progressEl) progressEl.setAttribute('aria-valuenow', count);
 
         var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        var previouslyRendered = JSON.parse(localStorage.getItem('httpparrot_eggs_rendered') || '[]');
         document.querySelectorAll('.egg-card').forEach(function(card) {
             if (eggs.indexOf(card.dataset.egg) !== -1) {
                 card.classList.add('egg-found');
                 card.querySelector('.egg-icon').textContent = '\uD83C\uDF89';
+                if (previouslyRendered.indexOf(card.dataset.egg) === -1) {
+                    previouslyRendered.push(card.dataset.egg);
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
             }
         });
+        localStorage.setItem('httpparrot_eggs_rendered', JSON.stringify(previouslyRendered));
     })();
     </script>
 {% endblock %}

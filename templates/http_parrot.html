@@ -398,6 +398,7 @@
         if (collected.indexOf(code) === -1) {
             collected.push(code);
             localStorage.setItem('parrotdex', JSON.stringify(collected));
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(5, 'page_visit');
         }
     })();
     </script>

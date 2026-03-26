@@ -123,6 +123,7 @@
                         spawnConfetti(btn);
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
+                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'quiz_correct');
                     } else {
                         btn.classList.add('wrong');
                         btns.forEach(function(b) {
@@ -159,6 +160,10 @@
         }
 
         function showResults() {
+            if (score === 10) {
+                localStorage.setItem('httpparrot_perfect_quiz', 'true');
+                if (typeof ParrotXP !== 'undefined') ParrotXP.checkFeathers();
+            }
             var emojis = history.map(function(h) { return h ? '\uD83D\uDFE2' : '\uD83D\uDD34'; }).join('');
             var resultText = 'HTTP Parrots Quiz: ' + score + '/10\n' + emojis + '\nhttpparrots.com/quiz';
             var overlay = document.createElement('div');
