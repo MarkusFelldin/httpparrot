@@ -22,6 +22,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
+from scenarios import SCENARIOS
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -575,6 +576,65 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/daily')
+def daily():
+    """Render the daily HTTP challenge — one scenario question per day."""
+    today = date.today()
+    day_number = today.toordinal()
+    rng = random.Random(day_number)
+
+    # Build candidates: codes that have examples in STATUS_EXTRA
+    codes = pruned_status_codes()
+    candidates = [c for c in codes if c.code in STATUS_EXTRA
+                  and STATUS_EXTRA[c.code].get('examples')]
+    if len(candidates) < 4:
+        candidates = codes  # fallback
+
+    # Pick the correct answer deterministically
+    correct = rng.choice(candidates)
+    example_list = STATUS_EXTRA.get(correct.code, {}).get('examples', [])
+    scenario = rng.choice(example_list) if example_list else f"A server responds with {correct.code} {correct.name}"
+
+    # Pick 3 wrong answers from the same category (same first digit) if possible
+    same_category = [c for c in candidates if c.code != correct.code
+                     and c.code[0] == correct.code[0]]
+    others = [c for c in candidates if c.code != correct.code
+              and c.code[0] != correct.code[0]]
+    distractors = []
+    pool = same_category + others
+    rng.shuffle(pool)
+    for c in pool:
+        if len(distractors) >= 3:
+            break
+        distractors.append(c)
+
+    options = [correct] + distractors
+    rng.shuffle(options)
+
+    correct_index = options.index(correct)
+
+    info = STATUS_INFO.get(correct.code, {})
+    explanation = info.get('meaning', f'{correct.code} {correct.name}')
+    image = correct.image
+
+    return render_template('daily.html',
+                           scenario=scenario,
+                           options=[{"code": o.code, "name": o.name} for o in options],
+                           correct_index=correct_index,
+                           correct_code=correct.code,
+                           correct_name=correct.name,
+                           explanation=explanation,
+                           image=image,
+                           day_number=day_number,
+                           date_str=today.isoformat())
+
+
+@app.route('/practice')
+def practice():
+    """Render the scenario-based practice page for HTTP status code training."""
+    return render_template('practice.html', scenarios=SCENARIOS)
+
+
 @app.route('/api-docs')
 def api_docs():
     return render_template('api_docs.html')
@@ -787,12 +847,13 @@ def http_parrot(status_code):
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
     # Build FAQ entries for structured data
     faq_entries = build_faq_entries(status_code, description, info, extra, related)
+    eli5 = extra.get('eli5', '') if extra else ''
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
                            prev_code=prev_code, next_code=next_code,
                            related=related, curl_cmd=curl_cmd,
-                           faq_entries=faq_entries), code
+                           faq_entries=faq_entries, eli5=eli5), code
 
 
 @app.route('/<status_code>.jpg')

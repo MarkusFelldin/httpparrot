@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block title %}Practice - HTTP Parrots{% endblock %}
+{% block subtitle %}Scenario Practice{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Practice identifying the correct HTTP status code for real-world API scenarios. Beginner to expert difficulty levels.">
+{% endblock %}
+
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+.practice-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+.practice-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.practice-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0 0 0.5rem;
+}
+.practice-header p {
+    color: #a0a0b0;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.practice-score-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.practice-score-item {
+    text-align: center;
+}
+.practice-score-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f0f0f0;
+    font-family: 'Share Tech Mono', monospace;
+}
+.practice-score-value.score-correct-val { color: #2dd4a8; }
+.practice-score-value.score-wrong-val { color: #ff6b6b; }
+.practice-score-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.practice-filters {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.practice-filter-btn {
+    padding: 0.5rem 1.2rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #c0c0d0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.practice-filter-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #f0f0f0;
+}
+.practice-filter-btn.active {
+    color: #f0f0f0;
+    border-color: rgba(255,255,255,0.2);
+}
+.practice-filter-btn.active[data-difficulty="all"] {
+    background: rgba(255,255,255,0.12);
+}
+.practice-filter-btn.active[data-difficulty="beginner"] {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+    border-color: rgba(0, 201, 167, 0.3);
+}
+.practice-filter-btn.active[data-difficulty="intermediate"] {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+    border-color: rgba(249, 199, 79, 0.3);
+}
+.practice-filter-btn.active[data-difficulty="expert"] {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+    border-color: rgba(233, 69, 96, 0.3);
+}
+.practice-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.practice-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.2s;
+}
+.practice-card:hover {
+    border-color: rgba(255,255,255,0.12);
+}
+.practice-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.practice-difficulty-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.practice-difficulty-badge.beginner {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+}
+.practice-difficulty-badge.intermediate {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+}
+.practice-difficulty-badge.expert {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+}
+.practice-card-number {
+    font-size: 0.8rem;
+    color: #666;
+    font-family: 'Share Tech Mono', monospace;
+}
+.practice-description {
+    color: #d0d0e0;
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+}
+.practice-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0;
+}
+.practice-option-btn {
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: #c0c0d0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.15s;
+    text-align: left;
+}
+.practice-option-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.08);
+    color: #f0f0f0;
+    border-color: rgba(255,255,255,0.2);
+}
+.practice-option-btn:disabled {
+    cursor: default;
+}
+.practice-option-btn.correct {
+    background: rgba(0, 201, 167, 0.15);
+    border-color: rgba(0, 201, 167, 0.4);
+    color: #2dd4a8;
+}
+.practice-option-btn.wrong {
+    background: rgba(233, 69, 96, 0.12);
+    border-color: rgba(233, 69, 96, 0.3);
+    color: #ff6b6b;
+}
+.practice-option-btn.dimmed {
+    opacity: 0.4;
+}
+.practice-explanation {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border-left: 3px solid #7b61ff;
+    display: none;
+}
+.practice-explanation.visible {
+    display: block;
+}
+.practice-explanation p {
+    margin: 0.4rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #b0b0c0;
+}
+.practice-explanation p strong {
+    color: #f0f0f0;
+}
+.practice-explanation .explanation-correct {
+    color: #2dd4a8;
+}
+.practice-explanation .explanation-wrong {
+    color: #a0a0b0;
+}
+.practice-detail-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    color: #7b61ff;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.practice-detail-link:hover {
+    text-decoration: underline;
+    color: #a78bfa;
+}
+@media (max-width: 600px) {
+    .practice-options {
+        grid-template-columns: 1fr;
+    }
+    .practice-score-bar {
+        gap: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <main class="practice-container" id="main-content" role="main">
+        <div class="practice-header">
+            <h1>Scenario Practice</h1>
+            <p>Real-world API scenarios to test your HTTP status code knowledge</p>
+        </div>
+
+        <div class="practice-score-bar" aria-label="Score tracker">
+            <div class="practice-score-item">
+                <div class="practice-score-value score-correct-val" id="practice-correct">0</div>
+                <div class="practice-score-label">Correct</div>
+            </div>
+            <div class="practice-score-item">
+                <div class="practice-score-value score-wrong-val" id="practice-wrong">0</div>
+                <div class="practice-score-label">Wrong</div>
+            </div>
+            <div class="practice-score-item">
+                <div class="practice-score-value" id="practice-remaining">{{ scenarios|length }}</div>
+                <div class="practice-score-label">Remaining</div>
+            </div>
+        </div>
+
+        <div class="practice-filters" role="tablist" aria-label="Filter by difficulty">
+            <button class="practice-filter-btn active" data-difficulty="all" role="tab" aria-selected="true">All</button>
+            <button class="practice-filter-btn" data-difficulty="beginner" role="tab" aria-selected="false">Beginner</button>
+            <button class="practice-filter-btn" data-difficulty="intermediate" role="tab" aria-selected="false">Intermediate</button>
+            <button class="practice-filter-btn" data-difficulty="expert" role="tab" aria-selected="false">Expert</button>
+        </div>
+
+        <div class="practice-cards" role="tabpanel">
+            {% for scenario in scenarios %}
+            <div class="practice-card" data-difficulty="{{ scenario.difficulty }}" data-id="{{ scenario.id }}">
+                <div class="practice-card-header">
+                    <span class="practice-difficulty-badge {{ scenario.difficulty }}">{{ scenario.difficulty }}</span>
+                    <span class="practice-card-number">#{{ scenario.id }}</span>
+                </div>
+                <div class="practice-description">{{ scenario.description }}</div>
+                <div class="practice-options">
+                    {% for option in scenario.options %}
+                    <button class="practice-option-btn"
+                            data-code="{{ option }}"
+                            data-correct="{{ scenario.correct }}"
+                            data-scenario-id="{{ scenario.id }}">
+                        {{ option }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <div class="practice-explanation" id="explanation-{{ scenario.id }}">
+                    {% for code, text in scenario.explanations.items() %}
+                    <p class="{% if code == scenario.correct %}explanation-correct{% else %}explanation-wrong{% endif %}">
+                        <strong>{{ code }}:</strong> {{ text }}
+                    </p>
+                    {% endfor %}
+                    <a href="/{{ scenario.correct }}" class="practice-detail-link">Learn more about {{ scenario.correct }} &rarr;</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    var correct = 0;
+    var wrong = 0;
+    var currentFilter = 'all';
+
+    function updateRemaining() {
+        var cards = document.querySelectorAll('.practice-card');
+        var remaining = 0;
+        cards.forEach(function(card) {
+            var diff = card.getAttribute('data-difficulty');
+            var isVisible = currentFilter === 'all' || diff === currentFilter;
+            var isAnswered = card.classList.contains('answered');
+            if (isVisible && !isAnswered) remaining++;
+        });
+        document.getElementById('practice-remaining').textContent = remaining;
+    }
+
+    // Filter buttons
+    var filterBtns = document.querySelectorAll('.practice-filter-btn');
+    filterBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            filterBtns.forEach(function(b) {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            currentFilter = btn.getAttribute('data-difficulty');
+
+            var cards = document.querySelectorAll('.practice-card');
+            cards.forEach(function(card) {
+                var diff = card.getAttribute('data-difficulty');
+                if (currentFilter === 'all' || diff === currentFilter) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            updateRemaining();
+        });
+    });
+
+    // Option buttons
+    var optionBtns = document.querySelectorAll('.practice-option-btn');
+    optionBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var card = btn.closest('.practice-card');
+            if (card.classList.contains('answered')) return;
+            card.classList.add('answered');
+
+            var scenarioId = btn.getAttribute('data-scenario-id');
+            var correctCode = btn.getAttribute('data-correct');
+            var selectedCode = btn.getAttribute('data-code');
+            var siblings = card.querySelectorAll('.practice-option-btn');
+
+            siblings.forEach(function(sib) {
+                sib.disabled = true;
+                var sibCode = sib.getAttribute('data-code');
+                if (sibCode === correctCode) {
+                    sib.classList.add('correct');
+                } else if (sibCode === selectedCode) {
+                    sib.classList.add('wrong');
+                } else {
+                    sib.classList.add('dimmed');
+                }
+            });
+
+            if (selectedCode === correctCode) {
+                correct++;
+                document.getElementById('practice-correct').textContent = correct;
+            } else {
+                wrong++;
+                document.getElementById('practice-wrong').textContent = wrong;
+            }
+
+            var explanation = document.getElementById('explanation-' + scenarioId);
+            if (explanation) explanation.classList.add('visible');
+
+            updateRemaining();
+        });
+    });
+
+    updateRemaining();
+})();
+</script>
+{% endblock %}

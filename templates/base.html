@@ -25,6 +25,8 @@
                 <span class="header-subtitle">{% block subtitle %}Every HTTP status code, explained by parrots{% endblock %}</span>
                 <nav class="header-nav" aria-label="Site navigation">
                     <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+                    <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
+                    <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
                     <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
                     <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
                     <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>

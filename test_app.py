@@ -113,6 +113,32 @@ class TestPages:
         assert resp.status_code == 404
         assert b'Parrot Not Found' in resp.data
 
+    def test_practice_page(self, client):
+        resp = client.get('/practice')
+        assert resp.status_code == 200
+        assert b'Scenario Practice' in resp.data
+
+    def test_practice_page_has_scenario_cards(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-card' in html
+        assert 'practice-option-btn' in html
+        assert 'practice-description' in html
+
+    def test_practice_page_has_difficulty_filters(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-difficulty="all"' in html
+        assert 'data-difficulty="beginner"' in html
+        assert 'data-difficulty="intermediate"' in html
+        assert 'data-difficulty="expert"' in html
+
+    def test_practice_nav_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+        assert 'Practice' in html
+
 
 # --- Content negotiation ---
 
@@ -1291,3 +1317,277 @@ class TestShareAndEmbed:
         resp = client.get('/200')
         html = resp.get_data(as_text=True)
         assert 'navigator.share' in html
+
+
+# --- ELI5 Toggle ---
+
+class TestELI5Toggle:
+    def test_eli5_toggle_present_on_page_with_eli5(self, client):
+        """Pages with ELI5 content should have the toggle switch."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-switch' in html
+        assert 'eli5-toggle' in html
+        assert 'Simple mode' in html
+
+    def test_eli5_text_in_page_source(self, client):
+        """ELI5 text should be present in the page source."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-simple' in html
+        assert 'librarian' in html
+
+    def test_eli5_toggle_absent_on_page_without_eli5(self, client):
+        """Pages without ELI5 content should not have the toggle."""
+        resp = client.get('/100')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-switch' not in html
+        assert 'eli5-toggle' not in html
+
+    def test_eli5_technical_text_also_present(self, client):
+        """Both technical and ELI5 text should be in the source."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'eli5-technical' in html
+        assert 'eli5-simple' in html
+
+    def test_eli5_localStorage_script(self, client):
+        """Pages with ELI5 should have the localStorage persistence script."""
+        resp = client.get('/500')
+        html = resp.get_data(as_text=True)
+        assert "localStorage.getItem('eli5')" in html
+        assert "localStorage.setItem('eli5'" in html
+
+    def test_eli5_present_for_common_codes(self, client):
+        """Common status codes should have ELI5 content in rendered HTML."""
+        # 204 excluded: HTTP 204 returns empty body by protocol
+        codes_with_eli5 = [
+            '200', '201', '301', '302', '304', '400', '401', '403',
+            '404', '405', '408', '418', '429', '500', '502', '503', '504',
+        ]
+        for code in codes_with_eli5:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'eli5-simple' in html, f"Missing ELI5 for status code {code}"
+
+    def test_eli5_data_in_status_extra(self):
+        """STATUS_EXTRA should have eli5 keys for common codes."""
+        from status_extra import STATUS_EXTRA
+        codes_with_eli5 = [
+            '200', '201', '204', '301', '302', '304', '400', '401', '403',
+            '404', '405', '408', '418', '429', '500', '502', '503', '504',
+        ]
+        for code in codes_with_eli5:
+            assert 'eli5' in STATUS_EXTRA[code], f"Missing eli5 key for {code}"
+            assert len(STATUS_EXTRA[code]['eli5']) > 20, f"ELI5 for {code} seems too short"
+
+
+# --- Daily HTTP Challenge ---
+
+class TestDailyChallenge:
+    def test_daily_returns_200(self, client):
+        resp = client.get('/daily')
+        assert resp.status_code == 200
+
+    def test_daily_contains_quiz_elements(self, client):
+        resp = client.get('/daily')
+        html = resp.get_data(as_text=True)
+        assert 'Daily HTTP Challenge' in html
+        assert 'daily-scenario' in html
+        assert 'daily-choices' in html
+        assert 'quiz-btn' in html
+        assert 'Share on Twitter' in html
+        assert 'Copy Result' in html
+
+    def test_daily_deterministic_same_day(self, client):
+        """Same day should produce the same challenge."""
+        resp1 = client.get('/daily')
+        resp2 = client.get('/daily')
+        html1 = resp1.get_data(as_text=True)
+        html2 = resp2.get_data(as_text=True)
+        # Extract the scenario text — it should be identical
+        assert 'daily-scenario' in html1
+        # CSP nonces differ per request, so compare structure without nonces
+        import re
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
+
+    def test_daily_has_four_options(self, client):
+        resp = client.get('/daily')
+        html = resp.get_data(as_text=True)
+        assert html.count('class="quiz-btn daily-btn"') == 4
+
+    def test_daily_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'href="/daily"' in html
+
+
+# --- FAQPage structured data ---
+
+class TestFAQSchema:
+    def test_detail_page_has_faq_schema(self, client):
+        """Detail pages should have FAQPage structured data."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'FAQPage' in html
+        assert 'What does HTTP 200 mean?' in html
+
+    def test_faq_has_when_to_use_question(self, client):
+        """FAQPage should include 'When should I use' question when extra data exists."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'When should I use HTTP 200?' in html
+
+    def test_faq_has_difference_question(self, client):
+        """FAQPage should include difference questions for related codes."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'What is the difference between HTTP 200 and 201?' in html
+
+    def test_faq_combined_with_defined_term(self, client):
+        """FAQPage and DefinedTerm should be in the same JSON-LD block."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Both types should appear in a single JSON-LD script block
+        assert 'DefinedTerm' in html
+        assert 'FAQPage' in html
+        # The JSON-LD should be an array
+        import re
+        ld_match = re.search(r'<script type="application/ld\+json">\s*\[', html)
+        assert ld_match is not None, "JSON-LD should be a JSON array"
+
+    def test_faq_schema_question_answer_structure(self, client):
+        """FAQ entries should have proper Question/Answer structure."""
+        resp = client.get('/404')
+        html = resp.data.decode()
+        assert '"@type": "Question"' in html
+        assert '"@type": "Answer"' in html
+        assert 'acceptedAnswer' in html
+
+    def test_build_faq_entries_function(self):
+        """build_faq_entries should generate correct FAQ entries."""
+        from index import build_faq_entries
+        info = {'description': 'Test description'}
+        extra = {'examples': ['Example 1', 'Example 2']}
+        related = [('201', 'Created vs retrieved')]
+        faq = build_faq_entries('200', 'OK', info, extra, related)
+        assert len(faq) >= 3  # meaning, when to use, difference
+        assert faq[0]['question'] == 'What does HTTP 200 mean?'
+        assert faq[1]['question'] == 'When should I use HTTP 200?'
+        assert 'difference between HTTP 200 and 201' in faq[2]['question']
+
+    def test_build_faq_entries_no_extra(self):
+        """build_faq_entries should work with minimal data."""
+        from index import build_faq_entries
+        info = {'description': 'Test'}
+        faq = build_faq_entries('200', 'OK', info, {}, [])
+        assert len(faq) == 1
+        assert faq[0]['question'] == 'What does HTTP 200 mean?'
+
+
+# --- Parrot of the Day on homepage ---
+
+class TestParrotOfTheDay:
+    def test_homepage_has_potd_section(self, client):
+        """Homepage should have a Parrot of the Day section."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-section' in html
+        assert 'Parrot of the Day' in html
+
+    def test_potd_has_share_button(self, client):
+        """POTD section should have a share button."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-share' in html
+        assert "Share today's parrot" in html
+
+    def test_potd_has_fun_fact(self, client):
+        """POTD section should display a fun fact."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-fun-fact' in html
+
+    def test_potd_has_image(self, client):
+        """POTD section should have an image."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-image' in html
+
+    def test_potd_links_to_detail_page(self, client):
+        """POTD section should link to the featured code's detail page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'potd-link' in html
+
+    def test_potd_deterministic(self, client):
+        """Same day should produce the same POTD."""
+        resp1 = client.get('/')
+        resp2 = client.get('/')
+        html1 = resp1.data.decode()
+        html2 = resp2.data.decode()
+        # Both should contain the same potd-code value
+        import re
+        code1 = re.search(r'class="potd-code[^"]*">(\d+)', html1)
+        code2 = re.search(r'class="potd-code[^"]*">(\d+)', html2)
+        assert code1 is not None
+        assert code1.group(1) == code2.group(1)
+
+
+# --- RSS Feed ---
+
+class TestRSSFeed:
+    def test_feed_returns_200(self, client):
+        """RSS feed should return 200 with RSS content type."""
+        resp = client.get('/feed.xml')
+        assert resp.status_code == 200
+        assert 'rss' in resp.content_type
+
+    def test_feed_is_valid_rss(self, client):
+        """RSS feed should be valid RSS 2.0 XML."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<?xml version' in xml
+        assert '<rss version="2.0">' in xml
+        assert '<channel>' in xml
+        assert '<title>HTTP Parrots</title>' in xml
+        assert '</channel>' in xml
+        assert '</rss>' in xml
+
+    def test_feed_has_daily_parrot_item(self, client):
+        """RSS feed should contain the daily parrot as an item."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<item>' in xml
+        assert 'Parrot of the Day' in xml
+        assert '<pubDate>' in xml
+        assert '<guid>' in xml
+
+    def test_feed_item_has_image(self, client):
+        """RSS feed items should include image enclosures."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<enclosure' in xml
+        assert 'type="image/jpeg"' in xml
+
+    def test_feed_is_cached(self, client):
+        """RSS feed should have cache headers."""
+        resp = client.get('/feed.xml')
+        assert 'max-age=3600' in resp.headers.get('Cache-Control', '')
+
+    def test_feed_autodiscovery_in_html(self, client):
+        """All HTML pages should include RSS autodiscovery link tag."""
+        for path in ['/', '/200', '/quiz']:
+            resp = client.get(path)
+            html = resp.data.decode()
+            assert 'application/rss+xml' in html, f"Missing RSS autodiscovery on {path}"
+            assert '/feed.xml' in html, f"Missing feed URL on {path}"
+
+    def test_feed_has_channel_info(self, client):
+        """RSS feed should have proper channel description and link."""
+        resp = client.get('/feed.xml')
+        xml = resp.data.decode()
+        assert '<description>' in xml
+        assert '<language>en-us</language>' in xml
+        assert '<lastBuildDate>' in xml

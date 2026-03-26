@@ -61,6 +61,7 @@ STATUS_EXTRA = {
             "node": "res.status(200).json({ status: 'ok' });",
             "go": 'w.WriteHeader(http.StatusOK)\nw.Write([]byte("OK"))',
         },
+        "eli5": "You asked for something and got exactly what you wanted. Like asking mom for a cookie and she hands you one right away. Everything worked perfectly!",
     },
     "201": {
         "examples": [
@@ -74,6 +75,7 @@ STATUS_EXTRA = {
             "node": "res.status(201).json(newUser);",
             "go": "w.WriteHeader(http.StatusCreated)",
         },
+        "eli5": "You asked someone to build you a LEGO house, and they did! Now there's a brand new LEGO house that didn't exist before. It was just created, fresh and new!",
     },
     "202": {
         "examples": [
@@ -113,6 +115,7 @@ STATUS_EXTRA = {
             "node": "res.status(204).end();",
             "go": "w.WriteHeader(http.StatusNoContent)",
         },
+        "eli5": "You asked your friend to throw away your drawing, and they did. But they just nod silently — there's nothing to hand back to you because, well, it's gone!",
     },
     "205": {
         "examples": [
@@ -202,6 +205,7 @@ STATUS_EXTRA = {
             "node": "res.redirect(301, 'https://new.example.com');",
             "go": "http.Redirect(w, r, url, http.StatusMovedPermanently)",
         },
+        "eli5": "Your friend moved to a new house — forever! Now every time you want to visit them, you go to the new address. The old house has a sign on the door saying 'We moved to 123 New Street!'",
     },
     "302": {
         "examples": [
@@ -215,6 +219,7 @@ STATUS_EXTRA = {
             "node": "res.redirect('/login');",
             "go": "http.Redirect(w, r, \"/login\", http.StatusFound)",
         },
+        "eli5": "You go to the toy store but it's closed for painting. There's a note saying 'Go to our other store down the street for today!' Tomorrow they'll be back here though.",
     },
     "303": {
         "examples": [
@@ -241,6 +246,7 @@ STATUS_EXTRA = {
             "node": "res.status(304).end();",
             "go": "w.WriteHeader(http.StatusNotModified)",
         },
+        "eli5": "You ask your teacher 'Did the homework change since yesterday?' and the teacher says 'Nope, same as before!' So you just use the copy you already have.",
     },
     "305": {
         "examples": [
@@ -304,6 +310,7 @@ STATUS_EXTRA = {
             "node": "res.status(400).json({ error: 'Invalid input' });",
             "go": 'http.Error(w, "Bad Request", http.StatusBadRequest)',
         },
+        "eli5": "You tried to order a pizza but said 'I want a pizza with blarghhh topping.' The pizza place doesn't understand what you're asking for because it doesn't make sense!",
     },
     "401": {
         "examples": [
@@ -317,6 +324,7 @@ STATUS_EXTRA = {
             "node": "res.status(401).json({ error: 'Unauthorized' });",
             "go": 'http.Error(w, "Unauthorized", http.StatusUnauthorized)',
         },
+        "eli5": "You try to walk into a secret clubhouse, but the guard says 'What's the password?' You don't know it, so you can't come in. Tell them who you are first!",
     },
     "402": {
         "examples": [
@@ -343,6 +351,7 @@ STATUS_EXTRA = {
             "node": "res.status(403).json({ error: 'Forbidden' });",
             "go": 'http.Error(w, "Forbidden", http.StatusForbidden)',
         },
+        "eli5": "The guard at the clubhouse knows exactly who you are, but says 'Sorry, you're not allowed in the VIP room.' You can see the door, but you're just not on the list!",
     },
     "404": {
         "examples": [
@@ -356,6 +365,7 @@ STATUS_EXTRA = {
             "node": "res.status(404).json({ error: 'Not found' });",
             "go": 'http.NotFound(w, r)',
         },
+        "eli5": "Imagine you ask the librarian for a book, but that book doesn't exist in the library. The librarian shrugs and says 'Sorry, never heard of it!'",
     },
     "405": {
         "examples": [
@@ -368,6 +378,7 @@ STATUS_EXTRA = {
             "node": "res.status(405).set('Allow', 'GET').json({ error: 'Method not allowed' });",
             "go": 'http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)',
         },
+        "eli5": "You try to open a door by pushing, but there's a big sign that says 'PULL ONLY.' The door is right there, but you're doing it the wrong way!",
     },
     "406": {
         "examples": [
@@ -406,6 +417,7 @@ STATUS_EXTRA = {
             "node": "res.status(408).json({ error: 'Request Timeout' });",
             "go": 'http.Error(w, "Request Timeout", http.StatusRequestTimeout)',
         },
+        "eli5": "You called your friend on the phone, they picked up, but then you just sat there saying nothing for a really long time. Eventually they said 'Hello?? I'm hanging up!' and hung up.",
     },
     "409": {
         "examples": [
@@ -534,6 +546,7 @@ STATUS_EXTRA = {
             "node": "res.status(418).send(\"I'm a teapot\");",
             "go": 'http.Error(w, "I\'m a teapot", 418)',
         },
+        "eli5": "You ask a teapot to make you some coffee. The teapot says 'Excuse me, I'm a TEAPOT! I make TEA, not coffee!' It's a silly joke that programmers put in the rules of the internet.",
     },
     "419": {
         "examples": [
@@ -661,6 +674,7 @@ STATUS_EXTRA = {
             "node": "res.status(429).set('Retry-After', '60').json({ error: 'Rate limited' });",
             "go": 'w.Header().Set("Retry-After", "60")\nhttp.Error(w, "Too Many Requests", 429)',
         },
+        "eli5": "You keep asking 'Are we there yet? Are we there yet? Are we there yet?' so many times that your parents finally say 'STOP ASKING! Wait 5 minutes before you ask again!'",
     },
     "431": {
         "examples": [
@@ -762,6 +776,7 @@ STATUS_EXTRA = {
             "node": "// Express returns 500 automatically on unhandled errors",
             "go": 'http.Error(w, "Internal Server Error", http.StatusInternalServerError)',
         },
+        "eli5": "The ice cream machine at the restaurant just broke. It's nobody's fault outside — something went wrong inside the machine. The worker says 'Sorry, something broke in the back. We're fixing it!'",
     },
     "501": {
         "examples": [
@@ -788,6 +803,7 @@ STATUS_EXTRA = {
             "node": "// Usually an nginx/load balancer error, not app-level",
             "go": 'http.Error(w, "Bad Gateway", http.StatusBadGateway)',
         },
+        "eli5": "You tell your big sister to ask mom for a cookie. Your sister goes to mom, but mom says something confusing that doesn't make sense. Your sister comes back and says 'I tried, but I got a weird answer!'",
     },
     "503": {
         "examples": [
@@ -801,6 +817,7 @@ STATUS_EXTRA = {
             "node": "res.status(503).set('Retry-After', '300').send('Maintenance');",
             "go": 'w.Header().Set("Retry-After", "300")\nhttp.Error(w, "Service Unavailable", 503)',
         },
+        "eli5": "Picture a restaurant so busy they put up a 'Please wait to be seated' sign. The kitchen is still there, just too slammed right now. Come back in a little bit!",
     },
     "504": {
         "examples": [
@@ -814,6 +831,7 @@ STATUS_EXTRA = {
             "node": "// Configure proxy timeout: proxy_read_timeout 60s;",
             "go": "// Set http.Server.ReadTimeout and WriteTimeout",
         },
+        "eli5": "You ask your sister to ask mom for a cookie, but mom is taking a nap and won't wake up. Your sister waits and waits, and finally gives up and says 'Sorry, mom didn't answer in time!'",
     },
     "505": {
         "examples": [

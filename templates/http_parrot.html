@@ -122,8 +122,23 @@
         {% if info %}
         <div class="detail-info">
             <div class="detail-section">
+                {% if eli5 %}
+                <div class="eli5-toggle-row">
+                    <h2>What does it mean?</h2>
+                    <label class="eli5-toggle" for="eli5-switch">
+                        <input type="checkbox" id="eli5-switch" class="eli5-toggle-input">
+                        <span class="eli5-toggle-track">
+                            <span class="eli5-toggle-thumb"></span>
+                        </span>
+                        <span class="eli5-toggle-label">Simple mode</span>
+                    </label>
+                </div>
+                <p class="eli5-technical">{{ info.description }}</p>
+                <p class="eli5-simple" style="display:none;">{{ eli5 }}</p>
+                {% else %}
                 <h2>What does it mean?</h2>
                 <p>{{ info.description }}</p>
+                {% endif %}
             </div>
             <div class="detail-section">
                 <h2>History</h2>
@@ -326,4 +341,26 @@
         }
     })();
     </script>
+    {% if eli5 %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var toggle = document.getElementById('eli5-switch');
+        if (!toggle) return;
+        var technical = document.querySelector('.eli5-technical');
+        var simple = document.querySelector('.eli5-simple');
+        function apply(on) {
+            technical.style.display = on ? 'none' : '';
+            simple.style.display = on ? '' : 'none';
+        }
+        if (localStorage.getItem('eli5') === 'on') {
+            toggle.checked = true;
+            apply(true);
+        }
+        toggle.addEventListener('change', function() {
+            localStorage.setItem('eli5', toggle.checked ? 'on' : 'off');
+            apply(toggle.checked);
+        });
+    })();
+    </script>
+    {% endif %}
 {% endblock %}

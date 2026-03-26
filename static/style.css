@@ -2813,6 +2813,202 @@ body > main, body > .container-fluid { flex: 1; }
 .quiz-results-grid { font-size: 2rem; letter-spacing: 0.2em; margin-bottom: 1.5rem; }
 .quiz-results-copy, .quiz-results-again { display: block; width: 100%; margin-top: 0.5rem; }
 
+/* --- Parrot of the Day section --- */
+.potd-section {
+  padding: 1.5rem 0 1rem;
+  margin-bottom: 1rem;
+}
+.potd-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(0, 201, 167, 0.08), rgba(0, 180, 216, 0.08));
+  border: 2px solid rgba(0, 201, 167, 0.25);
+  border-radius: 16px;
+  overflow: hidden;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: 0 4px 24px rgba(0, 201, 167, 0.12);
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.potd-card:hover {
+  border-color: rgba(0, 201, 167, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 201, 167, 0.2);
+}
+.potd-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: linear-gradient(135deg, #00c9a7, #00b4d8);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.35rem 1rem;
+  border-radius: 20px;
+  z-index: 2;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.potd-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+.potd-image {
+  flex-shrink: 0;
+  width: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.potd-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.3s;
+}
+.potd-card:hover .potd-image img {
+  transform: scale(1.05);
+}
+.potd-info {
+  flex: 1;
+  min-width: 0;
+}
+.potd-code {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.potd-name {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  color: #e4e4e4;
+}
+.potd-fun-fact {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: #aaa;
+  line-height: 1.5;
+}
+.potd-share-btn {
+  display: block;
+  width: calc(100% - 3rem);
+  margin: 0 1.5rem 1.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(0, 201, 167, 0.15);
+  border: 1px solid rgba(0, 201, 167, 0.3);
+  border-radius: 8px;
+  color: #00c9a7;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.potd-share-btn:hover {
+  background: rgba(0, 201, 167, 0.25);
+  border-color: rgba(0, 201, 167, 0.5);
+}
+
+@media (max-width: 640px) {
+  .potd-link {
+    flex-direction: column;
+    text-align: center;
+    padding: 1rem;
+    padding-top: 3rem;
+  }
+  .potd-image { width: 200px; }
+  .potd-code { font-size: 2rem; }
+  .potd-name { font-size: 1.1rem; }
+  .potd-share-btn {
+    width: calc(100% - 2rem);
+    margin: 0 1rem 1rem;
+  }
+}
+
+/* ELI5 toggle */
+.eli5-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.eli5-toggle-row h2 {
+  margin-bottom: 0;
+}
+
+.eli5-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.eli5-toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.eli5-toggle-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
+  transition: background 0.25s ease;
+}
+
+.eli5-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.eli5-toggle-input:checked + .eli5-toggle-track {
+  background: linear-gradient(135deg, #00c9a7, #00b4d8);
+}
+
+.eli5-toggle-input:checked + .eli5-toggle-track .eli5-toggle-thumb {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.eli5-toggle-input:focus-visible + .eli5-toggle-track {
+  outline: 2px solid #00b4d8;
+  outline-offset: 2px;
+}
+
+.eli5-toggle-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.eli5-simple {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 201, 167, 0.06);
+  border-left: 3px solid #00c9a7;
+  padding: 0.75rem 1rem;
+  border-radius: 0 8px 8px 0;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
