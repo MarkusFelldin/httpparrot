@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import os
 import random
@@ -7,8 +8,9 @@ import secrets
 import socket
 import time
 from collections import namedtuple
-from datetime import date
+from datetime import date, datetime, timezone
 from urllib.parse import urlparse, urlunparse
+from xml.sax.saxutils import escape as xml_escape
 
 import requests as req
 from flask import (Flask, abort, g, jsonify, redirect, render_template,
@@ -494,6 +496,49 @@ RELATED_CODES = {
     ],
 }
 
+
+# --- FAQ generation helper ---
+
+def build_faq_entries(status_code, description, info, extra, related):
+    """Build FAQ entries for structured data on detail pages.
+
+    Generates questions and answers from status descriptions, examples,
+    and related codes to produce FAQPage schema entries.
+    """
+    faq = []
+    # Q1: What does HTTP {code} mean?
+    if info and info.get('description'):
+        faq.append({
+            "question": f"What does HTTP {status_code} mean?",
+            "answer": info['description'],
+        })
+    # Q2: When should I use HTTP {code}?
+    if extra and extra.get('examples'):
+        examples_text = " ".join(f"- {ex}" for ex in extra['examples'])
+        faq.append({
+            "question": f"When should I use HTTP {status_code}?",
+            "answer": f"Common scenarios for HTTP {status_code} {description}: {examples_text}",
+        })
+    # Q3+: Difference questions for related codes
+    if related:
+        for rel_code, diff in related[:3]:  # Limit to first 3 for brevity
+            rel_name = next((s.name for s in status_code_list if s.code == rel_code), rel_code)
+            faq.append({
+                "question": f"What is the difference between HTTP {status_code} and {rel_code}?",
+                "answer": f"HTTP {status_code} ({description}) vs HTTP {rel_code} ({rel_name}): {diff}",
+            })
+    return faq
+
+
+# --- Featured parrot of the day ---
+
+def get_featured_parrot():
+    """Return the featured 'parrot of the day' based on today's date."""
+    codes = pruned_status_codes()
+    day_index = date.today().toordinal() % len(codes)
+    return codes[day_index]
+
+
 # --- Routes ---
 
 @app.errorhandler(404)
@@ -505,10 +550,21 @@ def page_not_found(e):
 def http_parrots():
     """Render the homepage gallery of all HTTP status code parrots."""
     codes = pruned_status_codes()
-    day_index = date.today().toordinal() % len(codes)
-    featured = codes[day_index].code
+    featured_parrot = get_featured_parrot()
+    featured = featured_parrot.code
+    # Get a fun fact for the featured parrot
+    featured_info = STATUS_INFO.get(featured, {})
+    featured_extra = STATUS_EXTRA.get(featured, {})
+    featured_description = next((s.name for s in status_code_list if s.code == featured), '')
+    featured_fun_fact = None
+    if featured_extra and featured_extra.get('examples'):
+        featured_fun_fact = featured_extra['examples'][0]
+    elif featured_info and featured_info.get('description'):
+        featured_fun_fact = featured_info['description']
     return render_template('http_parrots.html', status_code_list=codes, featured=featured,
-                           status_info=STATUS_INFO)
+                           status_info=STATUS_INFO, featured_description=featured_description,
+                           featured_image=featured_parrot.image,
+                           featured_fun_fact=featured_fun_fact)
 
 
 @app.route('/quiz')
@@ -729,11 +785,14 @@ def http_parrot(status_code):
     next_code = code_list[idx + 1] if 0 <= idx < len(code_list) - 1 else None
     related = RELATED_CODES.get(status_code, [])
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
+    # Build FAQ entries for structured data
+    faq_entries = build_faq_entries(status_code, description, info, extra, related)
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
                            prev_code=prev_code, next_code=next_code,
-                           related=related, curl_cmd=curl_cmd), code
+                           related=related, curl_cmd=curl_cmd,
+                           faq_entries=faq_entries), code
 
 
 @app.route('/<status_code>.jpg')
@@ -775,6 +834,46 @@ def redirect_chain(n):
     if n > 10:
         abort(404)
     return redirect(url_for('redirect_chain', n=n - 1), code=302)
+
+
+@app.route('/feed.xml')
+def rss_feed():
+    """Generate an RSS 2.0 feed with the daily parrot as the latest item."""
+    base = request.url_root.rstrip('/')
+    featured = get_featured_parrot()
+    info = STATUS_INFO.get(featured.code, {})
+    description = info.get('description', f'HTTP {featured.code} {featured.name}')
+    pub_date = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')
+
+    items_xml = []
+    # Daily parrot as the latest item
+    items_xml.append(
+        f'    <item>\n'
+        f'      <title>Parrot of the Day: HTTP {xml_escape(featured.code)} {xml_escape(featured.name)}</title>\n'
+        f'      <link>{xml_escape(base)}/{xml_escape(featured.code)}</link>\n'
+        f'      <description>{xml_escape(description)}</description>\n'
+        f'      <enclosure url="{xml_escape(base)}/static/{xml_escape(featured.image)}" type="image/jpeg" />\n'
+        f'      <pubDate>{pub_date}</pubDate>\n'
+        f'      <guid>{xml_escape(base)}/{xml_escape(featured.code)}#{date.today().isoformat()}</guid>\n'
+        f'    </item>'
+    )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        '  <channel>\n'
+        f'    <title>HTTP Parrots</title>\n'
+        f'    <link>{xml_escape(base)}/</link>\n'
+        f'    <description>Every HTTP status code, explained by parrots. A fun visual reference for developers.</description>\n'
+        f'    <language>en-us</language>\n'
+        f'    <lastBuildDate>{pub_date}</lastBuildDate>\n'
+        + '\n'.join(items_xml) + '\n'
+        '  </channel>\n'
+        '</rss>'
+    )
+    resp = app.response_class(xml, mimetype='application/rss+xml')
+    resp.headers['Cache-Control'] = 'public, max-age=3600'
+    return resp
 
 
 @app.route('/sitemap.xml')

@@ -1246,3 +1246,48 @@ class TestEasterEggTracking:
         resp = client.get('/')
         html = resp.data.decode()
         assert "eggs.indexOf('konami')" in html
+
+
+class TestShareAndEmbed:
+    """Tests for share buttons and embed codes on detail pages."""
+
+    def test_share_buttons_present(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'id="share-native"' in html
+        assert 'id="share-link"' in html
+        assert 'id="share-image"' in html
+        assert 'id="share-slack"' in html
+        assert 'id="share-discord"' in html
+
+    def test_twitter_share_link(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'id="share-twitter"' in html
+        assert 'twitter.com/intent/tweet' in html
+
+    def test_embed_section_present(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'embed-section' in html
+        assert 'Embed this parrot' in html
+        assert 'embed-code' in html
+
+    def test_embed_formats(self, client):
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert '404.jpg' in html
+        assert 'img src=' in html
+        assert '![HTTP 404' in html
+
+    def test_slack_discord_copy_scripts(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'share-slack' in html
+        assert 'share-discord' in html
+        assert 'navigator.clipboard.writeText' in html
+
+    def test_native_share_api(self, client):
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'navigator.share' in html
