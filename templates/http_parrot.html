@@ -223,6 +223,27 @@
         </div>
         {% endif %}
 
+        {% if extra and extra.common_mistakes %}
+        <div class="detail-info mistakes-section">
+            <details open>
+                <summary class="detail-section mistakes-summary">
+                    <h2>Common Mistakes</h2>
+                </summary>
+                <div class="mistakes-list">
+                    {% for item in extra.common_mistakes %}
+                    <div class="mistake-card">
+                        <div class="mistake-icon" aria-hidden="true">&#9888;</div>
+                        <div class="mistake-body">
+                            <p class="mistake-text">{{ item.mistake }}</p>
+                            <p class="mistake-consequence">{{ item.consequence }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+        </div>
+        {% endif %}
+
         <nav class="detail-nav" aria-label="Status code navigation">
             <div class="detail-nav-side">
                 {% if prev_code %}
@@ -238,6 +259,7 @@
         </nav>
 
         <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+        {% if status_code == '418' %}<!-- try /coffee -->{% endif %}
     </main>
 {% endblock %}
 

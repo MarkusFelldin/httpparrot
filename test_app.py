@@ -3192,7 +3192,7 @@ class TestSitemapCompleteness:
     EXPECTED_PAGES = [
         '/', '/quiz', '/daily', '/practice', '/flowchart', '/compare',
         '/tester', '/cheatsheet', '/headers', '/cors-checker',
-        '/collection', '/playground', '/api-docs',
+        '/collection', '/playground', '/api-docs', '/profile',
     ]
 
     def test_sitemap_returns_xml(self, client):
@@ -3640,6 +3640,9 @@ class TestCSPOnAllRoutes:
     def test_csp_on_api_docs(self, client):
         self._check_csp(client.get('/api-docs'))
 
+    def test_csp_on_profile(self, client):
+        self._check_csp(client.get('/profile'))
+
     def test_csp_on_404(self, client):
         self._check_csp(client.get('/nonexistent'))
 
@@ -3662,7 +3665,7 @@ class TestSecurityHeadersOnAllRoutes:
     ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/flowchart',
               '/compare', '/tester', '/cheatsheet', '/headers',
               '/cors-checker', '/collection', '/playground', '/api-docs',
-              '/echo', '/return/200', '/redirect/0', '/feed.xml',
+              '/profile', '/echo', '/return/200', '/redirect/0', '/feed.xml',
               '/sitemap.xml', '/robots.txt']
 
     def _check_headers(self, resp):
@@ -3858,3 +3861,430 @@ class TestPerformance:
     def test_random_endpoint_no_cache(self, client):
         resp = client.get('/random', follow_redirects=False)
         assert 'no-store' in resp.headers.get('Cache-Control', '')
+
+
+# --- Common Mistakes feature ---
+
+class TestCommonMistakes:
+    def test_mistakes_section_appears_on_page_with_data(self, client):
+        """Pages with common_mistakes data should render the mistakes section."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'mistakes-section' in html
+        assert 'Common Mistakes' in html
+
+    def test_mistake_text_present_in_html(self, client):
+        """Actual mistake and consequence text should be in the rendered page."""
+        resp = client.get('/401')
+        html = resp.get_data(as_text=True)
+        assert 'Using 401 when the user IS authenticated but lacks permission' in html
+        assert "That&#39;s 403" in html or "That's 403" in html
+
+    def test_mistake_card_structure_present(self, client):
+        """Each mistake should render with the card structure classes."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'mistake-card' in html
+        assert 'mistake-text' in html
+        assert 'mistake-consequence' in html
+        assert 'mistake-icon' in html
+
+    def test_mistakes_section_absent_on_page_without_data(self, client):
+        """Pages without common_mistakes data should not show the section."""
+        resp = client.get('/100')
+        html = resp.get_data(as_text=True)
+        assert 'mistakes-section' not in html
+        assert 'mistake-card' not in html
+
+    def test_at_least_19_codes_have_common_mistakes(self):
+        """At least 19 status codes should have common_mistakes in STATUS_EXTRA."""
+        from status_extra import STATUS_EXTRA
+        codes_with_mistakes = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'common_mistakes' in data and len(data['common_mistakes']) > 0
+        ]
+        assert len(codes_with_mistakes) >= 19, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 19"
+        )
+
+    def test_common_mistakes_structure(self):
+        """Each common_mistakes entry should have 'mistake' and 'consequence' keys."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'common_mistakes' in data:
+                for entry in data['common_mistakes']:
+                    assert 'mistake' in entry, f"Missing 'mistake' key in {code}"
+                    assert 'consequence' in entry, f"Missing 'consequence' key in {code}"
+
+    def test_multiple_mistakes_per_code(self, client):
+        """Pages with multiple mistakes should render all of them."""
+        resp = client.get('/500')
+        html = resp.get_data(as_text=True)
+        assert html.count('mistake-card') >= 2
+
+    def test_mistakes_section_is_collapsible(self, client):
+        """The mistakes section should use a details/summary for collapsibility."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert '<details' in html and 'mistakes-summary' in html
+
+
+# --- Easter egg: Barrel Roll ---
+
+class TestBarrelRollEasterEgg:
+    def test_homepage_has_barrel_roll_toast(self, client):
+        """Homepage should include the barrel roll toast element."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'barrel-roll-toast' in html
+
+    def test_homepage_has_barrel_roll_script(self, client):
+        """Homepage should have barrel roll detection script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'barrel roll' in html
+        assert 'barrel_roll' in html
+
+    def test_barrel_roll_tracks_egg(self, client):
+        """Homepage barrel roll script should save to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('barrel_roll')" in html
+
+    def test_barrel_roll_shows_toast_message(self, client):
+        """Homepage barrel roll script should show 'Polly wants a barrel roll!' toast."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Polly wants a barrel roll!' in html
+
+    def test_barrel_roll_css_exists(self, client):
+        """Style sheet should contain barrel roll animation."""
+        resp = client.get('/static/style.css')
+        assert b'barrel-roll-spin' in resp.data
+        assert b'.barrel-roll' in resp.data
+        assert b'.barrel-roll-toast' in resp.data
+
+
+# --- Easter egg: 404 Catch Game ---
+
+class TestCatchGameEasterEgg:
+    def test_404_page_has_wandering_parrot(self, client):
+        """404 page should have the clickable wandering parrot."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'error-wandering-parrot' in html
+
+    def test_404_page_has_catch_script(self, client):
+        """404 page should include the catch game script."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'handleCatch' in html
+        assert 'maxCatches' in html
+
+    def test_404_catch_tracks_egg(self, client):
+        """404 catch game should save to eggs_found localStorage."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "eggs.indexOf('404_catch')" in html
+
+    def test_404_catch_reveals_secret(self, client):
+        """After 5 catches, the secret message about /418 should appear."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "You caught me!" in html
+        assert "try /418" in html
+
+    def test_404_catch_parrot_accessible(self, client):
+        """Wandering parrot should have accessible attributes in catch script."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'Catch the wandering parrot' in html
+
+
+# --- Easter egg: Time Traveler ---
+
+class TestTimeTravelerEasterEgg:
+    def test_base_has_time_traveler_script(self, client):
+        """Base template should include the time traveler footer script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer-time-egg' in html
+        assert 'time_404' in html
+        assert 'time_200' in html
+        assert 'time_5xx' in html
+
+    def test_time_traveler_404_message(self, client):
+        """Script should contain the 4:04 time traveler message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "even time can" in html
+        assert "find this page" in html
+
+    def test_time_traveler_200_message(self, client):
+        """Script should contain the 2:00 napping parrot message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '200 OK, but the parrot is napping' in html
+
+    def test_time_traveler_5xx_message(self, client):
+        """Script should contain the 5xx o'clock message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "5xx o" in html
+        assert "clock somewhere" in html
+
+    def test_time_traveler_tracks_eggs(self, client):
+        """Time traveler script should save discoveries to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+
+    def test_time_traveler_css_exists(self, client):
+        """Style sheet should contain the time traveler footer egg style."""
+        resp = client.get('/static/style.css')
+        assert b'footer-time-egg' in resp.data
+
+
+# --- Easter egg: /coffee endpoint ---
+
+class TestCoffeeEasterEgg:
+    def test_coffee_returns_418(self, client):
+        """/coffee should return HTTP 418 I'm a Teapot."""
+        resp = client.get('/coffee')
+        assert resp.status_code == 418
+
+    def test_coffee_has_teapot_text(self, client):
+        """/coffee should display teapot message."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "teapot" in html.lower()
+        assert "coffee" in html.lower()
+
+    def test_coffee_has_ascii_art(self, client):
+        """/coffee should include ASCII art teapot."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-ascii-teapot' in html
+
+    def test_coffee_has_steam_particles(self, client):
+        """/coffee should have steam particle elements."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-steam' in html
+        assert 'steam-particle' in html
+
+    def test_coffee_has_brew_counter(self, client):
+        """/coffee should display a fake brew attempts counter."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'brew-counter' in html
+        assert 'Failed brew attempts' in html
+
+    def test_coffee_tracks_egg(self, client):
+        """/coffee visit should save to eggs_found localStorage."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "eggs.indexOf('coffee')" in html
+
+    def test_coffee_has_back_link(self, client):
+        """/coffee should have links back to homepage and 418 page."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'href="/"' in html
+        assert 'href="/418"' in html
+
+    def test_coffee_has_pour_animation(self, client):
+        """/coffee should include pour animation element."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-pour-stream' in html
+
+    def test_coffee_not_in_navigation(self, client):
+        """/coffee should NOT appear in the site navigation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/coffee"' not in html
+
+    def test_coffee_css_exists(self, client):
+        """Style sheet should contain coffee page styles."""
+        resp = client.get('/static/style.css')
+        assert b'coffee-container' in resp.data
+        assert b'coffee-teapot-tilt' in resp.data
+        assert b'coffee-pour' in resp.data
+
+    def test_coffee_has_security_headers(self, client):
+        """/coffee should have CSP and security headers."""
+        resp = client.get('/coffee')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert 'X-Content-Type-Options' in resp.headers
+
+    def test_coffee_has_nonce(self, client):
+        """/coffee script tag should have a nonce matching CSP."""
+        resp = client.get('/coffee')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_418_detail_has_coffee_hint(self, client):
+        """418 detail page should contain hidden comment hint for /coffee."""
+        resp = client.get('/418')
+        html = resp.data.decode()
+        assert '<!-- try /coffee -->' in html
+
+    def test_non_418_detail_no_coffee_hint(self, client):
+        """Non-418 detail pages should NOT contain the /coffee hint."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '<!-- try /coffee -->' not in html
+
+
+# --- Parrotdex new egg entries ---
+
+class TestParrotdexNewEggs:
+    def test_collection_has_barrel_roll_egg(self, client):
+        """Collection page should have barrel_roll egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="barrel_roll"' in html
+
+    def test_collection_has_404_catch_egg(self, client):
+        """Collection page should have 404_catch egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="404_catch"' in html
+
+    def test_collection_has_time_eggs(self, client):
+        """Collection page should have all time traveler egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="time_404"' in html
+        assert 'data-egg="time_200"' in html
+        assert 'data-egg="time_5xx"' in html
+
+    def test_collection_has_coffee_egg(self, client):
+        """Collection page should have coffee egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="coffee"' in html
+
+    def test_collection_egg_hints(self, client):
+        """Collection page new eggs should have appropriate hints."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'barrel roll' in html.lower()
+        assert 'wandering parrot' in html.lower()
+        assert 'teapot' in html.lower()
+
+    def test_collection_preserves_existing_eggs(self, client):
+        """Collection page should still have all original egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+
+
+class TestProfilePage:
+    """Tests for the XP profile page."""
+
+    def test_profile_returns_200(self, client):
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+
+    def test_profile_has_rank_display(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-rank-display' in html
+        assert 'profile-rank-title' in html
+        assert 'Fledgling' in html
+
+    def test_profile_has_heatmap_container(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-heatmap-container' in html
+        assert 'profile-heatmap' in html
+
+    def test_profile_has_stats_section(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-stats-section' in html
+        assert 'stat-quiz-answers' in html
+        assert 'stat-daily-streak' in html
+        assert 'stat-codes-visited' in html
+        assert 'stat-practice-completed' in html
+
+    def test_profile_has_ranks_list(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-ranks-list' in html
+        assert 'Fledgling' in html
+        assert 'Nestling' in html
+        assert 'Feathered Apprentice' in html
+        assert 'Wing Cadet' in html
+        assert 'Parrot Scout' in html
+        assert 'Plume Knight' in html
+        assert 'Wing Commander' in html
+        assert 'Sky Captain' in html
+        assert 'Grand Macaw' in html
+        assert 'Legendary Lorikeet' in html
+
+    def test_profile_has_xp_breakdown(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-xp-breakdown' in html
+        assert '+10 XP' in html
+        assert '+50 XP' in html
+        assert '+5 XP' in html
+        assert '+15 XP' in html
+        assert '+100 XP' in html
+
+    def test_profile_has_progress_bar(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-progress-bar' in html
+        assert 'profile-progressbar' in html
+
+    def test_profile_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/profile"' in html
+        assert 'Profile' in html
+
+    def test_profile_nav_link_on_all_pages(self, client):
+        """Profile nav link should be in the base template on various pages."""
+        for route in ['/quiz', '/practice', '/daily']:
+            resp = client.get(route)
+            html = resp.data.decode()
+            assert 'href="/profile"' in html, f"Profile nav link missing on {route}"
+
+    def test_xp_badge_in_header(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-badge' in html
+        assert 'xp-badge-rank' in html
+        assert 'xp-badge-xp' in html
+
+    def test_xp_tracking_script_present(self, client):
+        """ParrotXP tracking script should be in base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'httpparrot_xp' in html
+        assert 'httpparrot_activity' in html
+
+    def test_xp_tracking_script_has_methods(self, client):
+        """ParrotXP script should expose award, getTotal, getLevel, getRank methods."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'award:' in html or 'award: award' in html
+        assert 'getTotal:' in html or 'getTotal: getTotal' in html
+        assert 'getLevel:' in html or 'getLevel: getLevel' in html
+        assert 'getRank:' in html or 'getRank: getRank' in html
+
+    def test_profile_page_title(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Profile - HTTP Parrots' in html

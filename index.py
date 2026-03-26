@@ -757,6 +757,12 @@ def header_explainer():
     return render_template('headers.html')
 
 
+@app.route('/profile')
+def profile():
+    """Render the XP profile page — all state stored client-side in localStorage."""
+    return render_template('profile.html')
+
+
 @app.route('/cors-checker')
 def cors_checker():
     """Render the CORS Checker page for testing cross-origin policies."""
@@ -1243,7 +1249,8 @@ def sitemap():
     pages = []
     for rule in ['/', '/quiz', '/daily', '/practice', '/flowchart',
                  '/compare', '/tester', '/cheatsheet', '/headers',
-                 '/cors-checker', '/collection', '/playground', '/api-docs']:
+                 '/cors-checker', '/collection', '/playground', '/api-docs',
+                 '/profile']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -1255,6 +1262,14 @@ def sitemap():
     resp = app.response_class('\n'.join(xml), mimetype='application/xml')
     resp.headers['Cache-Control'] = 'public, max-age=86400'
     return resp
+
+
+@app.route('/coffee')
+def coffee():
+    """Hidden easter egg: a teapot that can't brew coffee. Returns 418."""
+    # Fake "failed brew attempts" counter seeded from Unix timestamp
+    brew_attempts = int(time.time()) % 9000 + 1000
+    return render_template('coffee.html', brew_attempts=brew_attempts), 418
 
 
 @app.route('/robots.txt')

@@ -522,6 +522,44 @@
     })();
     </script>
 
+    <!-- Barrel Roll Easter Egg Toast -->
+    <div id="barrel-roll-toast" class="barrel-roll-toast" role="status" aria-live="polite"></div>
+
+    <!-- Barrel Roll Easter Egg -->
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var searchEl = document.getElementById('search');
+        if (!searchEl) return;
+        var buffer = '';
+        var target = 'barrel roll';
+
+        searchEl.addEventListener('input', function() {
+            buffer = searchEl.value.toLowerCase();
+            if (buffer.indexOf(target) !== -1) {
+                var grid = document.getElementById('parrot-grid');
+                if (grid) {
+                    grid.classList.add('barrel-roll');
+                    var toast = document.getElementById('barrel-roll-toast');
+                    if (toast) {
+                        toast.textContent = 'Polly wants a barrel roll!';
+                        toast.classList.add('show');
+                    }
+                    setTimeout(function() {
+                        grid.classList.remove('barrel-roll');
+                        searchEl.value = '';
+                        /* Trigger filter reset */
+                        searchEl.dispatchEvent(new Event('input'));
+                        if (toast) toast.classList.remove('show');
+                    }, 1200);
+                    var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                    if (eggs.indexOf('barrel_roll') === -1) { eggs.push('barrel_roll'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+                }
+                buffer = '';
+            }
+        });
+    })();
+    </script>
+
     <!-- Konami Code Easter Egg -->
     <div id="party-parrot-overlay">
         <div id="party-parrot-container"></div>

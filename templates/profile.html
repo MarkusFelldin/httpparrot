@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Profile - HTTP Parrots{% endblock %}
+{% block subtitle %}Your Profile{% endblock %}
+{% block meta %}
+    <meta name="description" content="Track your HTTP Parrots XP, rank, and activity. See your progress and stats.">
+{% endblock %}
+{% block content %}
+    <main class="profile-container" id="main-content" role="main">
+        <div class="profile-hero">
+            <div class="profile-rank-display" id="profile-rank-display">
+                <span class="profile-rank-icon" aria-hidden="true">&#x1F99C;</span>
+                <h1 class="profile-rank-title" id="profile-rank-title">Fledgling</h1>
+                <p class="profile-level" id="profile-level">Level 1</p>
+            </div>
+            <div class="profile-xp-section">
+                <div class="profile-xp-total" id="profile-xp-total">0 XP</div>
+                <div class="profile-progress-wrap">
+                    <div class="profile-progress-label">
+                        <span id="profile-progress-current">0</span> / <span id="profile-progress-next">100</span> XP to next rank
+                    </div>
+                    <div class="profile-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="XP progress to next rank" id="profile-progressbar">
+                        <div class="profile-progress-bar" id="profile-progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="profile-stats-section" aria-label="Your statistics">
+            <h2>Stats</h2>
+            <div class="profile-stats-grid" id="profile-stats-grid">
+                <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-quiz-answers">0</div>
+                    <div class="profile-stat-label">Quiz Answers</div>
+                </div>
+                <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-daily-streak">0</div>
+                    <div class="profile-stat-label">Daily Streak</div>
+                </div>
+                <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-codes-visited">0</div>
+                    <div class="profile-stat-label">Codes Visited</div>
+                </div>
+                <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-practice-completed">0</div>
+                    <div class="profile-stat-label">Practice Completed</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="profile-heatmap-section" aria-label="Activity heatmap">
+            <h2>Activity (Last 90 Days)</h2>
+            <div class="profile-heatmap-container" id="profile-heatmap-container">
+                <div class="profile-heatmap" id="profile-heatmap" role="img" aria-label="Activity heatmap showing daily XP for the last 90 days"></div>
+                <div class="profile-heatmap-legend">
+                    <span>Less</span>
+                    <span class="heatmap-swatch heatmap-level-0"></span>
+                    <span class="heatmap-swatch heatmap-level-1"></span>
+                    <span class="heatmap-swatch heatmap-level-2"></span>
+                    <span class="heatmap-swatch heatmap-level-3"></span>
+                    <span class="heatmap-swatch heatmap-level-4"></span>
+                    <span>More</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="profile-ranks-section" aria-label="Rank definitions">
+            <h2>Ranks</h2>
+            <div class="profile-ranks-list" id="profile-ranks-list">
+                <div class="profile-rank-row" data-threshold="0"><span class="rank-threshold">0 XP</span><span class="rank-name">Fledgling</span></div>
+                <div class="profile-rank-row" data-threshold="100"><span class="rank-threshold">100 XP</span><span class="rank-name">Nestling</span></div>
+                <div class="profile-rank-row" data-threshold="300"><span class="rank-threshold">300 XP</span><span class="rank-name">Feathered Apprentice</span></div>
+                <div class="profile-rank-row" data-threshold="600"><span class="rank-threshold">600 XP</span><span class="rank-name">Wing Cadet</span></div>
+                <div class="profile-rank-row" data-threshold="1000"><span class="rank-threshold">1,000 XP</span><span class="rank-name">Parrot Scout</span></div>
+                <div class="profile-rank-row" data-threshold="2000"><span class="rank-threshold">2,000 XP</span><span class="rank-name">Plume Knight</span></div>
+                <div class="profile-rank-row" data-threshold="3500"><span class="rank-threshold">3,500 XP</span><span class="rank-name">Wing Commander</span></div>
+                <div class="profile-rank-row" data-threshold="5500"><span class="rank-threshold">5,500 XP</span><span class="rank-name">Sky Captain</span></div>
+                <div class="profile-rank-row" data-threshold="8000"><span class="rank-threshold">8,000 XP</span><span class="rank-name">Grand Macaw</span></div>
+                <div class="profile-rank-row" data-threshold="12000"><span class="rank-threshold">12,000 XP</span><span class="rank-name">Legendary Lorikeet</span></div>
+            </div>
+        </section>
+
+        <section class="profile-xp-breakdown" aria-label="XP breakdown">
+            <h2>How to Earn XP</h2>
+            <div class="profile-xp-actions">
+                <div class="xp-action-row"><span class="xp-action-name">Quiz correct answer</span><span class="xp-action-value">+10 XP</span></div>
+                <div class="xp-action-row"><span class="xp-action-name">Daily challenge correct</span><span class="xp-action-value">+50 XP</span></div>
+                <div class="xp-action-row"><span class="xp-action-name">Visit a new status code page</span><span class="xp-action-value">+5 XP</span></div>
+                <div class="xp-action-row"><span class="xp-action-name">Practice scenario correct</span><span class="xp-action-value">+15 XP</span></div>
+                <div class="xp-action-row"><span class="xp-action-name">Easter egg found</span><span class="xp-action-value">+100 XP</span></div>
+            </div>
+        </section>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    if (typeof ParrotXP === 'undefined') return;
+
+    var total = ParrotXP.getTotal();
+    var info = ParrotXP.getRankInfo(total);
+
+    /* Hero section */
+    document.getElementById('profile-rank-title').textContent = info.rank;
+    document.getElementById('profile-level').textContent = 'Level ' + info.level;
+    document.getElementById('profile-xp-total').textContent = total + ' XP';
+
+    /* Progress bar */
+    if (info.nextXp !== null) {
+        var progressInLevel = total - info.currentThreshold;
+        var levelRange = info.nextXp - info.currentThreshold;
+        var pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
+        document.getElementById('profile-progress-current').textContent = progressInLevel;
+        document.getElementById('profile-progress-next').textContent = levelRange;
+        document.getElementById('profile-progress-bar').style.width = pct + '%';
+        var pb = document.getElementById('profile-progressbar');
+        if (pb) pb.setAttribute('aria-valuenow', pct);
+    } else {
+        document.getElementById('profile-progress-current').textContent = 'MAX';
+        document.getElementById('profile-progress-next').textContent = 'MAX';
+        document.getElementById('profile-progress-bar').style.width = '100%';
+    }
+
+    /* Stats */
+    var activity = ParrotXP.getActivity();
+    var quizCount = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
+    var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
+    var visitCount = activity.filter(function(e) { return e.action === 'page_visit'; }).length;
+    document.getElementById('stat-quiz-answers').textContent = quizCount;
+    document.getElementById('stat-practice-completed').textContent = practiceCount;
+    document.getElementById('stat-codes-visited').textContent = visitCount;
+
+    /* Daily streak */
+    var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })
+        .map(function(e) { return e.date; })
+        .filter(function(v, i, a) { return a.indexOf(v) === i; })
+        .sort();
+    var streak = 0;
+    if (dailyDays.length > 0) {
+        streak = 1;
+        for (var i = dailyDays.length - 1; i > 0; i--) {
+            var d1 = new Date(dailyDays[i]);
+            var d2 = new Date(dailyDays[i - 1]);
+            var diff = (d1 - d2) / (1000 * 60 * 60 * 24);
+            if (diff === 1) { streak++; } else { break; }
+        }
+    }
+    document.getElementById('stat-daily-streak').textContent = streak;
+
+    /* Heatmap */
+    var heatmap = document.getElementById('profile-heatmap');
+    var today = new Date();
+    var dayMap = {};
+    activity.forEach(function(e) {
+        dayMap[e.date] = (dayMap[e.date] || 0) + e.xp;
+    });
+
+    for (var d = 89; d >= 0; d--) {
+        var dt = new Date(today);
+        dt.setDate(dt.getDate() - d);
+        var key = dt.toISOString().slice(0, 10);
+        var xpDay = dayMap[key] || 0;
+        var level = 0;
+        if (xpDay > 0) level = 1;
+        if (xpDay >= 20) level = 2;
+        if (xpDay >= 50) level = 3;
+        if (xpDay >= 100) level = 4;
+        var cell = document.createElement('div');
+        cell.className = 'heatmap-cell heatmap-level-' + level;
+        cell.title = key + ': ' + xpDay + ' XP';
+        cell.setAttribute('aria-label', key + ': ' + xpDay + ' XP');
+        heatmap.appendChild(cell);
+    }
+
+    /* Highlight current rank in ranks list */
+    var rows = document.querySelectorAll('.profile-rank-row');
+    for (var r = 0; r < rows.length; r++) {
+        var thresh = parseInt(rows[r].getAttribute('data-threshold'), 10);
+        if (thresh === info.currentThreshold) {
+            rows[r].classList.add('rank-current');
+        }
+    }
+})();
+</script>
+{% endblock %}

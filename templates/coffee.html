@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}418 - I'm a Teapot | HTTP Parrots{% endblock %}
+{% block subtitle %}I'm a teapot{% endblock %}
+
+{% block content %}
+    <main class="container coffee-container" id="main-content" role="main">
+        <div class="coffee-scene">
+            <div class="coffee-teapot-wrapper">
+                <pre class="coffee-ascii-teapot" aria-label="ASCII art teapot pouring">
+            ;,'
+     _o_    ;:;'
+ ,-.'---`.__ ;
+((j`=====',-'
+ `-\     /
+    `-=-'
+                </pre>
+                <div class="coffee-pour-stream" aria-hidden="true"></div>
+            </div>
+            <div class="coffee-steam-container" aria-hidden="true">
+                <div class="steam-particle coffee-steam"></div>
+                <div class="steam-particle coffee-steam"></div>
+                <div class="steam-particle coffee-steam"></div>
+                <div class="steam-particle coffee-steam"></div>
+                <div class="steam-particle coffee-steam"></div>
+                <div class="steam-particle coffee-steam"></div>
+            </div>
+        </div>
+        <div class="img-status-code category-4xx coffee-code">418</div>
+        <h1 class="coffee-title">I'm a teapot. I can't brew coffee.</h1>
+        <p class="coffee-message">
+            This server is, and always has been, a teapot. Attempts to brew coffee with a teapot
+            should result in the error code "418 I'm a teapot". The resulting entity body MAY be short and stout.
+        </p>
+        <div class="coffee-counter">
+            <span class="coffee-counter-label">Failed brew attempts:</span>
+            <span class="coffee-counter-value" id="brew-counter">{{ brew_attempts }}</span>
+        </div>
+        <div class="error-actions">
+            <a href="/" class="btn-back">&larr; Back to all parrots</a>
+            <span class="error-separator">|</span>
+            <a href="/418" class="btn-back">Visit the real 418 &rarr;</a>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        /* Track coffee visit as an easter egg */
+        var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        if (eggs.indexOf('coffee') === -1) { eggs.push('coffee'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+
+        /* Animate steam particles — respect reduced-motion */
+        var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var particles = document.querySelectorAll('.coffee-steam');
+        particles.forEach(function(p, i) {
+            p.style.left = (20 + Math.random() * 60) + '%';
+            if (!prefersReducedMotion) {
+                p.style.animationDelay = (Math.random() * 1.5) + 's';
+                p.style.animationDuration = (1 + Math.random() * 1) + 's';
+            }
+        });
+
+        /* Slowly increment the brew counter for fun */
+        var counter = document.getElementById('brew-counter');
+        if (counter) {
+            var val = parseInt(counter.textContent, 10);
+            setInterval(function() {
+                val++;
+                counter.textContent = val;
+            }, 3000);
+        }
+    })();
+    </script>
+{% endblock %}

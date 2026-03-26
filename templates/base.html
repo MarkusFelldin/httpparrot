@@ -44,10 +44,16 @@
                     <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
                     <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
                     <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
+                    <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
                 </nav>
             </div>
             {% block header_right %}
             <div class="header-right">
+                <a href="/profile" class="xp-badge" id="xp-badge" title="View your profile" aria-label="View your XP profile">
+                    <span class="xp-badge-icon" aria-hidden="true">&#x1F99C;</span>
+                    <span class="xp-badge-rank" id="xp-badge-rank">Fledgling</span>
+                    <span class="xp-badge-xp" id="xp-badge-xp">0 XP</span>
+                </a>
                 <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
                 <div role="search">
                     <input type="text" id="global-search" class="search-input search-input-sm" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
@@ -69,6 +75,7 @@
             <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
             <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
+            <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
         </nav>
     </header>
 
@@ -144,6 +151,134 @@
                 btn.focus();
             }
         });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* ParrotXP — global XP tracking system (all state in localStorage) */
+    (function() {
+        var RANKS = [
+            {xp: 0, title: 'Fledgling'},
+            {xp: 100, title: 'Nestling'},
+            {xp: 300, title: 'Feathered Apprentice'},
+            {xp: 600, title: 'Wing Cadet'},
+            {xp: 1000, title: 'Parrot Scout'},
+            {xp: 2000, title: 'Plume Knight'},
+            {xp: 3500, title: 'Wing Commander'},
+            {xp: 5500, title: 'Sky Captain'},
+            {xp: 8000, title: 'Grand Macaw'},
+            {xp: 12000, title: 'Legendary Lorikeet'}
+        ];
+
+        function getTotal() {
+            return parseInt(localStorage.getItem('httpparrot_xp') || '0', 10);
+        }
+
+        function getActivity() {
+            try {
+                return JSON.parse(localStorage.getItem('httpparrot_activity') || '[]');
+            } catch(e) { return []; }
+        }
+
+        function getRankInfo(xp) {
+            var rank = RANKS[0];
+            var level = 1;
+            for (var i = 0; i < RANKS.length; i++) {
+                if (xp >= RANKS[i].xp) { rank = RANKS[i]; level = i + 1; }
+            }
+            var nextRank = level < RANKS.length ? RANKS[level] : null;
+            return {rank: rank.title, level: level, nextXp: nextRank ? nextRank.xp : null, currentThreshold: rank.xp};
+        }
+
+        function getLevel() {
+            return getRankInfo(getTotal()).level;
+        }
+
+        function getRank() {
+            return getRankInfo(getTotal()).rank;
+        }
+
+        function award(amount, action) {
+            if (!amount || amount <= 0) return;
+            var total = getTotal() + amount;
+            localStorage.setItem('httpparrot_xp', String(total));
+            var activity = getActivity();
+            var today = new Date().toISOString().slice(0, 10);
+            activity.push({date: today, action: action || 'unknown', xp: amount});
+            /* Keep only last 90 days of activity */
+            var cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            var cutoffStr = cutoff.toISOString().slice(0, 10);
+            activity = activity.filter(function(e) { return e.date >= cutoffStr; });
+            localStorage.setItem('httpparrot_activity', JSON.stringify(activity));
+            updateBadge();
+        }
+
+        function updateBadge() {
+            var total = getTotal();
+            var info = getRankInfo(total);
+            var rankEl = document.getElementById('xp-badge-rank');
+            var xpEl = document.getElementById('xp-badge-xp');
+            if (rankEl) rankEl.textContent = info.rank;
+            if (xpEl) xpEl.textContent = total + ' XP';
+        }
+
+        window.ParrotXP = {
+            award: award,
+            getTotal: getTotal,
+            getLevel: getLevel,
+            getRank: getRank,
+            getRankInfo: getRankInfo,
+            getActivity: getActivity,
+            RANKS: RANKS
+        };
+
+        updateBadge();
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var footerInner = document.querySelector('.footer-inner');
+        if (!footerInner) return;
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+        var msg = null;
+        var eggId = null;
+        /* 4:04 AM or PM +/- 1 min */
+        if ((h === 4 || h === 16) && m >= 3 && m <= 5) {
+            msg = "It's 4:04 \u2014 even time can't find this page";
+            eggId = 'time_404';
+        }
+        /* 2:00 AM or PM +/- 1 min */
+        else if ((h === 2 || h === 14) && m <= 1) {
+            msg = "200 OK, but the parrot is napping \uD83D\uDCA4";
+            eggId = 'time_200';
+        }
+        else if ((h === 1 || h === 13) && m >= 59) {
+            msg = "200 OK, but the parrot is napping \uD83D\uDCA4";
+            eggId = 'time_200';
+        }
+        /* 5:00 PM +/- 1 min */
+        else if (h === 17 && m <= 1) {
+            msg = "It's 5xx o'clock somewhere";
+            eggId = 'time_5xx';
+        }
+        else if (h === 16 && m >= 59) {
+            msg = "It's 5xx o'clock somewhere";
+            eggId = 'time_5xx';
+        }
+        if (msg && eggId) {
+            var sep = document.createElement('span');
+            sep.className = 'footer-sep';
+            sep.textContent = '\u00B7';
+            footerInner.appendChild(sep);
+            var span = document.createElement('span');
+            span.className = 'footer-time-egg';
+            span.textContent = msg;
+            footerInner.appendChild(span);
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf(eggId) === -1) { eggs.push(eggId); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+        }
     })();
     </script>
     {% block scripts %}{% endblock %}
