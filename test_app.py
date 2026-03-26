@@ -2309,3 +2309,796 @@ class TestMockResponse:
         """robots.txt should block /api/mock-response."""
         resp = client.get('/robots.txt')
         assert b'Disallow: /api/mock-response' in resp.data
+
+
+# --- Responsive Design ---
+
+class TestResponsiveDesign:
+    """Tests for responsive design: viewport meta, hamburger menu, and CSS media queries."""
+
+    def test_viewport_meta_tag_present(self, client):
+        """Every page should include the viewport meta tag for mobile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+        assert 'width=device-width' in html
+        assert 'initial-scale=1' in html
+
+    def test_viewport_meta_on_detail_page(self, client):
+        """Detail pages should inherit the viewport meta tag from base."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+
+    def test_viewport_meta_on_quiz_page(self, client):
+        """Quiz page should have viewport meta tag."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'name="viewport"' in html
+
+    def test_hamburger_button_present(self, client):
+        """The hamburger menu button should be present in the header."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hamburger-btn' in html
+        assert 'aria-label="Open navigation menu"' in html
+        assert 'aria-expanded="false"' in html
+        assert 'aria-controls="mobile-nav"' in html
+
+    def test_hamburger_lines_present(self, client):
+        """The hamburger icon should have three lines for the icon."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('hamburger-line') == 3
+
+    def test_mobile_nav_present(self, client):
+        """The mobile navigation slide-out panel should be present."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="mobile-nav"' in html
+        assert 'class="mobile-nav"' in html
+        assert 'aria-label="Mobile navigation"' in html
+
+    def test_mobile_nav_overlay_present(self, client):
+        """The mobile nav overlay (for close-on-outside-click) should exist."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="mobile-nav-overlay"' in html
+        assert 'mobile-nav-overlay' in html
+
+    def test_mobile_nav_has_all_links(self, client):
+        """The mobile nav should contain all the same navigation links."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Check that mobile-nav section contains key nav links
+        mobile_nav_start = html.index('id="mobile-nav"')
+        mobile_nav_section = html[mobile_nav_start:mobile_nav_start + 2000]
+        for page in ['/quiz', '/practice', '/daily', '/flowchart',
+                     '/compare', '/tester', '/headers', '/cors-checker',
+                     '/collection', '/playground', '/cheatsheet', '/api-docs']:
+            assert page in mobile_nav_section, f"{page} missing from mobile nav"
+
+    def test_hamburger_js_present(self, client):
+        """The hamburger menu JavaScript should be included."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hamburger-btn' in html
+        assert 'mobile-nav' in html
+        assert 'is-open' in html
+        assert 'Escape' in html
+
+    def test_responsive_css_media_queries_exist(self):
+        """The CSS file should contain key responsive media queries."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        # Verify key breakpoints exist
+        assert '@media (max-width: 768px)' in css
+        assert '@media (max-width: 480px)' in css
+        assert '@media (max-width: 375px)' in css
+        # Verify hamburger menu styles
+        assert '.hamburger-btn' in css
+        assert '.mobile-nav' in css
+        assert '.mobile-nav-overlay' in css
+        # Verify touch target enforcement
+        assert 'min-height: 44px' in css
+
+    def test_responsive_css_has_overflow_hidden(self):
+        """CSS should prevent horizontal overflow on mobile."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert 'overflow-x: hidden' in css
+
+    def test_hamburger_on_all_pages(self, client):
+        """Hamburger menu should appear on all major pages."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'hamburger-btn' in html, f"hamburger-btn missing on {page}"
+            assert 'mobile-nav' in html, f"mobile-nav missing on {page}"
+
+
+# --- Accessibility: ARIA & Semantic HTML ---
+
+class TestAccessibilityARIA:
+    """Tests for ARIA attributes and semantic HTML across all templates."""
+
+    def test_skip_link_present(self, client):
+        """All pages should have a skip-to-content link."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'skip-link' in html, f"skip-link missing on {page}"
+            assert '#main-content' in html, f"skip-link target missing on {page}"
+
+    def test_main_content_id_present(self, client):
+        """All pages should have a main element with id=main-content."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'id="main-content"' in html, f"main-content id missing on {page}"
+
+    def test_main_role_present(self, client):
+        """All pages should have role=main on the main element."""
+        pages = ['/', '/quiz', '/practice', '/daily', '/flowchart',
+                 '/compare', '/tester', '/headers', '/cors-checker',
+                 '/collection', '/playground', '/cheatsheet', '/api-docs']
+        for page in pages:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'role="main"' in html, f"role=main missing on {page}"
+
+    def test_banner_role_on_header(self, client):
+        """Header should have role=banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="banner"' in html
+
+    def test_contentinfo_role_on_footer(self, client):
+        """Footer should have role=contentinfo."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="contentinfo"' in html
+
+    def test_nav_has_aria_label(self, client):
+        """Navigation should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Site navigation"' in html
+
+    def test_search_has_role(self, client):
+        """Search area should have role=search."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="search"' in html
+
+    def test_search_input_has_aria_label(self, client):
+        """Search inputs should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Search status codes"' in html
+
+    def test_images_have_alt_text(self, client):
+        """Parrot images should have meaningful alt text."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'alt="200 OK"' in html
+
+    def test_homepage_images_have_alt(self, client):
+        """Homepage parrot card images should have alt text."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'alt="200 OK"' in html
+
+    def test_detail_breadcrumb_has_aria(self, client):
+        """Detail page breadcrumb should have aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Breadcrumb"' in html
+        assert 'aria-current="page"' in html
+
+    def test_404_page_has_main_id(self, client):
+        """Custom 404 page should have id=main-content and role=main."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'id="main-content"' in html
+        assert 'role="main"' in html
+
+    def test_404_emoji_is_decorative(self, client):
+        """404 page emoji should be marked as decorative."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'aria-hidden="true"' in html
+
+
+class TestAccessibilityQuizARIA:
+    """Tests for ARIA attributes on quiz and daily challenge pages."""
+
+    def test_quiz_has_h1(self, client):
+        """Quiz page should have an h1 heading (even if sr-only)."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert '<h1' in html
+
+    def test_quiz_choices_have_role_group(self, client):
+        """Quiz choices container should have role=group."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_quiz_feedback_has_aria_live(self, client):
+        """Quiz feedback should have aria-live=polite."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+    def test_quiz_score_has_aria_live(self, client):
+        """Quiz score values should have aria-live for screen reader updates."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        # Score, streak, and total should all have aria-live
+        assert html.count('aria-live="polite"') >= 3
+
+    def test_daily_choices_have_role_group(self, client):
+        """Daily challenge choices should have role=group."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_daily_streak_has_aria_live(self, client):
+        """Daily challenge streak display should have aria-live."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'id="streak-count"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_daily_streak_has_region_role(self, client):
+        """Daily streak display should be in a labeled region."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'role="region"' in html
+        assert 'aria-label="Streak tracker"' in html
+
+
+class TestAccessibilityPracticeARIA:
+    """Tests for ARIA attributes on the practice page."""
+
+    def test_practice_score_has_aria_live(self, client):
+        """Practice score values should have aria-live."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'id="practice-correct"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_practice_progress_bar_has_aria(self, client):
+        """Practice progress bar should have proper progressbar ARIA."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_practice_score_region_labeled(self, client):
+        """Practice score bar should be a labeled region."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'role="region"' in html
+        assert 'aria-label="Score tracker"' in html
+
+
+class TestAccessibilityFlowchartARIA:
+    """Tests for ARIA on the flowchart page."""
+
+    def test_flowchart_has_h1(self, client):
+        """Flowchart page should have an h1 heading."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert '<h1' in html
+
+    def test_flowchart_mode_toggle_has_tablist(self, client):
+        """Flowchart mode toggle should use tablist pattern."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert 'role="tablist"' in html
+        assert 'role="tab"' in html
+        assert 'aria-selected="true"' in html
+
+    def test_flowchart_tabpanels_present(self, client):
+        """Flowchart should have tabpanel roles."""
+        resp = client.get('/flowchart')
+        html = resp.data.decode()
+        assert 'role="tabpanel"' in html
+
+
+class TestAccessibilityCompareARIA:
+    """Tests for ARIA on the compare page."""
+
+    def test_compare_presets_have_aria_labels(self, client):
+        """Compare preset buttons should have descriptive aria-labels."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'aria-label="Compare 401' in html
+        assert 'role="group"' in html
+
+    def test_compare_result_has_aria_live(self, client):
+        """Compare result area should have aria-live for dynamic updates."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="compare-result"' in html
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCollectionARIA:
+    """Tests for ARIA on the collection/Parrotdex page."""
+
+    def test_collection_progress_has_progressbar(self, client):
+        """Collection progress should have progressbar role."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_collection_secrets_region(self, client):
+        """Secret parrots section should be a labeled region."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'aria-label="Secret parrots"' in html
+
+
+class TestAccessibilityDetailARIA:
+    """Tests for ARIA on the detail page."""
+
+    def test_detail_share_actions_have_group_role(self, client):
+        """Share actions should have role=group and aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'role="group"' in html
+        assert 'aria-label="Share options"' in html
+
+    def test_detail_share_buttons_have_aria_labels(self, client):
+        """Share buttons should have aria-labels."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Share this parrot"' in html
+        assert 'aria-label="Copy link to this page"' in html
+
+    def test_detail_nav_is_semantic(self, client):
+        """Detail page navigation should use nav element."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Status code navigation"' in html
+
+    def test_detail_prev_next_have_aria_labels(self, client):
+        """Previous/next navigation should have descriptive aria-labels."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Next status code:' in html
+
+    def test_detail_copy_icon_has_aria_live(self, client):
+        """Copy button feedback should have aria-live."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="copy-curl-icon"' in html
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCheatsheetARIA:
+    """Tests for ARIA and semantic HTML on the cheatsheet page."""
+
+    def test_cheatsheet_categories_use_h2(self, client):
+        """Cheatsheet category headers should be h2 elements."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert '<h2 class="cheat-cat-header">' in html
+
+    def test_cheatsheet_sr_only_table_headers(self, client):
+        """Cheatsheet tables should have sr-only thead for screen readers."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'class="sr-only"' in html
+        assert '<th>Code</th>' in html
+
+
+class TestAccessibilityTesterARIA:
+    """Tests for ARIA on the URL tester page."""
+
+    def test_tester_form_has_aria_label(self, client):
+        """Tester form should have aria-label."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'aria-label="URL tester"' in html
+
+    def test_tester_input_has_label(self, client):
+        """Tester URL input should have a label element."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'for="url-input"' in html
+
+    def test_tester_result_has_aria_live(self, client):
+        """Tester result area should have aria-live."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityCORSARIA:
+    """Tests for ARIA on the CORS checker page."""
+
+    def test_cors_form_has_aria_label(self, client):
+        """CORS checker form should have aria-label."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'aria-label="CORS checker"' in html
+
+    def test_cors_fields_have_labels(self, client):
+        """CORS checker fields should have associated labels."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'for="cors-url"' in html
+        assert 'for="cors-origin"' in html
+
+    def test_cors_results_has_aria_live(self, client):
+        """CORS results area should have aria-live."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+
+class TestAccessibilityHeadingHierarchy:
+    """Tests for proper heading hierarchy (no skips from h1 to h3)."""
+
+    def test_homepage_heading_hierarchy(self, client):
+        """Homepage should not skip heading levels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Homepage has no h1 visible (it's the site title), but should not skip from h1 to h3
+        assert '<h3' not in html or '<h2' in html
+
+    def test_detail_page_heading_hierarchy(self, client):
+        """Detail page h2 sections should not skip to h4."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Should have h2 sections, no h4 without h3
+        if '<h4' in html:
+            assert '<h3' in html
+
+    def test_cheatsheet_has_h1_and_h2(self, client):
+        """Cheatsheet should have h1 followed by h2 for categories."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        h1_pos = html.find('<h1>')
+        h2_pos = html.find('<h2')
+        assert h1_pos > 0
+        assert h2_pos > h1_pos
+
+    def test_practice_has_h1(self, client):
+        """Practice page should have an h1."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert '<h1>' in html
+
+
+class TestAccessibilityColorContrast:
+    """Tests for color contrast improvements in the CSS."""
+
+    def test_no_very_low_contrast_text(self):
+        """CSS should not have rgba(255,255,255,0.3) or 0.4 for text color."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        # Split into rule blocks to check context
+        # Find all 'color:' declarations with low contrast and check they are
+        # inside placeholder selectors (which are exempt from contrast rules)
+        lines = css.split('\n')
+        in_placeholder = False
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if '::placeholder' in stripped:
+                in_placeholder = True
+            if in_placeholder and '}' in stripped:
+                in_placeholder = False
+                continue
+            if in_placeholder:
+                continue
+            if 'background-image' in stripped or 'background:' in stripped:
+                continue
+            if stripped.startswith('color: rgba(255,255,255,0.3)') or \
+               stripped.startswith('color: rgba(255, 255, 255, 0.3)'):
+                assert False, f"Low contrast text (0.3) at line {i+1}: {stripped}"
+            if stripped.startswith('color: rgba(255,255,255,0.4)') or \
+               stripped.startswith('color: rgba(255, 255, 255, 0.4)'):
+                assert False, f"Low contrast text (0.4) at line {i+1}: {stripped}"
+
+    def test_header_subtitle_sufficient_contrast(self):
+        """Header subtitle should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert 'header-subtitle' in css
+        # Should not be 0.5 anymore
+        import re
+        m = re.search(r'\.header-subtitle\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Header subtitle contrast too low: {opacity}"
+
+    def test_nav_links_sufficient_contrast(self):
+        """Navigation links should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        import re
+        m = re.search(r'\.header-nav\s+a\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Nav link contrast too low: {opacity}"
+
+    def test_footer_github_link_contrast(self):
+        """Footer GitHub link should have sufficient contrast."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        import re
+        m = re.search(r'\.footer-github\s*\{[^}]*color:\s*rgba\(255,\s*255,\s*255,\s*([\d.]+)\)', css)
+        if m:
+            opacity = float(m.group(1))
+            assert opacity >= 0.6, f"Footer GitHub link contrast too low: {opacity}"
+
+    def test_header_type_colors_contrast(self):
+        """Header explainer type colors should have sufficient contrast."""
+        with open('templates/headers.html', 'r') as f:
+            content = f.read()
+        # The Info/Connection/Routing/Debug colors should not be 0.4
+        assert 'rgba(255,255,255,0.4)' not in content
+
+
+class TestAccessibilityFocusManagement:
+    """Tests for keyboard accessibility and focus indicators."""
+
+    def test_focus_visible_style_exists(self):
+        """CSS should have :focus-visible styles."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert ':focus-visible' in css
+
+    def test_skip_link_style_exists(self):
+        """CSS should have skip-link styles that show on focus."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '.skip-link:focus' in css
+        assert '.skip-link' in css
+
+    def test_sr_only_class_exists(self):
+        """CSS should have an sr-only class for screen reader text."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '.sr-only' in css
+        assert 'clip: rect(0, 0, 0, 0)' in css
+
+    def test_all_interactive_elements_keyboard_accessible(self, client):
+        """Key interactive elements should be buttons or links (natively focusable)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Filter toggle should be a button, not a div
+        assert '<button class="btn-filter"' in html or 'class="btn-filter"' in html
+        # Filter pills should be buttons
+        assert '<button class="cat-pill' in html
+
+    def test_quiz_keyboard_shortcuts_present(self, client):
+        """Quiz page should have keyboard shortcut support."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        # 1-4 number keys for answers
+        assert "e.key >= '1'" in html or "e.key >= \\'1\\'" in html
+        # Enter for next
+        assert "e.key === 'Enter'" in html or "e.key === \\'Enter\\'" in html
+
+
+class TestAccessibilityScreenReader:
+    """Tests for screen reader support."""
+
+    def test_decorative_images_are_hidden(self, client):
+        """Decorative elements should have aria-hidden=true."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-hidden="true"' in html
+
+    def test_no_results_message_has_live_region(self, client):
+        """No results message on homepage should be a live region."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="no-results"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_filter_toggle_has_aria_expanded(self, client):
+        """Filter toggle button should have aria-expanded."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-expanded=' in html
+
+    def test_filter_toggle_has_aria_controls(self, client):
+        """Filter toggle should have aria-controls pointing to dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-controls="filter-dropdown"' in html
+
+    def test_random_button_has_aria_label(self, client):
+        """Random parrot button (emoji) should have aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Random parrot"' in html
+
+    def test_back_to_top_has_aria_label(self, client):
+        """Back to top button should have aria-label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Back to top"' in html
+
+    def test_parrot_links_have_aria_labels(self, client):
+        """Parrot card links should have descriptive aria-labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="200 OK"' in html
+
+    def test_potd_link_has_aria_label(self, client):
+        """Parrot of the Day link should have descriptive aria-label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'class="potd-link"' in html
+        assert 'aria-label="Parrot of the Day:' in html
+
+
+# --- CSS Media Queries ---
+
+class TestCSSMediaQueries:
+    """Verify print, reduced-motion, and light-theme media queries exist in the stylesheet."""
+
+    def test_print_media_query_exists(self, client):
+        """CSS should contain a comprehensive @media print block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media print' in css
+
+    def test_print_hides_interactive_elements(self, client):
+        """Print styles should hide nav, footer, and interactive elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'display: none !important' in css
+        assert '.site-header-compact' in css
+        assert '.site-footer' in css
+
+    def test_print_shows_urls_after_links(self, client):
+        """Print styles should show URLs after links."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'a[href]::after' in css
+        assert 'attr(href)' in css
+
+    def test_print_page_break_rules(self, client):
+        """Print styles should include page-break rules."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'page-break-inside: avoid' in css
+
+    def test_print_light_background(self, client):
+        """Print styles should use white background and dark text."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'background: #fff !important' in css
+        assert 'color: #000 !important' in css
+
+    def test_print_cheat_sheet_columns(self, client):
+        """Cheat sheet should print in 2 columns."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'columns: 2' in css
+        assert 'break-inside: avoid' in css
+
+    def test_print_images_sized_properly(self, client):
+        """Print styles should ensure images have proper sizing."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'max-width: 100% !important' in css
+        assert 'height: auto !important' in css
+
+    def test_reduced_motion_media_query_exists(self, client):
+        """CSS should contain a @media (prefers-reduced-motion: reduce) block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media (prefers-reduced-motion: reduce)' in css
+
+    def test_reduced_motion_disables_animations(self, client):
+        """Reduced motion should disable animation-duration globally."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'animation-duration: 0.01ms !important' in css
+        assert 'transition-duration: 0.01ms !important' in css
+
+    def test_reduced_motion_disables_aurora(self, client):
+        """Reduced motion should disable the aurora background drift."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        # Check aurora is explicitly disabled within reduced-motion
+        assert 'body::before' in css
+        # The reduced-motion block should have animation: none for body::before
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert 'animation: none !important' in block
+
+    def test_reduced_motion_disables_confetti(self, client):
+        """Reduced motion should disable confetti particles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert '.confetti-particle' in block
+
+    def test_reduced_motion_disables_scroll_reveal(self, client):
+        """Reduced motion should make scroll reveal elements instantly visible."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert '.parrot-card.will-reveal' in block
+        assert '.parrot-card.scroll-animated' in block
+
+    def test_reduced_motion_keeps_hover_colors(self, client):
+        """Reduced motion should keep hover color changes but remove transforms."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        block = css[idx:css.index('/* === Light Theme', idx)]
+        assert 'transform: none !important' in block
+
+    def test_light_theme_media_query_exists(self, client):
+        """CSS should contain a @media (prefers-color-scheme: light) block."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@media (prefers-color-scheme: light)' in css
+
+    def test_light_theme_background_color(self, client):
+        """Light theme should use light background (#f5f5f7)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '#f5f5f7' in block
+
+    def test_light_theme_dark_text(self, client):
+        """Light theme should use dark text (#1a1a1f)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '#1a1a1f' in block
+
+    def test_light_theme_card_backgrounds(self, client):
+        """Light theme should adjust card backgrounds for light mode."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '.parrot' in block
+        assert '.detail-info' in block
+        assert '#ffffff' in block
+
+    def test_light_theme_category_colors(self, client):
+        """Light theme should adjust category colors for light background contrast."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        block = css[idx:]
+        assert '.category-1xx' in block
+        assert '.category-2xx' in block
+        assert '.category-3xx' in block
+        assert '.category-4xx' in block
+        assert '.category-5xx' in block

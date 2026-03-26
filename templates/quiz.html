@@ -9,17 +9,18 @@
 
 {% block content %}
     <main class="quiz-container" id="main-content" role="main">
-        <div class="quiz-score">
+        <h1 class="sr-only">HTTP Status Code Quiz</h1>
+        <div class="quiz-score" role="region" aria-label="Score tracker">
             <div class="score-item score-correct">
-                <div class="score-value" id="score">0</div>
+                <div class="score-value" id="score" aria-live="polite">0</div>
                 <div class="score-label">Correct</div>
             </div>
             <div class="score-item score-streak">
-                <div class="score-value" id="streak">0</div>
+                <div class="score-value" id="streak" aria-live="polite">0</div>
                 <div class="score-label">Streak</div>
             </div>
             <div class="score-item score-total">
-                <div class="score-value" id="total">0</div>
+                <div class="score-value" id="total" aria-live="polite">0</div>
                 <div class="score-label">Total</div>
             </div>
         </div>
@@ -28,7 +29,7 @@
             <img id="quiz-img" src="" alt="Guess this HTTP status code" width="600" height="500">
         </div>
 
-        <div class="quiz-choices" id="choices"></div>
+        <div class="quiz-choices" id="choices" role="group" aria-label="Answer choices"></div>
         <div class="quiz-feedback" id="feedback" aria-live="polite" role="status"></div>
         <div class="quiz-next" id="next-wrap">
             <button class="btn-back" id="next-btn">Next parrot</button>

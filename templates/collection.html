@@ -9,7 +9,7 @@
         <div class="collection-header">
             <h1>Parrotdex</h1>
             <p>Visit status code pages to collect parrots. <span id="collect-count">0</span>/{{ all_codes|length }} collected</p>
-            <div class="collection-progress">
+            <div class="collection-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="{{ all_codes|length }}" aria-label="Collection progress">
                 <div class="collection-progress-bar" id="progress-bar"></div>
             </div>
         </div>
@@ -23,7 +23,7 @@
             {% endfor %}
         </div>
 
-        <div class="collection-secrets">
+        <div class="collection-secrets" role="region" aria-label="Secret parrots">
             <h2>Secret Parrots</h2>
             <p class="collection-secrets-hint">Some parrots have hidden surprises on the homepage. Can you find them all?</p>
             <div class="collection-eggs" id="eggs-grid">
@@ -66,6 +66,8 @@
         });
         document.getElementById('collect-count').textContent = count;
         document.getElementById('progress-bar').style.width = (count / cards.length * 100) + '%';
+        var progressEl = document.getElementById('progress-bar').parentElement;
+        if (progressEl) progressEl.setAttribute('aria-valuenow', count);
 
         var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
         document.querySelectorAll('.egg-card').forEach(function(card) {

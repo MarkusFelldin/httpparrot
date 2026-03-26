@@ -14,9 +14,9 @@
             <div class="daily-date">{{ date_str }}</div>
         </div>
 
-        <div class="daily-streak-display">
+        <div class="daily-streak-display" role="region" aria-label="Streak tracker">
             <div class="score-item score-streak">
-                <div class="score-value" id="streak-count">0</div>
+                <div class="score-value" id="streak-count" aria-live="polite">0</div>
                 <div class="score-label">Day Streak</div>
             </div>
         </div>
@@ -26,7 +26,7 @@
             <div class="daily-scenario-text">{{ scenario }}</div>
         </div>
 
-        <div class="quiz-choices" id="daily-choices">
+        <div class="quiz-choices" id="daily-choices" role="group" aria-label="Answer choices">
             {% for opt in options %}
             <button class="quiz-btn daily-btn" data-index="{{ loop.index0 }}">
                 <span class="quiz-btn-label">{{ ['A','B','C','D'][loop.index0] }}</span>

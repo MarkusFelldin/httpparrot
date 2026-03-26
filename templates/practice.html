@@ -144,7 +144,7 @@
 }
 .practice-card-number {
     font-size: 0.8rem;
-    color: #666;
+    color: #999;
     font-family: 'Share Tech Mono', monospace;
 }
 .practice-description {
@@ -234,6 +234,21 @@
     .practice-score-bar {
         gap: 1rem;
     }
+    .practice-option-btn {
+        min-height: 44px;
+        padding: 0.75rem 1rem;
+    }
+    .practice-filter-btn {
+        min-height: 44px;
+    }
+}
+@media (max-width: 375px) {
+    .practice-container {
+        padding: 1.5rem 0.75rem 3rem;
+    }
+    .practice-card {
+        padding: 1rem 0.75rem;
+    }
 }
 </style>
 {% endblock %}
@@ -245,17 +260,17 @@
             <p>Real-world API scenarios to test your HTTP status code knowledge</p>
         </div>
 
-        <div class="practice-score-bar" aria-label="Score tracker">
+        <div class="practice-score-bar" role="region" aria-label="Score tracker">
             <div class="practice-score-item">
-                <div class="practice-score-value score-correct-val" id="practice-correct">0</div>
+                <div class="practice-score-value score-correct-val" id="practice-correct" aria-live="polite">0</div>
                 <div class="practice-score-label">Correct</div>
             </div>
             <div class="practice-score-item">
-                <div class="practice-score-value score-wrong-val" id="practice-wrong">0</div>
+                <div class="practice-score-value score-wrong-val" id="practice-wrong" aria-live="polite">0</div>
                 <div class="practice-score-label">Wrong</div>
             </div>
             <div class="practice-score-item">
-                <div class="practice-score-value" id="practice-remaining">{{ scenarios|length }}</div>
+                <div class="practice-score-value" id="practice-remaining" aria-live="polite">{{ scenarios|length }}</div>
                 <div class="practice-score-label">Remaining</div>
             </div>
         </div>
