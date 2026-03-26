@@ -688,13 +688,38 @@ def flowchart():
     return render_template('flowchart.html')
 
 
+COMPARISON_SUMMARIES = {
+    "401,403": "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
+    "403,401": "401 means \"who are you?\" (not authenticated) while 403 means \"I know who you are but you can't do that\" (not authorized).",
+    "301,302": "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
+    "302,301": "301 is a permanent redirect (update your bookmarks) while 302 is temporary (the original URL is still the right one).",
+    "500,502": "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
+    "502,500": "500 means the server itself crashed while 502 means the server is fine but an upstream service it depends on sent a bad response.",
+    "200,204": "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
+    "204,200": "Both mean success, but 200 returns a response body while 204 intentionally returns nothing.",
+    "301,308": "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
+    "308,301": "Both are permanent redirects, but 301 may change POST to GET while 308 preserves the original HTTP method.",
+    "302,307": "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
+    "307,302": "Both are temporary redirects, but 302 may change POST to GET while 307 preserves the original HTTP method.",
+    "404,410": "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
+    "410,404": "404 means the resource was not found (might appear later) while 410 means it existed but was permanently removed.",
+    "502,504": "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
+    "504,502": "502 means the upstream sent a bad response while 504 means the upstream did not respond at all (timed out).",
+    "400,422": "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
+    "422,400": "400 means the request is malformed (bad syntax) while 422 means the syntax is fine but the content is semantically invalid.",
+    "503,500": "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
+    "500,503": "500 is an unexpected server error while 503 means the server is temporarily unavailable (overloaded or in maintenance).",
+}
+
+
 @app.route('/compare')
 def compare():
     """Render the side-by-side status code comparison tool."""
     codes = pruned_status_codes()
     code_list = [{"code": c.code, "name": c.name} for c in codes]
     return render_template('compare.html', code_list=code_list,
-                           status_info=STATUS_INFO, status_extra=STATUS_EXTRA)
+                           status_info=STATUS_INFO, status_extra=STATUS_EXTRA,
+                           comparison_summaries=COMPARISON_SUMMARIES)
 
 
 @app.route('/tester')
@@ -772,6 +797,64 @@ def check_cors():
     return jsonify(results)
 
 
+@app.route('/api/search')
+def api_search():
+    """Search status codes by code number, name, description, or keywords.
+
+    Returns a JSON array of matching status codes with relevance scores.
+    Query parameter: q (required).
+    """
+    query = request.args.get('q', '').strip().lower()
+    if not query:
+        return jsonify({"error": "Missing required query parameter: q"}), 400
+
+    results = []
+    for sc in status_code_list:
+        score = 0
+        code = sc.code
+        name = sc.name.lower()
+        info = STATUS_INFO.get(code, {})
+        description = info.get('description', '').lower()
+
+        # Exact code match (highest relevance)
+        if query == code:
+            score = 100
+        # Code starts with query (e.g. "40" matches 400, 401, etc.)
+        elif code.startswith(query) and query.isdigit():
+            score = 80
+        # Code contains query digits
+        elif query.isdigit() and query in code:
+            score = 60
+
+        # Name matching
+        if query in name:
+            name_bonus = 70 if query == name else 50
+            score = max(score, name_bonus)
+
+        # Description matching
+        if query in description:
+            score = max(score, 30)
+
+        # Keyword matching in name words
+        query_words = query.split()
+        if len(query_words) > 1:
+            matched_words = sum(1 for w in query_words if w in name or w in description)
+            if matched_words > 0:
+                word_score = int(20 + (matched_words / len(query_words)) * 40)
+                score = max(score, word_score)
+
+        if score > 0:
+            results.append({
+                "code": code,
+                "name": sc.name,
+                "description": info.get('description', ''),
+                "score": score,
+            })
+
+    results.sort(key=lambda r: (-r['score'], r['code']))
+    return jsonify(results)
+
+
 @app.route('/api/check-url')
 def check_url():
     """Make a HEAD request to a user-provided URL and return its status code."""
@@ -799,6 +882,50 @@ def check_url():
         })
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
+
+
+@app.route('/playground')
+def playground():
+    """Render the Interactive Response Playground page."""
+    codes = [{"code": c.code, "name": c.name} for c in status_code_list]
+    return render_template('playground.html', all_codes=codes)
+
+
+@app.route('/api/mock-response', methods=['POST'])
+def mock_response():
+    """Return an HTTP response with user-specified status, headers, and body.
+
+    Accepts JSON: {status_code: int, headers: dict, body: string}.
+    Rate-limited to prevent abuse.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON body"}), 400
+    status = data.get('status_code', 200)
+    if not isinstance(status, int) or status < 100 or status > 599:
+        return jsonify({"error": "status_code must be an integer between 100 and 599"}), 400
+    headers = data.get('headers', {})
+    if not isinstance(headers, dict):
+        return jsonify({"error": "headers must be a dict"}), 400
+    body = data.get('body', '')
+    if not isinstance(body, str):
+        return jsonify({"error": "body must be a string"}), 400
+    if len(body) > 10000:
+        return jsonify({"error": "body must be 10000 characters or fewer"}), 400
+    # Build the response
+    resp = app.response_class(body, status=status)
+    # Only allow safe header names (no injection)
+    for key, value in headers.items():
+        key_clean = str(key).strip()
+        value_clean = str(value).strip()
+        if not key_clean or '\n' in key_clean or '\r' in key_clean:
+            continue
+        if '\n' in value_clean or '\r' in value_clean:
+            continue
+        resp.headers[key_clean] = value_clean
+    return resp
 
 
 @app.route('/return/<int:code>')
@@ -899,19 +1026,145 @@ _ECHO_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
 
 @app.route('/echo', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
 def echo():
-    """Echo the request details back as JSON (httpbin-style)."""
+    """Echo the request details back as JSON (httpbin-style).
+
+    Supports all HTTP methods. For POST/PUT/PATCH the request body and
+    parsed JSON are included.  Query parameters are always echoed in
+    ``args``.
+
+    Special query params:
+      ?format=pretty  -- return indented JSON
+      ?format=curl    -- return a curl command that reproduces the request
+    """
+    safe_headers = {k: v for k, v in request.headers
+                    if k.lower() not in _ECHO_STRIP_HEADERS}
+    args = {k: v for k, v in request.args.items() if k != 'format'}
+
+    fmt = request.args.get('format', '').lower()
+
+    if fmt == 'curl':
+        # Build a curl command that reproduces this request
+        parts = ['curl']
+        if request.method != 'GET':
+            parts.append(f'-X {request.method}')
+        # Rebuild URL without the format param
+        base_url = request.base_url
+        if args:
+            qs = '&'.join(f'{k}={v}' for k, v in args.items())
+            base_url = f'{base_url}?{qs}'
+        parts.append(f"'{base_url}'")
+        for k, v in safe_headers.items():
+            parts.append(f"-H '{k}: {v}'")
+        if request.method in ('POST', 'PUT', 'PATCH'):
+            body = request.get_data(as_text=True)
+            if body:
+                escaped = body.replace("'", "'\\''")
+                parts.append(f"-d '{escaped}'")
+        return jsonify({'curl': ' \\\n  '.join(parts)})
+
     data = {
         'method': request.method,
         'url': request.url,
-        'headers': {k: v for k, v in request.headers
-                    if k.lower() not in _ECHO_STRIP_HEADERS},
-        'args': dict(request.args),
+        'headers': safe_headers,
+        'args': args,
     }
     if request.method in ('POST', 'PUT', 'PATCH'):
         data['body'] = request.get_data(as_text=True)
         if request.is_json:
             data['json'] = request.get_json(silent=True)
+
+    if fmt == 'pretty':
+        resp = app.response_class(
+            json.dumps(data, indent=2, sort_keys=True) + '\n',
+            mimetype='application/json',
+        )
+        return resp
+
     return jsonify(data)
+
+
+def _code_category(code_str):
+    """Return the category label for a status code string, e.g. '404' -> '4xx Client Error'."""
+    first = code_str[0] if code_str else '?'
+    return {
+        '1': '1xx Informational',
+        '2': '2xx Success',
+        '3': '3xx Redirection',
+        '4': '4xx Client Error',
+        '5': '5xx Server Error',
+    }.get(first, 'Unknown')
+
+
+@app.route('/api/diff')
+def api_diff():
+    """Compare two HTTP status codes and return their differences as JSON.
+
+    Query params:
+      code1 -- first status code  (required)
+      code2 -- second status code (required)
+
+    Returns descriptions, categories, real-world examples, related codes,
+    and a human-readable key_difference summary.
+    """
+    code1 = request.args.get('code1', '').strip()
+    code2 = request.args.get('code2', '').strip()
+    if not code1 or not code2:
+        return jsonify({'error': 'Both code1 and code2 query params are required.'}), 400
+
+    sc1 = next((s for s in status_code_list if s.code == code1), None)
+    sc2 = next((s for s in status_code_list if s.code == code2), None)
+    if not sc1 or not sc2:
+        missing = []
+        if not sc1:
+            missing.append(code1)
+        if not sc2:
+            missing.append(code2)
+        return jsonify({'error': f"Unknown status code(s): {', '.join(missing)}"}), 404
+
+    info1 = STATUS_INFO.get(code1, {})
+    info2 = STATUS_INFO.get(code2, {})
+    extra1 = STATUS_EXTRA.get(code1, {})
+    extra2 = STATUS_EXTRA.get(code2, {})
+    related1 = RELATED_CODES.get(code1, [])
+    related2 = RELATED_CODES.get(code2, [])
+
+    # Try to find a direct key_difference from RELATED_CODES
+    key_diff = None
+    for rel_code, explanation in related1:
+        if rel_code == code2:
+            key_diff = explanation
+            break
+    if not key_diff:
+        for rel_code, explanation in related2:
+            if rel_code == code1:
+                key_diff = explanation
+                break
+    if not key_diff:
+        key_diff = (
+            f"{code1} ({sc1.name}) is a {_code_category(code1).split(' ', 1)[1].lower()} response; "
+            f"{code2} ({sc2.name}) is a {_code_category(code2).split(' ', 1)[1].lower()} response."
+        )
+
+    result = {
+        'code1': {
+            'code': code1,
+            'name': sc1.name,
+            'category': _code_category(code1),
+            'description': info1.get('description', ''),
+            'examples': extra1.get('examples', []),
+            'related_codes': [{'code': c, 'why': w} for c, w in related1],
+        },
+        'code2': {
+            'code': code2,
+            'name': sc2.name,
+            'category': _code_category(code2),
+            'description': info2.get('description', ''),
+            'examples': extra2.get('examples', []),
+            'related_codes': [{'code': c, 'why': w} for c, w in related2],
+        },
+        'key_difference': key_diff,
+    }
+    return jsonify(result)
 
 
 @app.route('/redirect/<int:n>')
@@ -973,7 +1226,7 @@ def sitemap():
     pages = []
     for rule in ['/', '/quiz', '/flowchart', '/compare', '/tester',
                  '/cheatsheet', '/headers', '/cors-checker', '/collection',
-                 '/api-docs']:
+                 '/playground', '/api-docs']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -995,6 +1248,9 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /api/check-cors\n"
+        "Disallow: /api/mock-response\n"
+        "Disallow: /api/diff\n"
+        "Disallow: /api/search\n"
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"

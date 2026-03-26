@@ -14,6 +14,14 @@
             <p class="compare-subtext">Pick two HTTP status codes to see how they differ.</p>
         </div>
 
+        <div class="compare-presets" id="compare-presets">
+            <span class="compare-presets-label">Quick compare:</span>
+            <button class="compare-preset-btn" data-a="401" data-b="403">401 vs 403</button>
+            <button class="compare-preset-btn" data-a="301" data-b="302">301 vs 302</button>
+            <button class="compare-preset-btn" data-a="500" data-b="502">500 vs 502</button>
+            <button class="compare-preset-btn" data-a="200" data-b="204">200 vs 204</button>
+        </div>
+
         <div class="compare-selectors">
             <div class="compare-select-wrap">
                 <label for="select-a" class="compare-select-label">Code A</label>
@@ -24,7 +32,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="compare-vs">vs</div>
+            <button id="swap-codes" class="compare-swap-btn" aria-label="Swap codes" title="Swap codes">&#8646;</button>
             <div class="compare-select-wrap">
                 <label for="select-b" class="compare-select-label">Code B</label>
                 <select id="select-b" class="compare-select" aria-label="Select second status code">
@@ -40,6 +48,7 @@
             <p class="compare-noscript">JavaScript is required to use the interactive comparison. You can still browse individual status code pages from the homepage.</p>
         </noscript>
 
+        <div id="compare-summary" class="compare-summary" aria-live="polite"></div>
         <div id="compare-result" class="compare-result" aria-live="polite"></div>
     </main>
 {% endblock %}
@@ -50,6 +59,7 @@
         var codeList = {{ code_list | tojson }};
         var statusInfo = {{ status_info | tojson }};
         var statusExtra = {{ status_extra | tojson }};
+        var comparisonSummaries = {{ comparison_summaries | tojson }};
 
         var catColors = {
             '1': {color: '#48cae4', bg: 'rgba(72,202,228,0.10)', label: '1xx Informational'},
@@ -65,12 +75,43 @@
         var selA = document.getElementById('select-a');
         var selB = document.getElementById('select-b');
         var result = document.getElementById('compare-result');
+        var summaryEl = document.getElementById('compare-summary');
+        var swapBtn = document.getElementById('swap-codes');
 
         function el(tag, className, textContent) {
             var node = document.createElement(tag);
             if (className) node.className = className;
             if (textContent) node.textContent = textContent;
             return node;
+        }
+
+        function buildDiffSection(titleText, textA, textB) {
+            if (!textA && !textB) return null;
+            var sec = el('div', 'compare-diff-section');
+            sec.appendChild(el('h3', 'compare-diff-title', titleText));
+
+            if (textA === textB) {
+                var same = el('p', 'compare-diff-same', textA);
+                sec.appendChild(same);
+            } else {
+                if (textA) {
+                    var diffA = el('div', 'compare-diff-row compare-diff-a');
+                    var labelA = el('span', 'compare-diff-label');
+                    labelA.textContent = selA.value;
+                    diffA.appendChild(labelA);
+                    diffA.appendChild(el('span', 'compare-diff-text', textA));
+                    sec.appendChild(diffA);
+                }
+                if (textB) {
+                    var diffB = el('div', 'compare-diff-row compare-diff-b');
+                    var labelB = el('span', 'compare-diff-label');
+                    labelB.textContent = selB.value;
+                    diffB.appendChild(labelB);
+                    diffB.appendChild(el('span', 'compare-diff-text', textB));
+                    sec.appendChild(diffB);
+                }
+            }
+            return sec;
         }
 
         function buildCard(code) {
@@ -82,6 +123,7 @@
             var catInfo = catColors[cat] || {color: '#fff', bg: 'rgba(255,255,255,0.05)', label: 'Unknown'};
 
             var card = el('div', 'compare-card');
+            card.style.borderColor = catInfo.color;
 
             /* Header */
             var header = el('div', 'compare-card-header');
@@ -190,6 +232,26 @@
             return card;
         }
 
+        function getSummary(a, b) {
+            var key = a + ',' + b;
+            if (comparisonSummaries[key]) return comparisonSummaries[key];
+            /* Auto-generate a summary for codes in different categories */
+            var entryA = codeMap[a];
+            var entryB = codeMap[b];
+            if (entryA && entryB) {
+                var catA = catColors[a[0]] || {};
+                var catB = catColors[b[0]] || {};
+                if (a[0] !== b[0]) {
+                    return a + ' ' + entryA.name + ' is a ' + (catA.label || 'unknown') +
+                           ' response, while ' + b + ' ' + entryB.name + ' is a ' +
+                           (catB.label || 'unknown') + ' response.';
+                }
+                return a + ' ' + entryA.name + ' and ' + b + ' ' + entryB.name +
+                       ' are both ' + (catA.label || 'unknown') + ' responses, but serve different purposes.';
+            }
+            return null;
+        }
+
         function update() {
             var a = selA.value;
             var b = selB.value;
@@ -206,16 +268,86 @@
 
             /* Clear previous result */
             while (result.firstChild) result.removeChild(result.firstChild);
+            while (summaryEl.firstChild) summaryEl.removeChild(summaryEl.firstChild);
 
             if (!a && !b) {
                 result.appendChild(el('div', 'compare-empty', 'Select two status codes above to compare them.'));
                 return;
             }
 
+            /* Summary section */
+            if (a && b && a !== b) {
+                var summaryText = getSummary(a, b);
+                if (summaryText) {
+                    var summaryBox = el('div', 'compare-summary-box');
+                    var summaryIcon = el('span', 'compare-summary-icon', '\u2194');
+                    summaryBox.appendChild(summaryIcon);
+                    summaryBox.appendChild(el('p', 'compare-summary-text', summaryText));
+                    summaryEl.appendChild(summaryBox);
+                }
+            }
+
+            /* Cards */
             var columns = el('div', 'compare-columns');
             columns.appendChild(a ? buildCard(a) : buildPlaceholder('Select Code A'));
             columns.appendChild(b ? buildCard(b) : buildPlaceholder('Select Code B'));
             result.appendChild(columns);
+
+            /* Visual diff section */
+            if (a && b && a !== b) {
+                var infoA = statusInfo[a] || {};
+                var infoB = statusInfo[b] || {};
+                var diffWrap = el('div', 'compare-diff-wrap');
+                diffWrap.appendChild(el('h2', 'compare-diff-heading', 'Key Differences'));
+
+                var descDiff = buildDiffSection('Description', infoA.description || '', infoB.description || '');
+                if (descDiff) diffWrap.appendChild(descDiff);
+
+                var histDiff = buildDiffSection('History', infoA.history || '', infoB.history || '');
+                if (histDiff) diffWrap.appendChild(histDiff);
+
+                /* Category difference */
+                if (a[0] !== b[0]) {
+                    var catA = catColors[a[0]] || {};
+                    var catB = catColors[b[0]] || {};
+                    var catDiff = el('div', 'compare-diff-section');
+                    catDiff.appendChild(el('h3', 'compare-diff-title', 'Category'));
+                    var catRow = el('div', 'compare-diff-categories');
+                    var tagA = el('span', 'compare-diff-cat-tag');
+                    tagA.textContent = catA.label || 'Unknown';
+                    tagA.style.background = catA.bg || '';
+                    tagA.style.color = catA.color || '';
+                    catRow.appendChild(tagA);
+                    catRow.appendChild(el('span', 'compare-diff-arrow', '\u2192'));
+                    var tagB = el('span', 'compare-diff-cat-tag');
+                    tagB.textContent = catB.label || 'Unknown';
+                    tagB.style.background = catB.bg || '';
+                    tagB.style.color = catB.color || '';
+                    catRow.appendChild(tagB);
+                    catDiff.appendChild(catRow);
+                    diffWrap.appendChild(catDiff);
+                }
+
+                result.appendChild(diffWrap);
+            }
+        }
+
+        /* Swap button */
+        swapBtn.addEventListener('click', function() {
+            var tmp = selA.value;
+            selA.value = selB.value;
+            selB.value = tmp;
+            update();
+        });
+
+        /* Preset buttons */
+        var presetBtns = document.querySelectorAll('.compare-preset-btn');
+        for (var i = 0; i < presetBtns.length; i++) {
+            presetBtns[i].addEventListener('click', function() {
+                selA.value = this.getAttribute('data-a');
+                selB.value = this.getAttribute('data-b');
+                update();
+            });
         }
 
         /* Pre-populate from URL params */

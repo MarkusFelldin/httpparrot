@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Response Playground - HTTP Parrots{% endblock %}
+{% block subtitle %}Response Playground{% endblock %}
+{% block meta %}
+    <meta name="description" content="Build and preview HTTP responses interactively. Construct custom status codes, headers, and bodies with live preview.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>Response Playground</h1>
+            <p>Build and preview HTTP responses interactively</p>
+        </div>
+        <div class="playground-layout">
+            <div class="playground-builder">
+                <div class="playground-section">
+                    <label class="cors-label" for="pg-preset">Load preset</label>
+                    <select id="pg-preset" class="playground-select">
+                        <option value="">-- Choose a preset --</option>
+                        <option value="cors_error">CORS Error</option>
+                        <option value="rate_limited">Rate Limited</option>
+                        <option value="redirect_chain">Redirect Chain</option>
+                        <option value="json_api">JSON API Response</option>
+                        <option value="auth_required">Auth Required</option>
+                    </select>
+                </div>
+                <div class="playground-section">
+                    <label class="cors-label" for="pg-status">Status code</label>
+                    <select id="pg-status" class="playground-select">
+                        {% for c in all_codes %}
+                        <option value="{{ c.code }}" {% if c.code == '200' %}selected{% endif %}>{{ c.code }} {{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="playground-section">
+                    <label class="cors-label">Response headers</label>
+                    <div id="pg-headers">
+                        <div class="playground-header-row">
+                            <input type="text" class="headers-input pg-header-key" placeholder="Header name" value="Content-Type" aria-label="Header name">
+                            <input type="text" class="headers-input pg-header-val" placeholder="Value" value="text/html" aria-label="Header value">
+                            <button type="button" class="pg-remove-header" aria-label="Remove header">&times;</button>
+                        </div>
+                    </div>
+                    <button type="button" class="pg-add-header" id="pg-add-header">+ Add header</button>
+                </div>
+                <div class="playground-section">
+                    <label class="cors-label" for="pg-body">Response body</label>
+                    <textarea id="pg-body" class="headers-input playground-body" rows="6" placeholder="Response body content..."></textarea>
+                </div>
+                <div class="playground-actions">
+                    <button type="button" class="tester-submit" id="pg-send">Send this response</button>
+                    <button type="button" class="pg-copy-btn" id="pg-copy" aria-label="Copy raw response to clipboard">Copy raw response</button>
+                </div>
+            </div>
+            <div class="playground-preview">
+                <div class="playground-preview-header">
+                    <span class="playground-preview-title">Live preview</span>
+                    <span class="playground-preview-badge" id="pg-status-badge">200</span>
+                </div>
+                <pre class="playground-raw" id="pg-raw" aria-live="polite"><code>HTTP/1.1 200 OK
+Content-Type: text/html</code></pre>
+            </div>
+        </div>
+        <div id="pg-result" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var allCodes = {{ all_codes | tojson }};
+        var codeMap = {};
+        allCodes.forEach(function(c) { codeMap[c.code] = c.name; });
+
+        var PRESETS = {
+            cors_error: {
+                status: '403',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                    ['Access-Control-Allow-Origin', ''],
+                ],
+                body: '{"error": "CORS policy: No \'Access-Control-Allow-Origin\' header is present on the requested resource."}'
+            },
+            rate_limited: {
+                status: '429',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                    ['Retry-After', '60'],
+                    ['X-RateLimit-Limit', '100'],
+                    ['X-RateLimit-Remaining', '0'],
+                    ['X-RateLimit-Reset', String(Math.floor(Date.now() / 1000) + 60)],
+                ],
+                body: '{"error": "Too Many Requests", "message": "Rate limit exceeded. Please retry after 60 seconds."}'
+            },
+            redirect_chain: {
+                status: '301',
+                headers: [
+                    ['Location', 'https://www.example.com/new-location'],
+                    ['Cache-Control', 'max-age=31536000'],
+                ],
+                body: ''
+            },
+            json_api: {
+                status: '200',
+                headers: [
+                    ['Content-Type', 'application/json; charset=utf-8'],
+                    ['Cache-Control', 'public, max-age=300'],
+                    ['X-Request-Id', 'abc-123-def-456'],
+                ],
+                body: '{\n  "data": {\n    "id": 1,\n    "type": "parrot",\n    "attributes": {\n      "name": "HTTP Parrot",\n      "status": "squawking"\n    }\n  }\n}'
+            },
+            auth_required: {
+                status: '401',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                    ['WWW-Authenticate', 'Bearer realm="api"'],
+                ],
+                body: '{"error": "Unauthorized", "message": "Valid authentication credentials are required."}'
+            }
+        };
+
+        var statusEl = document.getElementById('pg-status');
+        var headersEl = document.getElementById('pg-headers');
+        var bodyEl = document.getElementById('pg-body');
+        var rawEl = document.getElementById('pg-raw').querySelector('code');
+        var badgeEl = document.getElementById('pg-status-badge');
+        var presetEl = document.getElementById('pg-preset');
+        var resultEl = document.getElementById('pg-result');
+
+        function getStatusName(code) {
+            return codeMap[code] || 'Unknown';
+        }
+
+        function getHeaders() {
+            var rows = headersEl.querySelectorAll('.playground-header-row');
+            var headers = [];
+            for (var i = 0; i < rows.length; i++) {
+                var k = rows[i].querySelector('.pg-header-key').value.trim();
+                var v = rows[i].querySelector('.pg-header-val').value;
+                if (k) headers.push([k, v]);
+            }
+            return headers;
+        }
+
+        function clearChildren(el) {
+            while (el.firstChild) el.removeChild(el.firstChild);
+        }
+
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        function updatePreview() {
+            var code = statusEl.value;
+            var name = getStatusName(code);
+            var headers = getHeaders();
+            var body = bodyEl.value;
+            var lines = ['HTTP/1.1 ' + code + ' ' + name];
+            headers.forEach(function(h) {
+                lines.push(h[0] + ': ' + h[1]);
+            });
+            if (body) {
+                lines.push('');
+                lines.push(body);
+            }
+            rawEl.textContent = lines.join('\n');
+            badgeEl.textContent = code;
+            badgeEl.className = 'playground-preview-badge pg-cat-' + code[0];
+        }
+
+        function addHeaderRow(key, value) {
+            var row = document.createElement('div');
+            row.className = 'playground-header-row';
+            var ki = document.createElement('input');
+            ki.type = 'text';
+            ki.className = 'headers-input pg-header-key';
+            ki.placeholder = 'Header name';
+            ki.value = key || '';
+            ki.setAttribute('aria-label', 'Header name');
+            var vi = document.createElement('input');
+            vi.type = 'text';
+            vi.className = 'headers-input pg-header-val';
+            vi.placeholder = 'Value';
+            vi.value = value || '';
+            vi.setAttribute('aria-label', 'Header value');
+            var rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'pg-remove-header';
+            rm.setAttribute('aria-label', 'Remove header');
+            rm.textContent = '\u00d7';
+            rm.addEventListener('click', function() {
+                row.remove();
+                updatePreview();
+            });
+            ki.addEventListener('input', updatePreview);
+            vi.addEventListener('input', updatePreview);
+            row.appendChild(ki);
+            row.appendChild(vi);
+            row.appendChild(rm);
+            headersEl.appendChild(row);
+        }
+
+        function setHeaders(pairs) {
+            clearChildren(headersEl);
+            pairs.forEach(function(p) { addHeaderRow(p[0], p[1]); });
+        }
+
+        // Wire up existing remove buttons
+        headersEl.querySelectorAll('.pg-remove-header').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                btn.parentElement.remove();
+                updatePreview();
+            });
+        });
+
+        document.getElementById('pg-add-header').addEventListener('click', function() {
+            addHeaderRow('', '');
+        });
+
+        statusEl.addEventListener('change', updatePreview);
+        bodyEl.addEventListener('input', updatePreview);
+        headersEl.addEventListener('input', updatePreview);
+
+        // Presets
+        presetEl.addEventListener('change', function() {
+            var preset = PRESETS[presetEl.value];
+            if (!preset) return;
+            statusEl.value = preset.status;
+            setHeaders(preset.headers);
+            bodyEl.value = preset.body;
+            updatePreview();
+        });
+
+        // Copy raw response
+        document.getElementById('pg-copy').addEventListener('click', function() {
+            var text = rawEl.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    var btn = document.getElementById('pg-copy');
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy raw response'; }, 1500);
+                });
+            }
+        });
+
+        // Send response
+        document.getElementById('pg-send').addEventListener('click', function() {
+            var code = statusEl.value;
+            var headers = {};
+            getHeaders().forEach(function(h) { headers[h[0]] = h[1]; });
+            var body = bodyEl.value;
+            var btn = document.getElementById('pg-send');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            fetch('/api/mock-response', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status_code: parseInt(code), headers: headers, body: body})
+            }).then(function(resp) {
+                btn.disabled = false;
+                btn.textContent = 'Send this response';
+                var card = el('div', 'tester-result playground-result-card');
+                var statusLine = el('div', 'tester-result-header');
+                var codeDiv = el('div', 'tester-result-code pg-cat-' + String(resp.status)[0], String(resp.status));
+                statusLine.appendChild(codeDiv);
+                var nameDiv = el('div', 'tester-result-name', resp.statusText || getStatusName(String(resp.status)));
+                statusLine.appendChild(nameDiv);
+                card.appendChild(statusLine);
+                // Show response headers
+                var hdrDiv = el('div', 'tester-headers');
+                hdrDiv.appendChild(el('div', 'tester-headers-title', 'Response Headers'));
+                var table = document.createElement('table');
+                table.className = 'tester-headers-table';
+                resp.headers.forEach(function(v, k) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(el('td', 'tester-header-key', k));
+                    tr.appendChild(el('td', 'tester-header-val', v));
+                    table.appendChild(tr);
+                });
+                hdrDiv.appendChild(table);
+                card.appendChild(hdrDiv);
+                // Action links
+                var actions = el('div', 'tester-result-actions');
+                var link = document.createElement('a');
+                link.href = '/' + code;
+                link.className = 'btn-back tester-learn-link';
+                link.textContent = 'Learn about ' + code;
+                actions.appendChild(link);
+                var retLink = document.createElement('a');
+                retLink.href = '/return/' + code;
+                retLink.className = 'btn-back tester-learn-link';
+                retLink.textContent = 'Test with /return/' + code;
+                retLink.target = '_blank';
+                retLink.rel = 'noopener';
+                actions.appendChild(retLink);
+                card.appendChild(actions);
+                clearChildren(resultEl);
+                resultEl.appendChild(card);
+            }).catch(function() {
+                btn.disabled = false;
+                btn.textContent = 'Send this response';
+                clearChildren(resultEl);
+                resultEl.appendChild(el('div', 'tester-error', 'Could not send the request'));
+            });
+        });
+
+        updatePreview();
+    })();
+    </script>
+{% endblock %}

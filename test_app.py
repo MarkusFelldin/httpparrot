@@ -945,6 +945,175 @@ class TestEcho:
         assert 'cookie' not in header_keys
         assert 'x-custom' in header_keys
 
+    def test_echo_post_with_body(self, client):
+        """POST body is echoed in the response."""
+        resp = client.post('/echo', data='raw body text',
+                           content_type='text/plain')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'POST'
+        assert data['body'] == 'raw body text'
+
+    def test_echo_put(self, client):
+        """PUT method with JSON body works."""
+        resp = client.put('/echo', json={'action': 'update'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'PUT'
+        assert data['json']['action'] == 'update'
+        assert 'body' in data
+
+    def test_echo_patch(self, client):
+        """PATCH method with JSON body works."""
+        resp = client.patch('/echo', json={'field': 'patched'})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'PATCH'
+        assert data['json']['field'] == 'patched'
+
+    def test_echo_delete(self, client):
+        """DELETE method echoes correctly (no body)."""
+        resp = client.delete('/echo')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['method'] == 'DELETE'
+        assert 'body' not in data  # DELETE doesn't include body
+
+    def test_echo_query_params(self, client):
+        """Multiple query params are echoed in args."""
+        resp = client.get('/echo?foo=bar&page=2&lang=en')
+        data = resp.get_json()
+        assert data['args']['foo'] == 'bar'
+        assert data['args']['page'] == '2'
+        assert data['args']['lang'] == 'en'
+
+    def test_echo_format_pretty(self, client):
+        """?format=pretty returns indented JSON."""
+        resp = client.get('/echo?format=pretty&foo=bar')
+        assert resp.status_code == 200
+        assert resp.content_type.startswith('application/json')
+        raw = resp.data.decode()
+        # Pretty format should have newlines and indentation
+        assert '\n' in raw
+        assert '  ' in raw
+        data = resp.get_json()
+        assert data['args']['foo'] == 'bar'
+        # format should not appear in echoed args
+        assert 'format' not in data['args']
+
+    def test_echo_format_curl(self, client):
+        """?format=curl returns a curl command."""
+        resp = client.get('/echo?format=curl&foo=bar')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert 'curl' in data
+        curl_cmd = data['curl']
+        assert curl_cmd.startswith('curl')
+        assert 'foo=bar' in curl_cmd
+        assert 'format=' not in curl_cmd
+
+    def test_echo_format_curl_post(self, client):
+        """?format=curl for POST includes -X POST and -d flag."""
+        resp = client.post('/echo?format=curl',
+                           json={'test': True})
+        data = resp.get_json()
+        curl_cmd = data['curl']
+        assert '-X POST' in curl_cmd
+        assert "-d " in curl_cmd
+
+
+class TestApiDiff:
+    def test_diff_basic(self, client):
+        """Diff two known codes returns expected structure."""
+        resp = client.get('/api/diff?code1=401&code2=403')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['code1']['code'] == '401'
+        assert data['code1']['name'] == 'Unauthorized'
+        assert data['code2']['code'] == '403'
+        assert data['code2']['name'] == 'Forbidden'
+        assert '4xx Client Error' == data['code1']['category']
+        assert '4xx Client Error' == data['code2']['category']
+        assert data['key_difference']  # non-empty string
+
+    def test_diff_key_difference_from_related(self, client):
+        """Key difference is pulled from RELATED_CODES when available."""
+        resp = client.get('/api/diff?code1=404&code2=410')
+        data = resp.get_json()
+        # 404 -> 410 is in RELATED_CODES
+        assert '410' in data['key_difference'] or 'removed' in data['key_difference'].lower() or len(data['key_difference']) > 0
+
+    def test_diff_includes_examples(self, client):
+        """Diff response includes examples from STATUS_EXTRA."""
+        resp = client.get('/api/diff?code1=200&code2=201')
+        data = resp.get_json()
+        assert isinstance(data['code1']['examples'], list)
+        assert isinstance(data['code2']['examples'], list)
+
+    def test_diff_includes_related_codes(self, client):
+        """Diff response includes related_codes with code and why."""
+        resp = client.get('/api/diff?code1=200&code2=404')
+        data = resp.get_json()
+        assert isinstance(data['code1']['related_codes'], list)
+        if data['code1']['related_codes']:
+            assert 'code' in data['code1']['related_codes'][0]
+            assert 'why' in data['code1']['related_codes'][0]
+
+    def test_diff_missing_params(self, client):
+        """Missing code1 or code2 returns 400."""
+        resp = client.get('/api/diff?code1=200')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_diff_unknown_code(self, client):
+        """Unknown status code returns 404."""
+        resp = client.get('/api/diff?code1=200&code2=999')
+        assert resp.status_code == 404
+        data = resp.get_json()
+        assert 'error' in data
+        assert '999' in data['error']
+
+    def test_diff_cross_category(self, client):
+        """Diff between codes in different categories works."""
+        resp = client.get('/api/diff?code1=200&code2=500')
+        data = resp.get_json()
+        assert data['code1']['category'] == '2xx Success'
+        assert data['code2']['category'] == '5xx Server Error'
+        assert data['key_difference']  # fallback summary generated
+
+
+class TestApiDocsEnhanced:
+    def test_api_docs_echo_sections(self, client):
+        """API docs page has enhanced echo documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'format=pretty' in html
+        assert 'format=curl' in html
+        assert 'Query params' in html or 'query params' in html
+
+    def test_api_docs_diff_section(self, client):
+        """API docs page has the /api/diff documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/diff' in html
+        assert 'Compare status codes' in html
+        assert 'key_difference' in html
+
+    def test_api_docs_try_it_buttons(self, client):
+        """API docs page has interactive Try it buttons."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'docs-try-btn' in html
+        assert 'Try it' in html
+
+    def test_api_docs_copy_curl_buttons(self, client):
+        """API docs page has copy-as-curl buttons."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'docs-copy-curl-btn' in html
+        assert 'Copy curl' in html
+
 
 class TestRedirectChain:
     def test_redirect_chain(self, client):
@@ -1846,3 +2015,297 @@ class TestDetailPageAnimations:
         assert '.detail-section.revealed' in css
         assert '.back-to-top' in css
         assert '.back-to-top.visible' in css
+
+
+# --- Compare page enhancements ---
+
+class TestCompareEnhancements:
+    def test_compare_presets_present(self, client):
+        """Compare page should have quick comparison preset buttons."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-preset-btn' in html
+        assert 'data-a="401"' in html
+        assert 'data-b="403"' in html
+        assert 'data-a="301"' in html
+        assert 'data-b="302"' in html
+        assert 'data-a="500"' in html
+        assert 'data-b="502"' in html
+        assert 'data-a="200"' in html
+        assert 'data-b="204"' in html
+
+    def test_compare_swap_button_present(self, client):
+        """Compare page should have a swap codes button."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="swap-codes"' in html
+        assert 'compare-swap-btn' in html
+
+    def test_compare_summary_container_present(self, client):
+        """Compare page should have a summary container."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'id="compare-summary"' in html
+        assert 'compare-summary' in html
+
+    def test_compare_has_comparison_summaries_data(self, client):
+        """Compare page script should contain comparisonSummaries data."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'comparisonSummaries' in html
+
+    def test_compare_has_diff_builder(self, client):
+        """Compare page should contain the visual diff builder function."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'buildDiffSection' in html
+        assert 'compare-diff' in html
+
+    def test_comparison_summaries_data_integrity(self):
+        """COMPARISON_SUMMARIES keys should reference valid status codes."""
+        from index import COMPARISON_SUMMARIES, status_code_list
+        valid_codes = {sc.code for sc in status_code_list}
+        for key in COMPARISON_SUMMARIES:
+            a, b = key.split(',')
+            assert a in valid_codes, f"COMPARISON_SUMMARIES key {a} not in status_code_list"
+            assert b in valid_codes, f"COMPARISON_SUMMARIES key {b} not in status_code_list"
+
+    def test_comparison_summaries_are_symmetric(self):
+        """Each comparison pair should have both directions."""
+        from index import COMPARISON_SUMMARIES
+        for key in COMPARISON_SUMMARIES:
+            a, b = key.split(',')
+            reverse_key = f"{b},{a}"
+            assert reverse_key in COMPARISON_SUMMARIES, (
+                f"COMPARISON_SUMMARIES has {key} but not {reverse_key}"
+            )
+
+
+# --- Search API ---
+
+class TestSearchAPI:
+    def test_search_returns_results(self, client):
+        """Search API should return a JSON array of matching results."""
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        # 404 Not Found should be in results
+        codes = [r['code'] for r in data]
+        assert '404' in codes
+
+    def test_search_by_exact_code(self, client):
+        """Searching by exact code should return that code with highest score."""
+        resp = client.get('/api/search?q=404')
+        data = resp.get_json()
+        assert data[0]['code'] == '404'
+        assert data[0]['score'] == 100
+
+    def test_search_by_partial_code(self, client):
+        """Searching by partial code should match codes starting with those digits."""
+        resp = client.get('/api/search?q=40')
+        data = resp.get_json()
+        assert len(data) > 1
+        codes = [r['code'] for r in data]
+        assert all(c.startswith('40') for c in codes[:3])
+
+    def test_search_by_keyword(self, client):
+        """Searching by keyword should match names and descriptions."""
+        resp = client.get('/api/search?q=teapot')
+        data = resp.get_json()
+        assert len(data) > 0
+        codes = [r['code'] for r in data]
+        assert '418' in codes
+
+    def test_search_empty_query(self, client):
+        """Empty search query should return 400."""
+        resp = client.get('/api/search?q=')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_search_missing_query(self, client):
+        """Missing q parameter should return 400."""
+        resp = client.get('/api/search')
+        assert resp.status_code == 400
+
+    def test_search_result_structure(self, client):
+        """Each result should have code, name, description, and score fields."""
+        resp = client.get('/api/search?q=ok')
+        data = resp.get_json()
+        assert len(data) > 0
+        result = data[0]
+        assert 'code' in result
+        assert 'name' in result
+        assert 'description' in result
+        assert 'score' in result
+
+    def test_search_results_sorted_by_score(self, client):
+        """Results should be sorted by descending score."""
+        resp = client.get('/api/search?q=redirect')
+        data = resp.get_json()
+        scores = [r['score'] for r in data]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_search_no_results(self, client):
+        """A query with no matches should return an empty array."""
+        resp = client.get('/api/search?q=xyznonexistent')
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_search_case_insensitive(self, client):
+        """Search should be case insensitive."""
+        resp_lower = client.get('/api/search?q=not found')
+        resp_upper = client.get('/api/search?q=Not Found')
+        data_lower = resp_lower.get_json()
+        data_upper = resp_upper.get_json()
+        codes_lower = [r['code'] for r in data_lower]
+        codes_upper = [r['code'] for r in data_upper]
+        assert codes_lower == codes_upper
+
+    def test_search_in_api_docs(self, client):
+        """API docs page should document the search endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert '/api/search' in html
+        assert 'Search status codes' in html
+
+
+# --- Response Playground ---
+
+class TestPlayground:
+    def test_playground_returns_200(self, client):
+        """Playground page should return 200 with expected content."""
+        resp = client.get('/playground')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Response Playground' in html
+
+    def test_playground_has_preset_options(self, client):
+        """Playground page should have all preset options."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'CORS Error' in html
+        assert 'Rate Limited' in html
+        assert 'Redirect Chain' in html
+        assert 'JSON API Response' in html
+        assert 'Auth Required' in html
+
+    def test_playground_has_status_codes(self, client):
+        """Playground page should have status code dropdown with known codes."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'pg-status' in html
+        assert '<option value="200"' in html
+        assert '<option value="404"' in html
+        assert '<option value="500"' in html
+
+    def test_playground_has_form_elements(self, client):
+        """Playground page should have header rows, body textarea, and buttons."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'pg-headers' in html
+        assert 'pg-body' in html
+        assert 'pg-send' in html
+        assert 'pg-copy' in html
+        assert 'pg-add-header' in html
+
+    def test_playground_has_live_preview(self, client):
+        """Playground page should have a live preview panel."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'playground-preview' in html
+        assert 'pg-raw' in html
+        assert 'pg-status-badge' in html
+
+    def test_playground_nav_link(self, client):
+        """Navigation should contain a link to the Playground page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/playground"' in html
+        assert 'Playground' in html
+
+    def test_playground_in_sitemap(self, client):
+        """Sitemap should include the playground page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/playground' in resp.data
+
+    def test_playground_has_nonce(self, client):
+        """Playground script tag should have a nonce."""
+        resp = client.get('/playground')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+
+class TestMockResponse:
+    def test_mock_response_basic(self, client):
+        """Mock response endpoint should return the requested status code."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': 'hello'})
+        assert resp.status_code == 200
+        assert resp.data == b'hello'
+
+    def test_mock_response_with_headers(self, client):
+        """Mock response endpoint should set custom headers."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 201,
+                                 'headers': {'X-Custom': 'test-value'},
+                                 'body': ''})
+        assert resp.status_code == 201
+        assert resp.headers.get('X-Custom') == 'test-value'
+
+    def test_mock_response_404_status(self, client):
+        """Mock response should return the requested 404 status."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 404, 'headers': {}, 'body': 'not found'})
+        assert resp.status_code == 404
+        assert resp.data == b'not found'
+
+    def test_mock_response_invalid_status_code(self, client):
+        """Mock response should reject invalid status codes."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 999, 'headers': {}, 'body': ''})
+        assert resp.status_code == 400
+        assert b'status_code must be' in resp.data
+
+    def test_mock_response_no_json(self, client):
+        """Mock response should return 400 for non-JSON requests."""
+        resp = client.post('/api/mock-response', data='not json',
+                           content_type='text/plain')
+        assert resp.status_code == 400
+        assert b'Invalid JSON' in resp.data
+
+    def test_mock_response_rate_limited(self, client):
+        """Mock response should be rate-limited."""
+        for _ in range(10):
+            client.post('/api/mock-response',
+                        json={'status_code': 200, 'headers': {}, 'body': ''})
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {}, 'body': ''})
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_mock_response_blocks_header_injection(self, client):
+        """Mock response should strip headers with newlines."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200,
+                                 'headers': {'Evil\r\nInjected': 'bad'},
+                                 'body': ''})
+        assert resp.status_code == 200
+        assert 'Injected' not in resp.headers
+
+    def test_mock_response_body_too_large(self, client):
+        """Mock response should reject body over 10000 characters."""
+        resp = client.post('/api/mock-response',
+                           json={'status_code': 200, 'headers': {},
+                                 'body': 'x' * 10001})
+        assert resp.status_code == 400
+        assert b'10000' in resp.data
+
+    def test_mock_response_in_robots_txt(self, client):
+        """robots.txt should block /api/mock-response."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/mock-response' in resp.data
