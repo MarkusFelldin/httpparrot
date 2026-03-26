@@ -193,14 +193,14 @@
             <div class="detail-section">
                 <h2>Example HTTP exchange</h2>
                 <div class="http-exchange">
-                    <div class="http-panel">
+                    <div class="http-panel http-panel-request">
                         <div class="http-panel-label http-request-label">Request</div>
-                        <pre class="http-block http-request">{{ http_example.request }}</pre>
+                        <pre class="http-block http-request">{{ http_example.request|highlight_http('request') }}</pre>
                     </div>
                     <div class="http-arrow" aria-hidden="true"></div>
-                    <div class="http-panel">
+                    <div class="http-panel http-panel-response">
                         <div class="http-panel-label http-response-label">Response</div>
-                        <pre class="http-block http-response">{{ http_example.response }}</pre>
+                        <pre class="http-block http-response">{{ http_example.response|highlight_http('response') }}</pre>
                     </div>
                 </div>
             </div>
@@ -236,10 +236,32 @@
                 {% endif %}
             </div>
         </div>
+
+        <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
     </main>
 {% endblock %}
 
 {% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        if (CSS.supports && CSS.supports('animation-timeline: view()')) return;
+        var sections = document.querySelectorAll('.detail-section');
+        if (!sections.length) return;
+        if ('IntersectionObserver' in window) {
+            var obs = new IntersectionObserver(function(entries) {
+                entries.forEach(function(e) {
+                    if (e.isIntersecting) {
+                        e.target.classList.add('revealed');
+                        obs.unobserve(e.target);
+                    }
+                });
+            }, {threshold: 0.1});
+            sections.forEach(function(s) { obs.observe(s); });
+        } else {
+            sections.forEach(function(s) { s.classList.add('revealed'); });
+        }
+    })();
+    </script>
     <script nonce="{{ csp_nonce }}">
     document.getElementById('copy-curl').addEventListener('click', function() {
         var text = {{ curl_cmd|tojson }};
@@ -329,6 +351,22 @@
             var h = document.documentElement.scrollHeight - window.innerHeight;
             if (h > 0) bar.style.transform = 'scaleX(' + Math.min(window.scrollY / h, 1) + ')';
         }, {passive: true});
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var btn = document.getElementById('back-to-top');
+        if (!btn) return;
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 400) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+        }, {passive: true});
+        btn.addEventListener('click', function() {
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        });
     })();
     </script>
     <script nonce="{{ csp_nonce }}">

@@ -64,7 +64,7 @@
     flex-wrap: wrap;
 }
 .practice-filter-btn {
-    padding: 0.5rem 1.2rem;
+    padding: 0.5rem 1.2rem 0.5rem 1.8rem;
     border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.04);
@@ -73,6 +73,7 @@
     font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.2s;
+    position: relative;
 }
 .practice-filter-btn:hover {
     background: rgba(255,255,255,0.08);
@@ -193,15 +194,11 @@
     opacity: 0.4;
 }
 .practice-explanation {
-    margin-top: 1rem;
-    padding: 1rem;
+    margin-top: 0;
+    padding: 0 1rem;
     background: rgba(255,255,255,0.03);
     border-radius: 8px;
     border-left: 3px solid #7b61ff;
-    display: none;
-}
-.practice-explanation.visible {
-    display: block;
 }
 .practice-explanation p {
     margin: 0.4rem 0;
@@ -263,6 +260,16 @@
             </div>
         </div>
 
+        <div class="practice-progress" aria-label="Progress tracker">
+            <div class="practice-progress-label">
+                <span>Progress</span>
+                <span id="practice-progress-text">0 / {{ scenarios|length }}</span>
+            </div>
+            <div class="practice-progress-track">
+                <div class="practice-progress-bar" id="practice-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="{{ scenarios|length }}"></div>
+            </div>
+        </div>
+
         <div class="practice-filters" role="tablist" aria-label="Filter by difficulty">
             <button class="practice-filter-btn active" data-difficulty="all" role="tab" aria-selected="true">All</button>
             <button class="practice-filter-btn" data-difficulty="beginner" role="tab" aria-selected="false">Beginner</button>
@@ -308,6 +315,8 @@
     var correct = 0;
     var wrong = 0;
     var currentFilter = 'all';
+    var totalScenarios = document.querySelectorAll('.practice-card').length;
+    var answered = 0;
 
     function updateRemaining() {
         var cards = document.querySelectorAll('.practice-card');
@@ -319,6 +328,14 @@
             if (isVisible && !isAnswered) remaining++;
         });
         document.getElementById('practice-remaining').textContent = remaining;
+    }
+
+    function updateProgress() {
+        var pct = totalScenarios > 0 ? (answered / totalScenarios) * 100 : 0;
+        var bar = document.getElementById('practice-progress-bar');
+        bar.style.width = pct + '%';
+        bar.setAttribute('aria-valuenow', answered);
+        document.getElementById('practice-progress-text').textContent = answered + ' / ' + totalScenarios;
     }
 
     // Filter buttons
@@ -379,10 +396,12 @@
                 document.getElementById('practice-wrong').textContent = wrong;
             }
 
+            answered++;
             var explanation = document.getElementById('explanation-' + scenarioId);
             if (explanation) explanation.classList.add('visible');
 
             updateRemaining();
+            updateProgress();
         });
     });
 

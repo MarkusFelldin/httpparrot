@@ -52,6 +52,35 @@ def linkify_rfcs(text):
     return Markup(''.join(parts))
 
 
+_HTTP_METHOD_RE = re.compile(
+    r'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|PROPFIND|PROPPATCH|MKCOL'
+    r'|COPY|MOVE|LOCK|UNLOCK|TRACE|CONNECT)\b',
+    re.MULTILINE,
+)
+_HTTP_STATUS_LINE_RE = re.compile(r'^(HTTP/\d\.\d\s+\d{3}[^\n]*)', re.MULTILINE)
+_HTTP_HEADER_RE = re.compile(r'^([A-Za-z][A-Za-z0-9\-]*)(:)', re.MULTILINE)
+
+
+@app.template_filter('highlight_http')
+def highlight_http(text, panel_type='request'):
+    """Add syntax-highlighting spans to HTTP request/response text.
+
+    Wraps HTTP methods, status lines, and header names in styled spans
+    so CSS can colorize them without JavaScript.
+    """
+    text = str(escape(text))
+    # Highlight status lines first (response)
+    text = _HTTP_STATUS_LINE_RE.sub(
+        r'<span class="http-hl-status">\1</span>', text)
+    # Highlight HTTP methods (request)
+    text = _HTTP_METHOD_RE.sub(
+        r'<span class="http-hl-method">\1</span>', text)
+    # Highlight header names
+    text = _HTTP_HEADER_RE.sub(
+        r'<span class="http-hl-header">\1</span>\2', text)
+    return Markup(text)
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

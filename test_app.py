@@ -619,6 +619,48 @@ class TestKeyboardNavigation:
         assert '.parrot-card.grid-focus' in css
 
 
+# --- Scroll-driven animations ---
+
+class TestScrollDrivenAnimations:
+    def test_scroll_animated_css_class_exists(self, client):
+        """The scroll-animated CSS class with animation-timeline should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-card.scroll-animated' in css
+        assert 'animation-timeline: view()' in css
+        assert '@supports (animation-timeline: view())' in css
+
+    def test_scroll_card_in_keyframes_exist(self, client):
+        """The scroll-card-in keyframes should define scale and rotate transforms."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes scroll-card-in' in css
+        assert 'scale(0.95)' in css
+        assert 'rotate(' in css
+
+    def test_will_reveal_has_diagonal_cascade(self, client):
+        """The will-reveal class should include scale and rotate for diagonal cascade."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-card.will-reveal' in css
+        assert 'scale(0.95)' in css
+        assert 'rotate(-1deg)' in css
+
+    def test_homepage_has_scroll_animation_check(self, client):
+        """Homepage JS should check for scroll-driven animation support."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "CSS.supports('animation-timeline: view()')" in html
+        assert 'scroll-animated' in html
+
+    def test_homepage_has_intersection_observer_fallback(self, client):
+        """Homepage should still contain IntersectionObserver as a fallback."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'will-reveal' in html
+
+
 # --- Related codes ---
 
 class TestRelatedCodes:
@@ -1591,3 +1633,216 @@ class TestRSSFeed:
         assert '<description>' in xml
         assert '<language>en-us</language>' in xml
         assert '<lastBuildDate>' in xml
+
+
+# --- Quiz & Practice visual polish ---
+
+class TestQuizVisualFeedback:
+    """Verify quiz feedback CSS classes and animation hooks exist in templates."""
+
+    def test_quiz_has_correct_class(self, client):
+        """Quiz JS adds .correct class to correct answer buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "classList.add('correct')" in html or 'classList.add("correct"' in html
+
+    def test_quiz_has_wrong_class(self, client):
+        """Quiz JS adds .wrong class to wrong answer buttons."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "classList.add('wrong')" in html or 'classList.add("wrong"' in html
+
+    def test_quiz_has_reveal_correct_class(self, client):
+        """Quiz JS adds .reveal-correct class when revealing correct answer after wrong guess."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'reveal-correct' in html
+
+    def test_quiz_feedback_right_class(self, client):
+        """Quiz feedback element uses .right class for correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-feedback right' in html or "quiz-feedback right" in html
+
+    def test_quiz_feedback_nope_class(self, client):
+        """Quiz feedback element uses .nope class for wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-feedback nope' in html or "quiz-feedback nope" in html
+
+    def test_daily_has_correct_and_wrong_classes(self, client):
+        """Daily challenge JS adds .correct and .wrong classes."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert "classList.add('correct')" in html or 'classList.add("correct"' in html
+        assert "classList.add('wrong')" in html or 'classList.add("wrong"' in html
+
+    def test_daily_has_reveal_correct_class(self, client):
+        """Daily challenge JS adds .reveal-correct for wrong-answer reveal."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'reveal-correct' in html
+
+    def test_daily_has_streak_display(self, client):
+        """Daily challenge has streak display with fire animation hooks."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-streak-display' in html
+        assert 'streak-count' in html
+        assert 'streak-bump' in html
+
+
+class TestPracticeDifficultyTabs:
+    """Verify practice page difficulty tabs have correct styling classes."""
+
+    def test_practice_filter_buttons_have_data_difficulty(self, client):
+        """Each filter button has a data-difficulty attribute."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        for level in ['all', 'beginner', 'intermediate', 'expert']:
+            assert f'data-difficulty="{level}"' in html
+
+    def test_practice_filter_buttons_have_styling_class(self, client):
+        """Filter buttons use the practice-filter-btn class."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert html.count('practice-filter-btn') >= 4
+
+    def test_practice_difficulty_badges_have_classes(self, client):
+        """Scenario cards have difficulty badge classes."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-difficulty-badge beginner' in html
+        assert 'practice-difficulty-badge intermediate' in html
+        assert 'practice-difficulty-badge expert' in html
+
+    def test_practice_has_progress_bar(self, client):
+        """Practice page has a progress bar component."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-progress-bar' in html
+        assert 'practice-progress-track' in html
+        assert 'practice-progress-text' in html
+        assert 'role="progressbar"' in html
+
+    def test_practice_cards_have_difficulty_data(self, client):
+        """Each practice card has a data-difficulty attribute for tab filtering."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        # Cards should have data-difficulty matching one of the three levels
+        import re
+        card_diffs = re.findall(r'class="practice-card"[^>]*data-difficulty="(\w+)"', html)
+        assert len(card_diffs) > 0
+        for diff in card_diffs:
+            assert diff in ('beginner', 'intermediate', 'expert')
+
+    def test_practice_explanation_uses_visible_class(self, client):
+        """Practice explanation reveal uses the .visible class."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "classList.add('visible')" in html or 'classList.add("visible"' in html
+
+
+# --- Detail page polish ---
+
+class TestDetailAccentBar:
+    """Verify category accent bar class is present on detail page cards."""
+
+    def test_1xx_accent_bar(self, client):
+        resp = client.get('/100')
+        assert b'detail-cat-1xx' in resp.data
+
+    def test_2xx_accent_bar(self, client):
+        resp = client.get('/200')
+        assert b'detail-cat-2xx' in resp.data
+
+    def test_3xx_accent_bar(self, client):
+        resp = client.get('/301')
+        assert b'detail-cat-3xx' in resp.data
+
+    def test_4xx_accent_bar(self, client):
+        resp = client.get('/404')
+        assert b'detail-cat-4xx' in resp.data
+
+    def test_5xx_accent_bar(self, client):
+        resp = client.get('/500')
+        assert b'detail-cat-5xx' in resp.data
+
+    def test_accent_bar_css_exists(self, client):
+        """CSS has ::before rules for accent bar on detail cards."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.detail-parrot::before' in css
+        assert '.detail-cat-1xx::before' in css
+        assert '.detail-cat-5xx::before' in css
+
+
+class TestHTTPExchangePanels:
+    """Verify HTTP exchange panels have styling classes and syntax highlighting."""
+
+    def test_request_panel_has_styling_class(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-panel-request' in html
+
+    def test_response_panel_has_styling_class(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-panel-response' in html
+
+    def test_syntax_highlight_method(self, client):
+        """Request block should contain highlighted HTTP method span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-method' in html
+
+    def test_syntax_highlight_status(self, client):
+        """Response block should contain highlighted status line span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-status' in html
+
+    def test_syntax_highlight_header(self, client):
+        """Exchange blocks should contain highlighted header name spans."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-hl-header' in html
+
+    def test_panel_border_css_exists(self, client):
+        """CSS has border rules for request/response panels."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-panel-request' in css
+        assert '.http-panel-response' in css
+
+
+class TestDetailPageAnimations:
+    """Verify section reveal and back-to-top elements on detail pages."""
+
+    def test_back_to_top_button_present(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'back-to-top' in html
+        assert 'Back to top' in html
+
+    def test_back_to_top_script(self, client):
+        """The back-to-top button has JS to toggle visibility."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert "back-to-top" in html
+        assert "classList.add('visible')" in html or 'classList.add("visible"' in html
+
+    def test_section_reveal_fallback_script(self, client):
+        """IntersectionObserver fallback for section reveal is present."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'detail-section' in html
+
+    def test_section_reveal_css_exists(self, client):
+        """CSS has reveal animation and back-to-top styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.detail-section.revealed' in css
+        assert '.back-to-top' in css
+        assert '.back-to-top.visible' in css

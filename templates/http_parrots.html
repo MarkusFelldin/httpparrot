@@ -270,7 +270,23 @@
 
     <script nonce="{{ csp_nonce }}">
     (function() {
-        const observer = new IntersectionObserver(function(entries) {
+        var cards = document.querySelectorAll('.parrot-card');
+
+        /* If the browser supports CSS scroll-driven animations, use them */
+        if (CSS.supports('animation-timeline: view()')) {
+            cards.forEach(function(card) {
+                card.classList.add('scroll-animated');
+            });
+            return;
+        }
+
+        /* Fallback: IntersectionObserver with diagonal cascade delays */
+        var cols = 4;
+        if (window.matchMedia('(max-width: 575px)').matches) cols = 1;
+        else if (window.matchMedia('(max-width: 767px)').matches) cols = 2;
+        else if (window.matchMedia('(max-width: 991px)').matches) cols = 3;
+
+        var observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('revealed');
@@ -279,10 +295,11 @@
             });
         }, { threshold: 0.1 });
 
-        var cards = document.querySelectorAll('.parrot-card');
-        cards.forEach(function(card) { card.classList.add('will-reveal'); });
         cards.forEach(function(card, i) {
-            card.style.transitionDelay = (i % 8) * 0.05 + 's';
+            card.classList.add('will-reveal');
+            var row = Math.floor(i / cols);
+            var col = i % cols;
+            card.style.transitionDelay = ((row + col) * 0.06) + 's';
             observer.observe(card);
         });
     })();

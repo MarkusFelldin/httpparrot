@@ -114,9 +114,14 @@
             var btns = document.querySelectorAll('.daily-btn');
             btns.forEach(function(b) {
                 b.disabled = true;
-                if (parseInt(b.dataset.index) === CORRECT_INDEX) b.classList.add('correct');
+                if (parseInt(b.dataset.index) === CORRECT_INDEX) {
+                    b.classList.add('correct');
+                    if (selectedIndex !== CORRECT_INDEX && selectedIndex >= 0) {
+                        b.classList.add('reveal-correct');
+                    }
+                }
             });
-            if (selectedIndex !== CORRECT_INDEX) {
+            if (selectedIndex >= 0 && selectedIndex !== CORRECT_INDEX) {
                 btns[selectedIndex].classList.add('wrong');
             }
         }
@@ -192,6 +197,11 @@
 
                 disableButtons(idx);
                 updateStreakDisplay(state.streak);
+
+                var sv = document.getElementById('streak-count');
+                sv.classList.remove('streak-bump');
+                void sv.offsetWidth;
+                sv.classList.add('streak-bump');
 
                 var fb = document.getElementById('daily-feedback');
                 if (wasCorrect) {

@@ -110,13 +110,12 @@
                     total++;
 
                     const btns = container.querySelectorAll('.quiz-btn');
-                    btns.forEach(function(b) {
-                        b.disabled = true;
-                        if (b.dataset.code === correct.code) b.classList.add('correct');
-                    });
-
                     const fb = document.getElementById('feedback');
                     if (c.code === correct.code) {
+                        btns.forEach(function(b) {
+                            b.disabled = true;
+                            if (b.dataset.code === correct.code) b.classList.add('correct');
+                        });
                         score++;
                         streak++;
                         history.push(true);
@@ -125,6 +124,10 @@
                         fb.className = 'quiz-feedback right';
                     } else {
                         btn.classList.add('wrong');
+                        btns.forEach(function(b) {
+                            b.disabled = true;
+                            if (b.dataset.code === correct.code) b.classList.add('correct', 'reveal-correct');
+                        });
                         streak = 0;
                         history.push(false);
                         fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
