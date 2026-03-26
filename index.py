@@ -24,6 +24,7 @@ from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
 from scenarios import SCENARIOS
 from debug_exercises import DEBUG_EXERCISES
+from confusion_pairs import CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG, CONFUSION_PAIRS_BY_CODE
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -747,6 +748,38 @@ def compare():
                            comparison_summaries=COMPARISON_SUMMARIES)
 
 
+_LEARN_CAT_COLORS = {
+    '1': '#48cae4', '2': '#2dd4a8', '3': '#f9c74f',
+    '4': '#ff6b6b', '5': '#a78bfa',
+}
+_LEARN_CAT_BGS = {
+    '1': 'rgba(72,202,228,0.10)', '2': 'rgba(45,212,168,0.10)',
+    '3': 'rgba(249,199,79,0.10)', '4': 'rgba(255,107,107,0.10)',
+    '5': 'rgba(167,139,250,0.10)',
+}
+
+
+@app.route('/learn')
+def learn_index():
+    """List all confusion pair lessons."""
+    return render_template('learn_index.html', pairs=CONFUSION_PAIRS)
+
+
+@app.route('/learn/<slug>')
+def learn_pair(slug):
+    """Render a confusion pair lesson page."""
+    pair = CONFUSION_PAIRS_BY_SLUG.get(slug)
+    if not pair:
+        abort(404)
+    code_names = {c: status_name(c) for c in pair['codes']}
+    code_images = {c: find_image(c) for c in pair['codes']}
+    code_info = {c: STATUS_INFO.get(c, {}) for c in pair['codes']}
+    return render_template('learn_pair.html', pair=pair,
+                           code_names=code_names, code_images=code_images,
+                           code_info=code_info, cat_colors=_LEARN_CAT_COLORS,
+                           cat_bgs=_LEARN_CAT_BGS)
+
+
 @app.route('/tester')
 def tester():
     return render_template('tester.html')
@@ -1127,12 +1160,20 @@ def http_parrot(status_code):
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
     faq_entries = build_faq_entries(status_code, description, info, extra, related)
     eli5 = extra.get('eli5', '')
+    # Build lesson links for related codes
+    learn_links = {}
+    for rel_code, _diff in related:
+        pair_key = tuple(sorted([status_code, rel_code]))
+        slug = f"{pair_key[0]}-vs-{pair_key[1]}"
+        if slug in CONFUSION_PAIRS_BY_SLUG:
+            learn_links[rel_code] = slug
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
                            prev_code=prev_code, next_code=next_code,
                            related=related, curl_cmd=curl_cmd,
-                           faq_entries=faq_entries, eli5=eli5), code
+                           faq_entries=faq_entries, eli5=eli5,
+                           learn_links=learn_links), code
 
 
 @app.route('/<status_code>.jpg')
@@ -1332,12 +1373,14 @@ def sitemap():
     base = request.url_root.rstrip('/')
     pages = []
     for rule in ['/', '/quiz', '/daily', '/practice', '/debug',
-                 '/flowchart', '/compare', '/tester', '/cheatsheet',
+                 '/flowchart', '/compare', '/learn', '/tester', '/cheatsheet',
                  '/headers', '/cors-checker', '/trace', '/collection',
                  '/playground', '/api-docs', '/profile']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
+    for pair in CONFUSION_PAIRS:
+        pages.append({'loc': base + '/learn/' + pair['slug'], 'priority': '0.6'})
     xml = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for p in pages:

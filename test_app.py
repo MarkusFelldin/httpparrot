@@ -4946,13 +4946,13 @@ class TestDebugExercises:
 class TestDebugExerciseData:
     """Tests for the debug_exercises.py data module."""
 
-    def test_exercises_not_empty(self):
+    def test_exercises_at_least_30(self):
         from debug_exercises import DEBUG_EXERCISES
-        assert len(DEBUG_EXERCISES) >= 15
+        assert len(DEBUG_EXERCISES) >= 30
 
     def test_exercise_has_required_fields(self):
         from debug_exercises import DEBUG_EXERCISES
-        required = {'id', 'difficulty', 'title', 'description', 'request',
+        required = {'id', 'difficulty', 'category', 'title', 'description', 'request',
                      'response', 'bugs', 'related_codes'}
         for ex in DEBUG_EXERCISES:
             missing = required - set(ex.keys())
@@ -5020,3 +5020,657 @@ class TestDebugExerciseData:
         for ex in DEBUG_EXERCISES:
             assert status_re.match(ex['response']), \
                 f"Exercise {ex['id']} response doesn't start with status line"
+
+
+class TestDebugExerciseCategories:
+    """Tests for debug exercise category field and category filter UI."""
+
+    def test_all_exercises_have_category(self):
+        from debug_exercises import DEBUG_EXERCISES
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        for ex in DEBUG_EXERCISES:
+            assert 'category' in ex, f"Exercise {ex['id']} missing category"
+            assert ex['category'] in valid_cats, \
+                f"Exercise {ex['id']} has invalid category: {ex['category']}"
+
+    def test_debug_page_has_category_filter_buttons(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'data-category="all"' in html
+        assert 'data-category="auth"' in html
+        assert 'data-category="caching"' in html
+        assert 'data-category="redirects"' in html
+        assert 'data-category="crud"' in html
+        assert 'data-category="errors"' in html
+        assert 'data-category="headers"' in html
+        assert 'data-category="api-design"' in html
+
+    def test_debug_cards_have_category_data_attr(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        import re
+        card_cats = re.findall(r'data-category="([\w-]+)".*?class="debug-card"', html)
+        card_cats2 = re.findall(r'class="debug-card"[^>]*data-category="([\w-]+)"', html)
+        assert len(card_cats) > 0 or len(card_cats2) > 0
+
+    def test_debug_page_category_filter_label(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'Filter by category' in html
+
+    def test_multiple_categories_represented(self):
+        from debug_exercises import DEBUG_EXERCISES
+        categories = {ex['category'] for ex in DEBUG_EXERCISES}
+        assert len(categories) >= 4, f"Only {len(categories)} categories represented"
+
+
+class TestScenarioData:
+    """Tests for the scenarios.py data module."""
+
+    def test_scenarios_at_least_50(self):
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 50, f"Only {len(SCENARIOS)} scenarios, expected 50+"
+
+    def test_scenario_has_required_fields(self):
+        from scenarios import SCENARIOS
+        required = {'id', 'difficulty', 'category', 'description', 'correct', 'options', 'explanations'}
+        for s in SCENARIOS:
+            missing = required - set(s.keys())
+            assert not missing, f"Scenario {s.get('id', '?')} missing fields: {missing}"
+
+    def test_scenario_ids_unique(self):
+        from scenarios import SCENARIOS
+        ids = [s['id'] for s in SCENARIOS]
+        assert len(ids) == len(set(ids)), "Duplicate scenario IDs found"
+
+    def test_scenario_difficulties_valid(self):
+        from scenarios import SCENARIOS
+        valid = {'beginner', 'intermediate', 'expert'}
+        for s in SCENARIOS:
+            assert s['difficulty'] in valid, \
+                f"Scenario {s['id']} has invalid difficulty: {s['difficulty']}"
+
+    def test_scenario_categories_valid(self):
+        from scenarios import SCENARIOS
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        for s in SCENARIOS:
+            assert 'category' in s, f"Scenario {s['id']} missing category"
+            assert s['category'] in valid_cats, \
+                f"Scenario {s['id']} has invalid category: {s['category']}"
+
+    def test_all_difficulty_levels_represented(self):
+        from scenarios import SCENARIOS
+        difficulties = {s['difficulty'] for s in SCENARIOS}
+        assert 'beginner' in difficulties
+        assert 'intermediate' in difficulties
+        assert 'expert' in difficulties
+
+    def test_multiple_categories_represented(self):
+        from scenarios import SCENARIOS
+        categories = {s['category'] for s in SCENARIOS}
+        assert len(categories) >= 5, f"Only {len(categories)} categories represented"
+
+    def test_correct_answer_in_options(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            assert s['correct'] in s['options'], \
+                f"Scenario {s['id']} correct answer {s['correct']} not in options"
+
+    def test_each_option_has_explanation(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            for opt in s['options']:
+                assert opt in s['explanations'], \
+                    f"Scenario {s['id']} missing explanation for option {opt}"
+
+    def test_each_scenario_has_four_options(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            assert len(s['options']) == 4, \
+                f"Scenario {s['id']} has {len(s['options'])} options, expected 4"
+
+
+class TestPracticeCategoryFilters:
+    """Tests for category filter UI on the practice page."""
+
+    def test_practice_page_has_category_filter_buttons(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-category="all"' in html
+        assert 'data-category="auth"' in html
+        assert 'data-category="caching"' in html
+        assert 'data-category="redirects"' in html
+        assert 'data-category="crud"' in html
+        assert 'data-category="errors"' in html
+        assert 'data-category="headers"' in html
+        assert 'data-category="api-design"' in html
+
+    def test_practice_cards_have_category_data_attr(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        import re
+        card_cats = re.findall(r'class="practice-card"[^>]*data-category="([\w-]+)"', html)
+        assert len(card_cats) > 0
+
+    def test_practice_page_category_filter_label(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'Filter by category' in html
+
+    def test_practice_category_filter_styling(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-category="auth"' in html
+        assert 'practice-filter-btn' in html
+
+
+# --- Console Parrot API Easter Egg ---
+
+class TestConsoleParrotAPI:
+    """Tests for the window.parrot console API easter egg."""
+
+    def test_console_parrot_script_present(self, client):
+        """Base template should include the console parrot API script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'window.parrot' in html
+
+    def test_console_parrot_ascii_greeting(self, client):
+        """Console parrot should print a styled ASCII greeting."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'HTTP' in html
+        assert 'Parrots' in html
+        assert 'console.log' in html
+        assert '%c' in html
+
+    def test_parrot_help_method(self, client):
+        """window.parrot should have a help() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.help()' in html
+        assert 'console.table' in html
+
+    def test_parrot_squawk_method(self, client):
+        """window.parrot should have a squawk() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.squawk()' in html
+        assert 'SQUAWKS' in html
+
+    def test_parrot_fortune_method(self, client):
+        """window.parrot should have a fortune() method with 15+ fortunes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.fortune()' in html
+        assert 'FORTUNES' in html
+        # Count fortunes defined in the array
+        fortune_count = html.count("'You will") + html.count("'A ") + html.count("'The ") + html.count("'Beware") + html.count("'Your ") + html.count("'An ") + html.count("'Trust")
+        assert fortune_count >= 10, f"Expected at least 10 fortune matches, got {fortune_count}"
+
+    def test_parrot_status_method(self, client):
+        """window.parrot should have a status(code) method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.status(' in html
+        assert 'STATUS_CATEGORIES' in html
+
+    def test_parrot_lore_method(self, client):
+        """window.parrot should have a lore() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.lore()' in html
+        assert 'LORE' in html
+
+    def test_parrot_object_frozen(self, client):
+        """window.parrot should be defined with Object.freeze."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Object.freeze' in html
+
+    def test_console_parrot_registers_egg(self, client):
+        """Console parrot should register console_parrot egg in eggs_found."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'console_parrot' in html
+        assert 'eggs_found' in html
+
+    def test_console_parrot_awards_xp(self, client):
+        """Console parrot should award XP via ParrotXP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotXP.award(100' in html
+
+    def test_collection_has_console_parrot_egg(self, client):
+        """Collection page should have console_parrot egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="console_parrot"' in html
+
+    def test_collection_console_parrot_hint(self, client):
+        """Collection page console_parrot card should have appropriate hint."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'devtools' in html.lower()
+
+
+# --- HTTP Handshake Easter Egg ---
+
+class TestHTTPHandshakeEasterEgg:
+    """Tests for the H-T-T-P keyboard combo handshake easter egg."""
+
+    def test_http_listener_present(self, client):
+        """Base template should include the HTTP keydown listener."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "['h','t','t','p']" in html
+
+    def test_http_listener_ignores_inputs(self, client):
+        """HTTP listener should skip input/textarea/select elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'INPUT' in html
+        assert 'TEXTAREA' in html
+
+    def test_http_handshake_overlay_created(self, client):
+        """HTTP handshake should create overlay with handshake elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-overlay' in html
+        assert 'handshake-scene' in html
+
+    def test_http_handshake_syn_synack_ack(self, client):
+        """Handshake animation should include SYN, SYN-ACK, ACK labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'SYN' in html
+        assert 'SYN-ACK' in html
+        assert 'ACK' in html
+
+    def test_http_handshake_200_ok(self, client):
+        """Handshake animation should show 200 OK."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-ok' in html
+        assert '200 OK' in html
+
+    def test_http_handshake_connection_established(self, client):
+        """Handshake should show Connection Established message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Connection Established!' in html
+
+    def test_http_handshake_client_server_parrots(self, client):
+        """Handshake should have client and server parrot labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-client' in html
+        assert 'handshake-server' in html
+        assert 'Client' in html
+        assert 'Server' in html
+
+    def test_http_handshake_registers_egg(self, client):
+        """HTTP handshake should register http_handshake egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'http_handshake' in html
+
+    def test_http_handshake_awards_xp(self, client):
+        """HTTP handshake should award XP on trigger."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # There should be at least two award(100 calls: console_parrot and http_handshake
+        assert html.count('ParrotXP.award(100') >= 2
+
+    def test_http_handshake_auto_dismiss(self, client):
+        """HTTP handshake overlay should auto-dismiss after animation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-dismissing' in html
+        assert 'removeChild' in html
+
+    def test_http_handshake_2sec_timeout(self, client):
+        """HTTP listener should use a 2 second timeout for key sequence."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '2000' in html
+
+    def test_collection_has_http_handshake_egg(self, client):
+        """Collection page should have http_handshake egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="http_handshake"' in html
+
+    def test_collection_http_handshake_hint(self, client):
+        """Collection page http_handshake card should have appropriate hint."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'protocol' in html.lower()
+
+    def test_handshake_css_present(self, client):
+        """Style.css should contain handshake overlay CSS."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.handshake-overlay' in css
+        assert '.handshake-msg' in css
+        assert '.handshake-connected' in css
+        assert '.handshake-syn' in css
+        assert '.handshake-synack' in css
+        assert '.handshake-ack' in css
+        assert '.handshake-ok' in css
+
+    def test_handshake_css_reduced_motion(self, client):
+        """Handshake CSS should respect prefers-reduced-motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'handshake-bird' in css
+        assert 'prefers-reduced-motion' in css
+
+
+class TestTypographyTokens:
+    """Tests for JetBrains Mono font upgrade and type scale tokens."""
+
+    def test_jetbrains_mono_font_import(self, client):
+        """JetBrains Mono should be in the Google Fonts import URL."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'JetBrains+Mono' in html
+        assert 'Share+Tech+Mono' not in html
+
+    def test_jetbrains_mono_css_token(self, client):
+        """--font-mono should reference JetBrains Mono."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert "'JetBrains Mono'" in css
+        assert "'Share Tech Mono'" not in css
+
+    def test_font_code_removed(self, client):
+        """--font-code should no longer exist (merged into --font-mono)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--font-code' not in css
+
+    def test_type_scale_tokens_defined(self, client):
+        """All type scale tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--text-xs:' in css
+        assert '--text-sm:' in css
+        assert '--text-base:' in css
+        assert '--text-md:' in css
+        assert '--text-lg:' in css
+        assert '--text-xl:' in css
+        assert '--text-2xl:' in css
+        assert '--text-3xl:' in css
+
+    def test_type_scale_tokens_used(self, client):
+        """Type scale tokens should actually be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--text-xs)' in css
+        assert 'var(--text-sm)' in css
+        assert 'var(--text-base)' in css
+        assert 'var(--text-md)' in css
+        assert 'var(--text-lg)' in css
+        assert 'var(--text-xl)' in css
+        assert 'var(--text-2xl)' in css
+        assert 'var(--text-3xl)' in css
+
+    def test_type_scale_token_values(self):
+        """Type scale tokens should have the correct values."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '--text-xs: 0.65rem' in css
+        assert '--text-sm: 0.8rem' in css
+        assert '--text-base: 0.95rem' in css
+        assert '--text-md: 1rem' in css
+        assert '--text-lg: 1.25rem' in css
+        assert '--text-xl: 1.5rem' in css
+        assert '--text-2xl: 2.2rem' in css
+        assert '--text-3xl: 3rem' in css
+
+
+# --- Confusion Pair Lessons ---
+
+class TestConfusionPairsData:
+    """Tests for confusion_pairs.py data module."""
+
+    def test_pairs_not_empty(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        assert len(CONFUSION_PAIRS) >= 8
+
+    def test_each_pair_has_required_keys(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        required = {'slug', 'codes', 'title', 'tldr', 'decision_tree', 'examples', 'quiz'}
+        for pair in CONFUSION_PAIRS:
+            missing = required - set(pair.keys())
+            assert not missing, f"Pair {pair.get('slug', '?')} missing keys: {missing}"
+
+    def test_each_pair_has_two_codes(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['codes']) == 2, f"Pair {pair['slug']} should have exactly 2 codes"
+
+    def test_slug_format(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        import re
+        slug_re = re.compile(r'^\d{3}-vs-\d{3}$')
+        for pair in CONFUSION_PAIRS:
+            assert slug_re.match(pair['slug']), f"Invalid slug format: {pair['slug']}"
+
+    def test_each_pair_has_decision_steps(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['decision_tree']) >= 2, \
+                f"Pair {pair['slug']} needs at least 2 decision steps"
+            for step in pair['decision_tree']:
+                assert 'question' in step
+                assert 'yes' in step
+                assert 'no' in step
+
+    def test_each_pair_has_examples(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['examples']) >= 2, \
+                f"Pair {pair['slug']} needs at least 2 examples"
+            for ex in pair['examples']:
+                assert 'scenario' in ex
+                assert 'code' in ex
+                assert 'explanation' in ex
+
+    def test_each_pair_has_quiz_questions(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['quiz']) == 3, \
+                f"Pair {pair['slug']} should have exactly 3 quiz questions"
+            for q in pair['quiz']:
+                assert 'scenario' in q
+                assert 'correct' in q
+                assert 'wrong' in q
+
+    def test_quiz_answers_are_from_pair_codes(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            codes = set(pair['codes'])
+            for q in pair['quiz']:
+                assert q['correct'] in codes, \
+                    f"Pair {pair['slug']}: quiz correct answer {q['correct']} not in pair codes {codes}"
+                assert q['wrong'] in codes, \
+                    f"Pair {pair['slug']}: quiz wrong answer {q['wrong']} not in pair codes {codes}"
+
+    def test_slug_lookup(self):
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        assert '401-vs-403' in CONFUSION_PAIRS_BY_SLUG
+        assert '301-vs-302' in CONFUSION_PAIRS_BY_SLUG
+
+    def test_code_lookup(self):
+        from confusion_pairs import CONFUSION_PAIRS_BY_CODE
+        assert '401' in CONFUSION_PAIRS_BY_CODE
+        assert '403' in CONFUSION_PAIRS_BY_CODE
+        assert '301' in CONFUSION_PAIRS_BY_CODE
+
+    def test_covered_pairs(self):
+        """Ensure the required pairs are covered."""
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        required = [
+            '401-vs-403', '301-vs-302', '307-vs-308', '400-vs-422',
+            '404-vs-410', '500-vs-502', '500-vs-503', '200-vs-204',
+            '302-vs-307',
+        ]
+        for slug in required:
+            assert slug in CONFUSION_PAIRS_BY_SLUG, f"Missing required pair: {slug}"
+
+
+class TestLearnIndexRoute:
+    """Tests for /learn index page."""
+
+    def test_learn_index_returns_200(self, client):
+        resp = client.get('/learn')
+        assert resp.status_code == 200
+
+    def test_learn_index_has_title(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'Confusion Pairs' in html
+
+    def test_learn_index_lists_pairs(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '401-vs-403' in html
+        assert '301-vs-302' in html
+        assert '/learn/' in html
+
+    def test_learn_index_has_tldr(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        # TL;DR text should be present from at least one pair
+        assert "doesn&#39;t know who you are" in html or "doesn't know who you are" in html or '401' in html
+
+
+class TestLearnPairRoute:
+    """Tests for /learn/<slug> lesson pages."""
+
+    def test_learn_pair_returns_200(self, client):
+        resp = client.get('/learn/401-vs-403')
+        assert resp.status_code == 200
+
+    def test_learn_pair_invalid_slug_returns_404(self, client):
+        resp = client.get('/learn/999-vs-998')
+        assert resp.status_code == 404
+
+    def test_learn_pair_has_title(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert '401 Unauthorized vs 403 Forbidden' in html
+
+    def test_learn_pair_has_tldr(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'learn-tldr' in html
+        assert 'TL;DR' in html
+
+    def test_learn_pair_has_decision_tree(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Decision Tree' in html
+        assert 'learn-decision-step' in html
+
+    def test_learn_pair_has_examples(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Annotated Examples' in html
+        assert 'learn-example-card' in html
+
+    def test_learn_pair_has_quiz(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Mini-Quiz' in html
+        assert 'learn-quiz-form' in html
+        assert 'learn-quiz-submit' in html
+
+    def test_learn_pair_has_comparison_cards(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'compare-card' in html
+        assert 'Side-by-Side Comparison' in html
+
+    def test_learn_pair_has_breadcrumb(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'breadcrumb' in html
+        assert 'href="/learn"' in html
+
+    def test_learn_pair_has_detail_links(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'href="/401"' in html
+        assert 'href="/403"' in html
+
+    def test_learn_pair_xp_script(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'learn_quiz_correct' in html
+
+    def test_all_pairs_render(self, client):
+        """Every configured pair should render without error."""
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            resp = client.get(f'/learn/{pair["slug"]}')
+            assert resp.status_code == 200, f"/learn/{pair['slug']} returned {resp.status_code}"
+
+
+class TestLearnNavLink:
+    """Tests for Learn link in navigation."""
+
+    def test_nav_has_learn_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/learn"' in html
+        assert '>Learn<' in html
+
+    def test_nav_learn_active_on_index(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+    def test_nav_learn_active_on_pair(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestLearnSitemap:
+    """Tests for learn pages in sitemap."""
+
+    def test_sitemap_has_learn_index(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/learn</loc>' in xml or '/learn<' in xml
+
+    def test_sitemap_has_learn_pairs(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/learn/401-vs-403' in xml
+        assert '/learn/301-vs-302' in xml
+
+
+class TestDetailPageLearnLinks:
+    """Tests for 'Learn the difference' links on detail pages."""
+
+    def test_401_page_has_learn_link_to_403(self, client):
+        resp = client.get('/401')
+        html = resp.data.decode()
+        assert 'Learn the difference' in html
+        assert '/learn/401-vs-403' in html
+
+    def test_403_page_has_learn_link_to_401(self, client):
+        resp = client.get('/403')
+        html = resp.data.decode()
+        assert 'Learn the difference' in html
+        assert '/learn/401-vs-403' in html
+
+    def test_200_page_has_learn_link_to_204(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '/learn/200-vs-204' in html

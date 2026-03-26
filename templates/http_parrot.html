@@ -213,10 +213,15 @@
                 <h2>Commonly confused with</h2>
                 <div class="related-codes">
                     {% for code, diff in related %}
-                    <a href="/{{ code }}" class="related-code-card">
-                        <span class="related-code-num category-{{ code[0] }}xx">{{ code }}</span>
-                        <span class="related-code-diff">{{ diff }}</span>
-                    </a>
+                    <div class="related-code-wrap">
+                        <a href="/{{ code }}" class="related-code-card">
+                            <span class="related-code-num category-{{ code[0] }}xx">{{ code }}</span>
+                            <span class="related-code-diff">{{ diff }}</span>
+                        </a>
+                        {% if learn_links and code in learn_links %}
+                        <a href="/learn/{{ learn_links[code] }}" class="related-learn-link">Learn the difference &rarr;</a>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </div>
             </div>

@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="/static/style.css" as="style">
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" as="style" id="font-preload">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet"></noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" as="style" id="font-preload">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"></noscript>
     <script nonce="{{ csp_nonce }}">
     (function(){var l=document.getElementById('font-preload');if(l){l.onload=function(){l.onload=null;l.rel='stylesheet';};}})();
     </script>
@@ -38,6 +38,7 @@
                     <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
                     <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
                     <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+                    <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Learn</a>
                     <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
                     <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
                     <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
@@ -71,6 +72,7 @@
             <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
             <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+            <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Learn</a>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
             <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
@@ -446,6 +448,240 @@
             footerInner.appendChild(span);
             var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
             if (eggs.indexOf(eggId) === -1) { eggs.push(eggId); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Console Parrot API — window.parrot easter egg */
+    (function() {
+        var PARROT_ART = [
+            '         ___',
+            '        (o o)',
+            '       (  V  )',
+            '      /--m-m--\\',
+            '     / HTTP     \\',
+            '    |  Parrots   |',
+            '     \\__________/'
+        ].join('\n');
+
+        var SQUAWKS = [
+            '200 OK? More like 200 O-Caw!',
+            'This parrot has been 301 Moved Permanently... to your heart.',
+            '404: Crackers Not Found.',
+            '418: I am a teaparrot.',
+            '500: Internal Server Squawk.',
+            '204: No Content? No crackers either!',
+            '429: Too Many Requests for treats!',
+            '301: Redirecting you to the nearest bird feeder.',
+            '403: Forbidden to leave without petting me.',
+            '502: Bad Gateway? Bad birdseed!',
+            '503: Service Unavailable — parrot is napping.',
+            '401: Unauthorized to view these feathers.',
+            '408: Request Timeout — this parrot got bored waiting.',
+            '451: Unavailable For Legal Reasons — no crackers in court.',
+            '226: IM Used — this parrot has been recycled.'
+        ];
+
+        var FORTUNES = [
+            'You will encounter a 200 OK when you least expect it.',
+            'A mysterious 301 will redirect your career path.',
+            'Beware the 403 Forbidden — some doors are not meant to be opened.',
+            'A 404 in your future: you will search for your keys and not find them.',
+            'The 418 teapot smiles upon you — drink more tea.',
+            'A 500 Internal Server Error lurks in your deploy pipeline.',
+            'Your next API call will return 201 Created — something new begins.',
+            'The 304 Not Modified suggests: if it ain\'t broke, don\'t fix it.',
+            'A 429 Too Many Requests warns: pace yourself today.',
+            'The spirits of RFC 2616 bless your caching headers.',
+            'You will discover a missing semicolon at 3 AM.',
+            'A wild CORS error appears in your future. Bring headers.',
+            'Your load balancer will smile upon you with 200s all day.',
+            'Trust the 202 Accepted — patience is a virtue.',
+            'The 503 fairy says: your server needs rest too.',
+            'An unexpected 307 will take you somewhere wonderful.'
+        ];
+
+        var LORE = [
+            'RFC 2324 (Hyper Text Coffee Pot Control Protocol) was published on April 1, 1998.',
+            'HTTP status code 418 "I\'m a teapot" was an April Fools\' joke that stuck around.',
+            'The 451 code is named after Ray Bradbury\'s Fahrenheit 451.',
+            'Tim Berners-Lee wrote the first HTTP client and server in 1990.',
+            'HTTP/0.9 only had one method: GET. No headers, no status codes.',
+            'The 204 No Content response must NOT include a message body.',
+            'RFC 7231 obsoleted RFC 2616 in June 2014 after 15 years.',
+            'The 100 Continue status was added to avoid sending large bodies the server would reject.',
+            'HTTP/2 was standardized in RFC 7540 in May 2015, based on Google\'s SPDY.',
+            'The 206 Partial Content response enables video streaming and download resumption.',
+            'RFC 6585 introduced 428, 429, 431, and 511 in April 2012.',
+            'The 300 Multiple Choices is the only 3xx code with an optional body.',
+            'HTTP/3 uses QUIC (UDP-based) instead of TCP for transport.',
+            'Roy Fielding coined "REST" in his 2000 doctoral dissertation at UC Irvine.',
+            'The 409 Conflict status is commonly used for version control conflicts in APIs.'
+        ];
+
+        var STATUS_CATEGORIES = {
+            '1': {name: 'Informational', color: '#48cae4'},
+            '2': {name: 'Success', color: '#2dd4a8'},
+            '3': {name: 'Redirection', color: '#f9c74f'},
+            '4': {name: 'Client Error', color: '#ff6b6b'},
+            '5': {name: 'Server Error', color: '#a78bfa'}
+        };
+
+        var eggTriggered = false;
+
+        function registerEgg() {
+            if (eggTriggered) return;
+            eggTriggered = true;
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf('console_parrot') === -1) {
+                eggs.push('console_parrot');
+                localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            }
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+        }
+
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        console.log(
+            '%c' + PARROT_ART + '\n\n  Welcome, developer! Try window.parrot.help()\n',
+            'color: #00c9a7; font-family: monospace; font-size: 12px; line-height: 1.3;'
+        );
+
+        window.parrot = Object.freeze({
+            help: function() {
+                registerEgg();
+                console.log('%cParrot Console API', 'color: #00c9a7; font-size: 16px; font-weight: bold;');
+                console.table([
+                    {command: 'parrot.help()', description: 'Show this help table'},
+                    {command: 'parrot.squawk()', description: 'Random parrot one-liner'},
+                    {command: 'parrot.fortune()', description: 'HTTP-themed fortune cookie'},
+                    {command: 'parrot.status(code)', description: 'Mini status code card (e.g. parrot.status(404))'},
+                    {command: 'parrot.lore()', description: 'Random RFC / HTTP trivia'}
+                ]);
+            },
+            squawk: function() {
+                registerEgg();
+                var msg = pick(SQUAWKS);
+                console.log(
+                    '%c\uD83E\uDD9C ' + msg,
+                    'color: #f9c74f; font-size: 14px; font-weight: bold; padding: 4px 0;'
+                );
+                return msg;
+            },
+            fortune: function() {
+                registerEgg();
+                var f = pick(FORTUNES);
+                console.log(
+                    '%c\uD83E\uDD6E ' + f,
+                    'color: #a78bfa; font-size: 14px; font-style: italic; padding: 4px 0;'
+                );
+                return f;
+            },
+            status: function(code) {
+                registerEgg();
+                code = String(code);
+                var cat = STATUS_CATEGORIES[code[0]];
+                if (!cat) {
+                    console.log('%cUnknown status code: ' + code, 'color: #ff6b6b;');
+                    return;
+                }
+                console.log(
+                    '%c ' + code + ' %c ' + cat.name + ' ',
+                    'background: ' + cat.color + '; color: #000; font-weight: bold; font-size: 16px; padding: 4px 8px; border-radius: 4px 0 0 4px;',
+                    'background: #1a1a1f; color: ' + cat.color + '; font-size: 14px; padding: 4px 8px; border-radius: 0 4px 4px 0;'
+                );
+            },
+            lore: function() {
+                registerEgg();
+                var l = pick(LORE);
+                console.log(
+                    '%c\uD83D\uDCDC ' + l,
+                    'color: #48cae4; font-size: 13px; padding: 4px 0;'
+                );
+                return l;
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* HTTP Keyboard Combo — Protocol Handshake easter egg */
+    (function() {
+        var httpSeq = ['h','t','t','p'];
+        var httpBuf = [];
+        var httpTimer = null;
+
+        document.addEventListener('keydown', function(e) {
+            var tag = document.activeElement ? document.activeElement.tagName : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            httpBuf.push(e.key.toLowerCase());
+            if (httpTimer) clearTimeout(httpTimer);
+            httpTimer = setTimeout(function() { httpBuf = []; }, 2000);
+
+            if (httpBuf.length > 4) httpBuf = httpBuf.slice(-4);
+
+            if (httpBuf.length === 4 &&
+                httpBuf[0] === httpSeq[0] &&
+                httpBuf[1] === httpSeq[1] &&
+                httpBuf[2] === httpSeq[2] &&
+                httpBuf[3] === httpSeq[3]) {
+                httpBuf = [];
+                if (httpTimer) clearTimeout(httpTimer);
+                showHandshake();
+            }
+        });
+
+        function showHandshake() {
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf('http_handshake') === -1) {
+                eggs.push('http_handshake');
+                localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            }
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+
+            var overlay = document.createElement('div');
+            overlay.className = 'handshake-overlay';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'TCP Handshake Animation');
+
+            overlay.innerHTML =
+                '<div class="handshake-scene">' +
+                    '<div class="handshake-parrot handshake-client">' +
+                        '<div class="handshake-label">Client</div>' +
+                        '<div class="handshake-bird">\uD83E\uDD9C</div>' +
+                    '</div>' +
+                    '<div class="handshake-messages">' +
+                        '<div class="handshake-msg handshake-syn" id="hs-syn">SYN &rarr;</div>' +
+                        '<div class="handshake-msg handshake-synack" id="hs-synack">&larr; SYN-ACK</div>' +
+                        '<div class="handshake-msg handshake-ack" id="hs-ack">ACK &rarr;</div>' +
+                        '<div class="handshake-msg handshake-ok" id="hs-ok">200 OK</div>' +
+                    '</div>' +
+                    '<div class="handshake-parrot handshake-server">' +
+                        '<div class="handshake-label">Server</div>' +
+                        '<div class="handshake-bird" style="transform: scaleX(-1)">\uD83E\uDD9C</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="handshake-connected" id="hs-connected">Connection Established!</div>';
+
+            document.body.appendChild(overlay);
+
+            requestAnimationFrame(function() {
+                overlay.classList.add('handshake-active');
+            });
+
+            setTimeout(function() { document.getElementById('hs-syn').classList.add('hs-visible'); }, 400);
+            setTimeout(function() { document.getElementById('hs-synack').classList.add('hs-visible'); }, 1100);
+            setTimeout(function() { document.getElementById('hs-ack').classList.add('hs-visible'); }, 1800);
+            setTimeout(function() { document.getElementById('hs-ok').classList.add('hs-visible'); }, 2400);
+            setTimeout(function() { document.getElementById('hs-connected').classList.add('hs-visible'); }, 3000);
+
+            setTimeout(function() {
+                overlay.classList.remove('handshake-active');
+                overlay.classList.add('handshake-dismissing');
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                }, 500);
+            }, 5000);
         }
     })();
     </script>

@@ -1,10 +1,11 @@
 """Debug This Response exercises — broken HTTP exchanges for users to diagnose."""
 
 DEBUG_EXERCISES = [
-    # --- Beginner (6 exercises) ---
+    # --- Beginner (10 exercises) ---
     {
         "id": "200-error-body",
         "difficulty": "beginner",
+        "category": "errors",
         "title": "200 with Error Body",
         "description": "A client requests a user profile, but the user does not exist. The server sends back this response.",
         "request": "GET /api/users/99999 HTTP/1.1\nHost: api.example.com\nAccept: application/json\nAuthorization: Bearer eyJhbG...",
@@ -21,6 +22,7 @@ DEBUG_EXERCISES = [
     {
         "id": "301-no-location",
         "difficulty": "beginner",
+        "category": "redirects",
         "title": "301 Missing Location",
         "description": "A page has permanently moved to a new URL. The server sends a redirect response.",
         "request": "GET /old-page HTTP/1.1\nHost: www.example.com\nAccept: text/html",
@@ -37,6 +39,7 @@ DEBUG_EXERCISES = [
     {
         "id": "204-with-body",
         "difficulty": "beginner",
+        "category": "crud",
         "title": "204 with Body",
         "description": "A client deletes a resource. The server confirms the deletion.",
         "request": "DELETE /api/posts/42 HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer eyJhbG...",
@@ -58,6 +61,7 @@ DEBUG_EXERCISES = [
     {
         "id": "401-no-www-auth",
         "difficulty": "beginner",
+        "category": "auth",
         "title": "401 Missing WWW-Authenticate",
         "description": "An unauthenticated client tries to access a protected API endpoint.",
         "request": "GET /api/admin/settings HTTP/1.1\nHost: api.example.com\nAccept: application/json",
@@ -74,6 +78,7 @@ DEBUG_EXERCISES = [
     {
         "id": "201-no-location",
         "difficulty": "beginner",
+        "category": "crud",
         "title": "201 Without Location",
         "description": "A client creates a new blog post via the API.",
         "request": 'POST /api/posts HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nAuthorization: Bearer eyJhbG...\n\n{"title": "Hello World", "body": "My first post"}',
@@ -90,6 +95,7 @@ DEBUG_EXERCISES = [
     {
         "id": "500-validation-error",
         "difficulty": "beginner",
+        "category": "errors",
         "title": "500 for Client Mistake",
         "description": "A client submits a form with an invalid email address.",
         "request": 'POST /api/register HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{"name": "Alice", "email": "not-an-email"}',
@@ -103,10 +109,79 @@ DEBUG_EXERCISES = [
         ],
         "related_codes": ["500", "400", "422"],
     },
-    # --- Intermediate (6 exercises) ---
+    {
+        "id": "403-instead-of-401",
+        "difficulty": "beginner",
+        "category": "auth",
+        "title": "403 for Unauthenticated Request",
+        "description": "A client calls a protected endpoint without any credentials.",
+        "request": "GET /api/profile HTTP/1.1\nHost: api.example.com\nAccept: application/json",
+        "response": 'HTTP/1.1 403 Forbidden\nContent-Type: application/json\n\n{"error": "Access denied"}',
+        "bugs": [
+            {
+                "id": "should-be-401",
+                "description": "Should be 401 Unauthorized, not 403 Forbidden",
+                "explanation": "403 Forbidden means the server knows who you are but denies access. When no credentials are provided at all, 401 Unauthorized is correct -- it tells the client to authenticate. 403 implies the identity is known but insufficient.",
+            },
+        ],
+        "related_codes": ["401", "403"],
+    },
+    {
+        "id": "302-post-form",
+        "difficulty": "beginner",
+        "category": "redirects",
+        "title": "POST Redirect Loses Body",
+        "description": "A client submits a contact form. The form handler has moved to a new URL.",
+        "request": 'POST /contact HTTP/1.1\nHost: www.example.com\nContent-Type: application/x-www-form-urlencoded\n\nname=Alice&message=Hello',
+        "response": "HTTP/1.1 302 Found\nLocation: /new-contact",
+        "bugs": [
+            {
+                "id": "302-drops-post",
+                "description": "302 may cause the browser to change POST to GET, losing the form data",
+                "explanation": "Browsers historically change POST to GET when following a 302. Use 307 Temporary Redirect to guarantee the POST method and body are preserved. If the move is permanent, use 308.",
+            },
+        ],
+        "related_codes": ["302", "307", "308"],
+    },
+    {
+        "id": "json-html-content-type",
+        "difficulty": "beginner",
+        "category": "headers",
+        "title": "Wrong Content-Type for JSON",
+        "description": "An API returns user data in JSON format.",
+        "request": "GET /api/users/1 HTTP/1.1\nHost: api.example.com\nAccept: application/json",
+        "response": 'HTTP/1.1 200 OK\nContent-Type: text/plain\n\n{"id": 1, "name": "Alice"}',
+        "bugs": [
+            {
+                "id": "wrong-json-content-type",
+                "description": "Content-Type should be application/json, not text/plain",
+                "explanation": "When the response body is JSON, the Content-Type must be application/json. Using text/plain causes clients to treat the response as plain text, breaking automatic JSON parsing in HTTP libraries and fetch APIs.",
+            },
+        ],
+        "related_codes": ["200"],
+    },
+    {
+        "id": "404-for-method",
+        "difficulty": "beginner",
+        "category": "api-design",
+        "title": "404 for Wrong Method",
+        "description": "A client sends a PATCH request to an endpoint that only supports GET and POST.",
+        "request": "PATCH /api/items/5 HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nAuthorization: Bearer eyJhbG...\n\n{\"name\": \"updated\"}",
+        "response": 'HTTP/1.1 404 Not Found\nContent-Type: application/json\n\n{"error": "Not found"}',
+        "bugs": [
+            {
+                "id": "should-be-405",
+                "description": "Should be 405 Method Not Allowed, not 404",
+                "explanation": "The resource exists at /api/items/5, but it doesn't support PATCH. 405 Method Not Allowed is the correct status, and the response must include an Allow header listing valid methods (e.g., Allow: GET, POST).",
+            },
+        ],
+        "related_codes": ["404", "405"],
+    },
+    # --- Intermediate (10 exercises) ---
     {
         "id": "429-no-retry-after",
         "difficulty": "intermediate",
+        "category": "api-design",
         "title": "429 Without Retry-After",
         "description": "A client exceeds the API rate limit.",
         "request": "GET /api/search?q=parrots HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer eyJhbG...",
@@ -128,6 +203,7 @@ DEBUG_EXERCISES = [
     {
         "id": "post-301-redirect",
         "difficulty": "intermediate",
+        "category": "redirects",
         "title": "POST Redirect Uses 301",
         "description": "A client submits a form via POST. The endpoint has moved to a new URL.",
         "request": 'POST /api/v1/submit HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{"data": "important payload"}',
@@ -144,6 +220,7 @@ DEBUG_EXERCISES = [
     {
         "id": "set-cookie-insecure",
         "difficulty": "intermediate",
+        "category": "auth",
         "title": "Insecure Set-Cookie",
         "description": "A user logs into a web application over HTTPS. The server sets a session cookie.",
         "request": "POST /login HTTP/1.1\nHost: secure.example.com\nContent-Type: application/x-www-form-urlencoded\n\nusername=alice&password=secret",
@@ -170,6 +247,7 @@ DEBUG_EXERCISES = [
     {
         "id": "cors-missing-origin",
         "difficulty": "intermediate",
+        "category": "headers",
         "title": "CORS Missing Allow-Origin",
         "description": "A frontend app on app.example.com makes a cross-origin API request. The server handles CORS but the response is incomplete.",
         "request": "GET /api/data HTTP/1.1\nHost: api.example.com\nOrigin: https://app.example.com\nAccept: application/json",
@@ -186,6 +264,7 @@ DEBUG_EXERCISES = [
     {
         "id": "405-no-allow",
         "difficulty": "intermediate",
+        "category": "api-design",
         "title": "405 Without Allow Header",
         "description": "A client tries to DELETE a read-only resource.",
         "request": "DELETE /api/system/health HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer eyJhbG...",
@@ -202,6 +281,7 @@ DEBUG_EXERCISES = [
     {
         "id": "cache-immutable-revalidate",
         "difficulty": "intermediate",
+        "category": "caching",
         "title": "Contradictory Cache Headers",
         "description": "A server returns a static asset (a versioned JavaScript file) with conflicting cache directives.",
         "request": "GET /static/app.v3.2.1.js HTTP/1.1\nHost: cdn.example.com\nAccept: */*",
@@ -215,10 +295,79 @@ DEBUG_EXERCISES = [
         ],
         "related_codes": ["200", "304"],
     },
-    # --- Expert (6 exercises) ---
+    {
+        "id": "content-negotiation-ignore",
+        "difficulty": "intermediate",
+        "category": "headers",
+        "title": "Accept Header Ignored",
+        "description": "A client requests XML, but the server returns JSON without informing the client.",
+        "request": "GET /api/reports/42 HTTP/1.1\nHost: api.example.com\nAccept: application/xml\nAuthorization: Bearer eyJhbG...",
+        "response": 'HTTP/1.1 200 OK\nContent-Type: application/json\n\n{"id": 42, "title": "Q4 Report", "data": [1, 2, 3]}',
+        "bugs": [
+            {
+                "id": "accept-header-violated",
+                "description": "Server returns JSON despite client requesting XML",
+                "explanation": "The client's Accept header says application/xml but the server returns JSON. If the server cannot produce XML, it should return 406 Not Acceptable, not silently send a different format. Clients relying on XML parsing will break.",
+            },
+        ],
+        "related_codes": ["200", "406"],
+    },
+    {
+        "id": "oauth-redirect-wrong-code",
+        "difficulty": "intermediate",
+        "category": "auth",
+        "title": "OAuth Redirect Error",
+        "description": "An OAuth authorization server redirects the user back to the client app after granting consent.",
+        "request": "GET /authorize?response_type=code&client_id=abc&redirect_uri=https://app.example.com/callback&state=xyz123 HTTP/1.1\nHost: auth.example.com\nCookie: session=logged-in-user",
+        "response": "HTTP/1.1 301 Moved Permanently\nLocation: https://app.example.com/callback?code=AUTH_CODE_123&state=xyz123",
+        "bugs": [
+            {
+                "id": "wrong-redirect-status",
+                "description": "Should use 302 Found, not 301 Moved Permanently",
+                "explanation": "OAuth 2.0 (RFC 6749) requires 302 Found for the authorization redirect. Using 301 causes browsers to cache the redirect permanently, so future authorization requests skip the auth server entirely and reuse the old (likely expired) authorization code.",
+            },
+        ],
+        "related_codes": ["301", "302"],
+    },
+    {
+        "id": "jwt-query-string",
+        "difficulty": "intermediate",
+        "category": "auth",
+        "title": "JWT in Query String",
+        "description": "A client accesses a protected API endpoint, passing the JWT token in the URL.",
+        "request": "GET /api/account?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U HTTP/1.1\nHost: api.example.com\nAccept: application/json",
+        "response": 'HTTP/1.1 200 OK\nContent-Type: application/json\n\n{"account": "premium", "balance": 500}',
+        "bugs": [
+            {
+                "id": "jwt-in-url",
+                "description": "JWT should be in the Authorization header, not the query string",
+                "explanation": "Putting tokens in URLs is a security risk: URLs are logged in server access logs, browser history, proxy logs, and Referer headers. JWTs should be sent in the Authorization: Bearer header. The server should reject tokens in query strings or at minimum not encourage this pattern.",
+            },
+        ],
+        "related_codes": ["200", "401"],
+    },
+    {
+        "id": "api-version-url-mismatch",
+        "difficulty": "intermediate",
+        "category": "api-design",
+        "title": "API Versioning Mismatch",
+        "description": "A client calls v2 of the API, but the server returns a v1-format response with different field names.",
+        "request": "GET /api/v2/users/42 HTTP/1.1\nHost: api.example.com\nAccept: application/json\nAuthorization: Bearer eyJhbG...",
+        "response": 'HTTP/1.1 200 OK\nContent-Type: application/json\nX-API-Version: v1\n\n{"user_name": "Alice", "email_addr": "alice@example.com"}',
+        "bugs": [
+            {
+                "id": "version-mismatch",
+                "description": "X-API-Version says v1 but the client requested v2",
+                "explanation": "The client explicitly requested /api/v2/ but the server returned a v1 response with v1 field names (user_name instead of v2's username). This breaks client code expecting v2 format. The server should either return v2 format or respond with 404/410 if v2 doesn't exist.",
+            },
+        ],
+        "related_codes": ["200", "404", "410"],
+    },
+    # --- Expert (11 exercises) ---
     {
         "id": "preflight-missing-max-age",
         "difficulty": "expert",
+        "category": "headers",
         "title": "CORS Preflight Incomplete",
         "description": "A browser sends a CORS preflight request for a cross-origin POST with a JSON body. The server responds, but the response has issues.",
         "request": "OPTIONS /api/data HTTP/1.1\nHost: api.example.com\nOrigin: https://app.example.com\nAccess-Control-Request-Method: POST\nAccess-Control-Request-Headers: Content-Type, Authorization",
@@ -245,6 +394,7 @@ DEBUG_EXERCISES = [
     {
         "id": "206-wrong-content-range",
         "difficulty": "expert",
+        "category": "caching",
         "title": "Partial Content Mismatch",
         "description": "A client requests a byte range of a large video file. The server returns partial content but the headers are inconsistent.",
         "request": "GET /videos/movie.mp4 HTTP/1.1\nHost: cdn.example.com\nRange: bytes=1000-1999",
@@ -261,6 +411,7 @@ DEBUG_EXERCISES = [
     {
         "id": "412-missing-etag",
         "difficulty": "expert",
+        "category": "caching",
         "title": "412 Without Current State",
         "description": "A client tries to update a document using a conditional request, but the precondition fails.",
         "request": 'PUT /api/documents/88 HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nIf-Match: "v5"\nAuthorization: Bearer eyJhbG...\n\n{"title": "Updated Title"}',
@@ -277,6 +428,7 @@ DEBUG_EXERCISES = [
     {
         "id": "303-after-post",
         "difficulty": "expert",
+        "category": "crud",
         "title": "POST Success Returns 200",
         "description": "A user submits an order form. The server processes it and returns the order confirmation page directly.",
         "request": 'POST /checkout HTTP/1.1\nHost: shop.example.com\nContent-Type: application/x-www-form-urlencoded\nCookie: session=xyz789\n\nitem=widget&qty=3&card=tok_visa',
@@ -293,6 +445,7 @@ DEBUG_EXERCISES = [
     {
         "id": "json-wrong-content-type",
         "difficulty": "expert",
+        "category": "headers",
         "title": "JSON with Wrong Content-Type",
         "description": "An API returns a JSON response, but something is off about the headers.",
         "request": "GET /api/users/42 HTTP/1.1\nHost: api.example.com\nAccept: application/json\nAuthorization: Bearer eyJhbG...",
@@ -314,6 +467,7 @@ DEBUG_EXERCISES = [
     {
         "id": "hsts-missing-on-https",
         "difficulty": "expert",
+        "category": "auth",
         "title": "HTTPS Without HSTS",
         "description": "A banking API serves all traffic over HTTPS but is missing a key security header.",
         "request": "GET /api/account/balance HTTP/1.1\nHost: bank-api.example.com\nAccept: application/json\nAuthorization: Bearer eyJhbG...",
@@ -331,5 +485,105 @@ DEBUG_EXERCISES = [
             },
         ],
         "related_codes": ["200"],
+    },
+    {
+        "id": "graphql-wrong-status",
+        "difficulty": "expert",
+        "category": "api-design",
+        "title": "GraphQL Error Returns 400",
+        "description": "A client sends a valid HTTP POST with a GraphQL query that references a non-existent field.",
+        "request": 'POST /graphql HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nAuthorization: Bearer eyJhbG...\n\n{"query": "{ user(id: 1) { name nonExistentField } }"}',
+        "response": 'HTTP/1.1 400 Bad Request\nContent-Type: application/json\n\n{"errors": [{"message": "Cannot query field nonExistentField on type User"}]}',
+        "bugs": [
+            {
+                "id": "graphql-should-be-200",
+                "description": "Should return 200 OK with errors in the response body",
+                "explanation": "Per the GraphQL over HTTP spec, query validation errors should still return 200 OK. The HTTP status reflects transport-level success, while GraphQL errors go in the 'errors' array. 400 is only for malformed HTTP requests (e.g., invalid JSON). This distinction matters because HTTP middleware and CDNs may cache or retry based on status codes.",
+            },
+        ],
+        "related_codes": ["200", "400"],
+    },
+    {
+        "id": "webhook-no-idempotency",
+        "difficulty": "expert",
+        "category": "api-design",
+        "title": "Webhook Missing Idempotency Key",
+        "description": "A payment provider sends a webhook notification about a completed payment. The webhook endpoint processes it.",
+        "request": 'POST /webhooks/payment HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nX-Signature: sha256=abc123...\n\n{"event": "payment.completed", "amount": 99.99, "order_id": "ORD-001"}',
+        "response": 'HTTP/1.1 200 OK\nContent-Type: application/json\n\n{"processed": true}',
+        "bugs": [
+            {
+                "id": "no-idempotency-handling",
+                "description": "No idempotency key in the response or evidence of deduplication",
+                "explanation": "Webhook providers may retry delivery if they don't receive a timely response. Without idempotency handling (checking an event ID to prevent double-processing), the same payment could be processed multiple times. The response should acknowledge the specific event ID.",
+            },
+            {
+                "id": "response-too-verbose",
+                "description": "Webhook responses should be minimal -- just a 2xx status",
+                "explanation": "Webhook senders typically only check the status code. Returning detailed JSON wastes bandwidth and could leak internal processing details. A simple 200 or 204 with no body is standard practice.",
+            },
+        ],
+        "related_codes": ["200", "204"],
+    },
+    {
+        "id": "sse-wrong-content-type",
+        "difficulty": "expert",
+        "category": "api-design",
+        "title": "SSE Wrong Content-Type",
+        "description": "A server sets up a Server-Sent Events stream for real-time notifications.",
+        "request": "GET /events/notifications HTTP/1.1\nHost: api.example.com\nAccept: text/event-stream\nAuthorization: Bearer eyJhbG...",
+        "response": "HTTP/1.1 200 OK\nContent-Type: application/json\nCache-Control: no-cache\nConnection: keep-alive\n\ndata: {\"type\": \"message\", \"text\": \"Hello\"}\n\ndata: {\"type\": \"message\", \"text\": \"World\"}\n\n",
+        "bugs": [
+            {
+                "id": "sse-wrong-content-type",
+                "description": "Content-Type should be text/event-stream, not application/json",
+                "explanation": "Server-Sent Events require Content-Type: text/event-stream. Using application/json prevents the browser's EventSource API from processing the stream. The EventSource constructor will throw an error if the MIME type is wrong.",
+            },
+            {
+                "id": "sse-missing-retry",
+                "description": "Should include a retry field for automatic reconnection",
+                "explanation": "SSE streams should include a retry: field (e.g., retry: 3000) to tell the browser how long to wait before reconnecting after a disconnect. Without it, the browser uses its default (often too aggressive or too slow).",
+            },
+        ],
+        "related_codes": ["200"],
+    },
+    {
+        "id": "streaming-content-length",
+        "difficulty": "expert",
+        "category": "headers",
+        "title": "Streaming with Content-Length",
+        "description": "A server streams a dynamically generated CSV export. The file size is unknown upfront.",
+        "request": "GET /api/export/users.csv HTTP/1.1\nHost: api.example.com\nAccept: text/csv\nAuthorization: Bearer eyJhbG...",
+        "response": "HTTP/1.1 200 OK\nContent-Type: text/csv\nContent-Length: 0\nContent-Disposition: attachment; filename=\"users.csv\"\n\nid,name,email\n1,Alice,alice@example.com\n2,Bob,bob@example.com",
+        "bugs": [
+            {
+                "id": "content-length-for-stream",
+                "description": "Content-Length: 0 is wrong for a response with body data",
+                "explanation": "Setting Content-Length: 0 for a streaming response tells the client to expect no data. For dynamically generated content of unknown size, use Transfer-Encoding: chunked instead of Content-Length, allowing the server to stream data in chunks.",
+            },
+        ],
+        "related_codes": ["200"],
+    },
+    {
+        "id": "conflict-no-current-state",
+        "difficulty": "expert",
+        "category": "crud",
+        "title": "409 Without Conflict Details",
+        "description": "A client tries to update a record, but it conflicts with a concurrent modification.",
+        "request": 'PUT /api/documents/55 HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\nIf-Match: "etag-old"\nAuthorization: Bearer eyJhbG...\n\n{"title": "My Updated Doc"}',
+        "response": 'HTTP/1.1 409 Conflict\nContent-Type: application/json\n\n{"error": "Conflict"}',
+        "bugs": [
+            {
+                "id": "no-conflict-details",
+                "description": "Response should include the current state or ETag for conflict resolution",
+                "explanation": "A 409 Conflict without details forces the client to make an extra GET request to fetch the current state. Including the current ETag and ideally the conflicting resource state lets the client resolve the conflict in one fewer round trip.",
+            },
+            {
+                "id": "should-be-412",
+                "description": "When If-Match fails, 412 Precondition Failed is more precise than 409",
+                "explanation": "Since the client used If-Match, the server should return 412 Precondition Failed (the conditional header failed) rather than the more general 409 Conflict. 412 specifically tells the client their ETag-based precondition was not met.",
+            },
+        ],
+        "related_codes": ["409", "412"],
     },
 ]

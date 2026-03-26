@@ -46,7 +46,7 @@
     font-size: 1.6rem;
     font-weight: 700;
     color: #f0f0f0;
-    font-family: 'Share Tech Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
 }
 .practice-score-value.score-correct-val { color: #2dd4a8; }
 .practice-score-value.score-wrong-val { color: #ff6b6b; }
@@ -101,6 +101,53 @@
     color: #ff6b6b;
     border-color: rgba(233, 69, 96, 0.3);
 }
+.practice-filter-btn.active[data-category="all"] {
+    background: rgba(255,255,255,0.12);
+}
+.practice-filter-btn.active[data-category="auth"] {
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+    border-color: rgba(123, 97, 255, 0.3);
+}
+.practice-filter-btn.active[data-category="caching"] {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.3);
+}
+.practice-filter-btn.active[data-category="redirects"] {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+    border-color: rgba(249, 199, 79, 0.3);
+}
+.practice-filter-btn.active[data-category="crud"] {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+    border-color: rgba(0, 201, 167, 0.3);
+}
+.practice-filter-btn.active[data-category="errors"] {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+    border-color: rgba(233, 69, 96, 0.3);
+}
+.practice-filter-btn.active[data-category="headers"] {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+    border-color: rgba(251, 146, 60, 0.3);
+}
+.practice-filter-btn.active[data-category="api-design"] {
+    background: rgba(232, 121, 249, 0.15);
+    color: #e879f9;
+    border-color: rgba(232, 121, 249, 0.3);
+}
+.practice-filter-row-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+    align-self: center;
+}
 .practice-cards {
     display: flex;
     flex-direction: column;
@@ -145,7 +192,7 @@
 .practice-card-number {
     font-size: 0.8rem;
     color: #999;
-    font-family: 'Share Tech Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
 }
 .practice-description {
     color: #d0d0e0;
@@ -168,7 +215,7 @@
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
-    font-family: 'Share Tech Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
     transition: all 0.15s;
     text-align: left;
 }
@@ -286,15 +333,28 @@
         </div>
 
         <div class="practice-filters" role="tablist" aria-label="Filter by difficulty">
+            <span class="practice-filter-row-label">Difficulty:</span>
             <button class="practice-filter-btn active" data-difficulty="all" role="tab" aria-selected="true">All</button>
             <button class="practice-filter-btn" data-difficulty="beginner" role="tab" aria-selected="false">Beginner</button>
             <button class="practice-filter-btn" data-difficulty="intermediate" role="tab" aria-selected="false">Intermediate</button>
             <button class="practice-filter-btn" data-difficulty="expert" role="tab" aria-selected="false">Expert</button>
         </div>
 
+        <div class="practice-filters" role="tablist" aria-label="Filter by category">
+            <span class="practice-filter-row-label">Category:</span>
+            <button class="practice-filter-btn active" data-category="all" role="tab" aria-selected="true">All</button>
+            <button class="practice-filter-btn" data-category="auth" role="tab" aria-selected="false">Auth</button>
+            <button class="practice-filter-btn" data-category="caching" role="tab" aria-selected="false">Caching</button>
+            <button class="practice-filter-btn" data-category="redirects" role="tab" aria-selected="false">Redirects</button>
+            <button class="practice-filter-btn" data-category="crud" role="tab" aria-selected="false">CRUD</button>
+            <button class="practice-filter-btn" data-category="errors" role="tab" aria-selected="false">Errors</button>
+            <button class="practice-filter-btn" data-category="headers" role="tab" aria-selected="false">Headers</button>
+            <button class="practice-filter-btn" data-category="api-design" role="tab" aria-selected="false">API Design</button>
+        </div>
+
         <div class="practice-cards" role="tabpanel">
             {% for scenario in scenarios %}
-            <div class="practice-card" data-difficulty="{{ scenario.difficulty }}" data-id="{{ scenario.id }}">
+            <div class="practice-card" data-difficulty="{{ scenario.difficulty }}" data-category="{{ scenario.category }}" data-id="{{ scenario.id }}">
                 <div class="practice-card-header">
                     <span class="practice-difficulty-badge {{ scenario.difficulty }}">{{ scenario.difficulty }}</span>
                     <span class="practice-card-number">#{{ scenario.id }}</span>
@@ -329,18 +389,32 @@
 (function() {
     var correct = 0;
     var wrong = 0;
-    var currentFilter = 'all';
+    var currentDifficulty = 'all';
+    var currentCategory = 'all';
     var totalScenarios = document.querySelectorAll('.practice-card').length;
     var answered = 0;
+
+    function isCardVisible(card) {
+        var diff = card.getAttribute('data-difficulty');
+        var cat = card.getAttribute('data-category');
+        var diffMatch = currentDifficulty === 'all' || diff === currentDifficulty;
+        var catMatch = currentCategory === 'all' || cat === currentCategory;
+        return diffMatch && catMatch;
+    }
+
+    function applyFilters() {
+        var cards = document.querySelectorAll('.practice-card');
+        cards.forEach(function(card) {
+            card.style.display = isCardVisible(card) ? '' : 'none';
+        });
+        updateRemaining();
+    }
 
     function updateRemaining() {
         var cards = document.querySelectorAll('.practice-card');
         var remaining = 0;
         cards.forEach(function(card) {
-            var diff = card.getAttribute('data-difficulty');
-            var isVisible = currentFilter === 'all' || diff === currentFilter;
-            var isAnswered = card.classList.contains('answered');
-            if (isVisible && !isAnswered) remaining++;
+            if (isCardVisible(card) && !card.classList.contains('answered')) remaining++;
         });
         document.getElementById('practice-remaining').textContent = remaining;
     }
@@ -353,28 +427,33 @@
         document.getElementById('practice-progress-text').textContent = answered + ' / ' + totalScenarios;
     }
 
-    // Filter buttons
-    var filterBtns = document.querySelectorAll('.practice-filter-btn');
-    filterBtns.forEach(function(btn) {
+    // Difficulty filter buttons
+    var diffFilterBtns = document.querySelectorAll('.practice-filter-btn[data-difficulty]');
+    diffFilterBtns.forEach(function(btn) {
         btn.addEventListener('click', function() {
-            filterBtns.forEach(function(b) {
+            diffFilterBtns.forEach(function(b) {
                 b.classList.remove('active');
                 b.setAttribute('aria-selected', 'false');
             });
             btn.classList.add('active');
             btn.setAttribute('aria-selected', 'true');
-            currentFilter = btn.getAttribute('data-difficulty');
+            currentDifficulty = btn.getAttribute('data-difficulty');
+            applyFilters();
+        });
+    });
 
-            var cards = document.querySelectorAll('.practice-card');
-            cards.forEach(function(card) {
-                var diff = card.getAttribute('data-difficulty');
-                if (currentFilter === 'all' || diff === currentFilter) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
+    // Category filter buttons
+    var catFilterBtns = document.querySelectorAll('.practice-filter-btn[data-category]');
+    catFilterBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            catFilterBtns.forEach(function(b) {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
             });
-            updateRemaining();
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            currentCategory = btn.getAttribute('data-category');
+            applyFilters();
         });
     });
 

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Learn - Confused Status Codes | HTTP Parrots{% endblock %}
+{% block subtitle %}Learn the differences between commonly confused HTTP status codes{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Interactive lessons explaining the differences between commonly confused HTTP status codes like 401 vs 403, 301 vs 302, and more.">
+{% endblock %}
+
+{% block content %}
+    <main class="learn-index-container" id="main-content" role="main">
+        <div class="learn-index-intro">
+            <h1 class="learn-index-headline">Confusion Pairs</h1>
+            <p class="learn-index-subtext">Interactive lessons on the most commonly confused HTTP status code pairs. Each lesson includes a decision tree, real-world examples, and a mini-quiz.</p>
+        </div>
+
+        <div class="learn-index-grid">
+            {% for pair in pairs %}
+            <a href="/learn/{{ pair.slug }}" class="learn-index-card">
+                <div class="learn-index-card-codes">
+                    <span class="learn-index-code category-{{ pair.codes[0][0] }}xx">{{ pair.codes[0] }}</span>
+                    <span class="learn-index-vs">vs</span>
+                    <span class="learn-index-code category-{{ pair.codes[1][0] }}xx">{{ pair.codes[1] }}</span>
+                </div>
+                <div class="learn-index-card-body">
+                    <h2 class="learn-index-card-title">{{ pair.title }}</h2>
+                    <p class="learn-index-card-tldr">{{ pair.tldr }}</p>
+                </div>
+                <span class="learn-index-card-arrow" aria-hidden="true">&rarr;</span>
+            </a>
+            {% endfor %}
+        </div>
+    </main>
+{% endblock %}

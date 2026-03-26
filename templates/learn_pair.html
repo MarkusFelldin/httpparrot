@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pair.title }} - Learn | HTTP Parrots{% endblock %}
+{% block subtitle %}Learn the difference{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="{{ pair.tldr }}">
+{% endblock %}
+
+{% block content %}
+    <main class="learn-pair-container" id="main-content" role="main">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <a href="/learn">Learn</a>
+            <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
+            <span aria-current="page">{{ pair.codes[0] }} vs {{ pair.codes[1] }}</span>
+        </nav>
+
+        <h1 class="learn-pair-title">{{ pair.title }}</h1>
+
+        <div class="learn-tldr" role="region" aria-label="Key difference">
+            <span class="learn-tldr-label">TL;DR</span>
+            <p class="learn-tldr-text">{{ pair.tldr }}</p>
+        </div>
+
+        <section class="learn-section" aria-labelledby="comparison-heading">
+            <h2 id="comparison-heading" class="learn-section-title">Side-by-Side Comparison</h2>
+            <div class="learn-compare-columns">
+                {% for code in pair.codes %}
+                <div class="compare-card learn-compare-card" style="border-color: {{ cat_colors[code[0]] }};">
+                    <div class="compare-card-header" style="border-color: {{ cat_colors[code[0]] }};">
+                        <span class="compare-card-badge" style="background: {{ cat_bgs[code[0]] }}; color: {{ cat_colors[code[0]] }};">{{ code[0] }}xx</span>
+                        <div class="compare-card-code" style="color: {{ cat_colors[code[0]] }};">{{ code }}</div>
+                        <div class="compare-card-name">{{ code_names[code] }}</div>
+                    </div>
+                    <div class="compare-card-body">
+                        {% if code_images[code] %}
+                        <div class="compare-card-image">
+                            <img src="/static/{{ code_images[code] }}" alt="{{ code }} parrot" loading="lazy">
+                        </div>
+                        {% endif %}
+                        {% if code_info[code] %}
+                        <div class="compare-section">
+                            <p class="compare-section-text">{{ code_info[code].get('description', '') }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="compare-card-footer">
+                            <a href="/{{ code }}" class="compare-detail-link">View full details</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="learn-section" aria-labelledby="decision-heading">
+            <h2 id="decision-heading" class="learn-section-title">Decision Tree</h2>
+            <p class="learn-section-intro">Walk through these questions to decide which code to use:</p>
+            <div class="learn-decision-tree" role="list" aria-label="Decision steps">
+                {% for step in pair.decision_tree %}
+                <div class="learn-decision-step" role="listitem">
+                    <div class="learn-decision-question">
+                        <span class="learn-decision-num" aria-hidden="true">{{ loop.index }}</span>
+                        <span>{{ step.question }}</span>
+                    </div>
+                    <div class="learn-decision-answers">
+                        <div class="learn-decision-answer learn-decision-yes">
+                            <span class="learn-decision-arrow" aria-hidden="true">Yes &rarr;</span>
+                            <span class="learn-decision-result">{{ step.yes }}</span>
+                        </div>
+                        <div class="learn-decision-answer learn-decision-no">
+                            <span class="learn-decision-arrow" aria-hidden="true">No &rarr;</span>
+                            <span class="learn-decision-result">{{ step.no }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% if not loop.last %}
+                <div class="learn-decision-connector" aria-hidden="true"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="learn-section" aria-labelledby="examples-heading">
+            <h2 id="examples-heading" class="learn-section-title">Annotated Examples</h2>
+            <div class="learn-examples">
+                {% for ex in pair.examples %}
+                <div class="learn-example-card">
+                    <div class="learn-example-scenario">
+                        <span class="learn-example-label">Scenario</span>
+                        {{ ex.scenario }}
+                    </div>
+                    <div class="learn-example-answer">
+                        <span class="learn-example-code category-{{ ex.code[0] }}xx">{{ ex.code }}</span>
+                        <span class="learn-example-explanation">{{ ex.explanation }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="learn-section" aria-labelledby="quiz-heading">
+            <h2 id="quiz-heading" class="learn-section-title">Mini-Quiz</h2>
+            <p class="learn-section-intro">Test your understanding &mdash; pick the correct status code for each scenario.</p>
+            <form id="learn-quiz-form" class="learn-quiz" aria-label="Mini-quiz">
+                {% for q in pair.quiz %}
+                <fieldset class="learn-quiz-question" data-correct="{{ q.correct }}" data-index="{{ loop.index0 }}">
+                    <legend class="learn-quiz-scenario">{{ loop.index }}. {{ q.scenario }}</legend>
+                    <div class="learn-quiz-options" role="radiogroup">
+                        <label class="learn-quiz-option">
+                            <input type="radio" name="q{{ loop.index0 }}" value="{{ q.correct }}" class="learn-quiz-radio">
+                            <span class="learn-quiz-option-label">{{ q.correct }}</span>
+                        </label>
+                        <label class="learn-quiz-option">
+                            <input type="radio" name="q{{ loop.index0 }}" value="{{ q.wrong }}" class="learn-quiz-radio">
+                            <span class="learn-quiz-option-label">{{ q.wrong }}</span>
+                        </label>
+                    </div>
+                    <div class="learn-quiz-feedback" aria-live="polite"></div>
+                </fieldset>
+                {% endfor %}
+                <button type="submit" class="learn-quiz-submit" id="learn-quiz-submit">Check Answers</button>
+                <div class="learn-quiz-result" id="learn-quiz-result" aria-live="polite"></div>
+            </form>
+        </section>
+
+        <div class="learn-pair-footer">
+            <a href="/learn" class="btn-back">All confusion pairs</a>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var form = document.getElementById('learn-quiz-form');
+        var submitted = false;
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (submitted) return;
+            submitted = true;
+
+            var questions = form.querySelectorAll('.learn-quiz-question');
+            var correct = 0;
+            var total = questions.length;
+
+            for (var i = 0; i < questions.length; i++) {
+                var q = questions[i];
+                var correctAnswer = q.getAttribute('data-correct');
+                var selected = form.querySelector('input[name="q' + i + '"]:checked');
+                var feedback = q.querySelector('.learn-quiz-feedback');
+                var options = q.querySelectorAll('.learn-quiz-option');
+
+                /* Disable all radios */
+                var radios = q.querySelectorAll('.learn-quiz-radio');
+                for (var r = 0; r < radios.length; r++) {
+                    radios[r].disabled = true;
+                }
+
+                /* Mark correct/wrong on each option */
+                for (var j = 0; j < options.length; j++) {
+                    var radio = options[j].querySelector('.learn-quiz-radio');
+                    if (radio.value === correctAnswer) {
+                        options[j].classList.add('learn-quiz-correct');
+                    }
+                    if (selected && radio === selected && radio.value !== correctAnswer) {
+                        options[j].classList.add('learn-quiz-wrong');
+                    }
+                }
+
+                if (selected && selected.value === correctAnswer) {
+                    correct++;
+                    feedback.textContent = 'Correct!';
+                    feedback.className = 'learn-quiz-feedback learn-quiz-feedback-correct';
+                } else if (selected) {
+                    feedback.textContent = 'Incorrect \u2014 the answer is ' + correctAnswer + '.';
+                    feedback.className = 'learn-quiz-feedback learn-quiz-feedback-wrong';
+                } else {
+                    feedback.textContent = 'Not answered \u2014 the answer is ' + correctAnswer + '.';
+                    feedback.className = 'learn-quiz-feedback learn-quiz-feedback-wrong';
+                }
+            }
+
+            /* Show result */
+            var resultEl = document.getElementById('learn-quiz-result');
+            resultEl.textContent = 'You got ' + correct + ' out of ' + total + ' correct!';
+            resultEl.className = 'learn-quiz-result ' + (correct === total ? 'learn-quiz-result-perfect' : '');
+
+            /* Disable submit */
+            document.getElementById('learn-quiz-submit').disabled = true;
+            document.getElementById('learn-quiz-submit').textContent = 'Submitted';
+
+            /* Award XP */
+            if (typeof ParrotXP !== 'undefined' && correct > 0) {
+                ParrotXP.award(correct * 25, 'learn_quiz_correct');
+            }
+        });
+    })();
+    </script>
+{% endblock %}
