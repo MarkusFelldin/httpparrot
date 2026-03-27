@@ -68,7 +68,7 @@
                     <a href="/{{ status_code[0] }}" class="parrot-link" aria-label="{{ status_code[0] }} {{ status_code[1] }}">
                         <div class="parrot parrot-{{ status_code[0][0] }}xx{% if status_code[0] == featured %} featured{% endif %}">
                             <div class="img">
-                                <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" width="600" height="500" loading="lazy"/>
+                                <img src="/static/{{ status_code[2] }}" alt="{{ status_code[0] }} {{ status_code[1] }}" width="600" height="500" loading="lazy" style="view-transition-name: parrot-{{ status_code[0] }}"/>
                             </div>
                             <div class="img-text">
                                 <div class="img-status-code category-{{ status_code[0][0] }}xx">{{ status_code[0] }}</div>

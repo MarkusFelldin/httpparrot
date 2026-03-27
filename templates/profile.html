@@ -37,6 +37,10 @@
                     <div class="profile-stat-label">Daily Streak</div>
                 </div>
                 <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-freeze-count">0</div>
+                    <div class="profile-stat-label"><span aria-hidden="true">&#x2744;&#xFE0F;</span> Freezes</div>
+                </div>
+                <div class="profile-stat-card">
                     <div class="profile-stat-value" id="stat-codes-visited">0</div>
                     <div class="profile-stat-label">Codes Visited</div>
                 </div>
@@ -44,6 +48,13 @@
                     <div class="profile-stat-value" id="stat-practice-completed">0</div>
                     <div class="profile-stat-label">Practice Completed</div>
                 </div>
+            </div>
+        </section>
+
+        <section class="profile-milestones-section" aria-label="Milestone history">
+            <h2>Milestones</h2>
+            <div class="profile-milestones-list" id="profile-milestones-list">
+                <p class="milestones-empty" id="milestones-empty">No milestones achieved yet. Keep your daily streak going!</p>
             </div>
         </section>
 
@@ -153,6 +164,27 @@
         }
     }
     document.getElementById('stat-daily-streak').textContent = streak;
+
+    /* Streak freeze count & milestones from daily state */
+    var dailyState = null;
+    try { dailyState = JSON.parse(localStorage.getItem('httpparrot_daily')); } catch(e) {}
+    if (dailyState) {
+        var freezes = dailyState.freezesAvailable || 0;
+        document.getElementById('stat-freeze-count').textContent = freezes;
+        var milestones = dailyState.milestonesHit || [];
+        var MILESTONE_LABELS = {7: '7-Day Streak', 14: '14-Day Streak', 30: '30-Day Streak', 50: '50-Day Streak', 100: '100-Day Streak'};
+        var list = document.getElementById('profile-milestones-list');
+        if (milestones.length > 0) {
+            document.getElementById('milestones-empty').style.display = 'none';
+            milestones.sort(function(a, b) { return a - b; });
+            milestones.forEach(function(m) {
+                var item = document.createElement('div');
+                item.className = 'milestone-item achieved';
+                item.textContent = (MILESTONE_LABELS[m] || m + '-Day Streak') + ' \u2714';
+                list.appendChild(item);
+            });
+        }
+    }
 
     /* Heatmap */
     var heatmap = document.getElementById('profile-heatmap');

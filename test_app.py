@@ -2248,6 +2248,70 @@ class TestPlayground:
         assert f'nonce="{nonce}"'.encode() in resp.data
 
 
+class TestCurlImport:
+    def test_curl_import_returns_200(self, client):
+        """cURL Import page should return 200 with expected content."""
+        resp = client.get('/curl-import')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'cURL Import' in html
+
+    def test_curl_import_has_textarea(self, client):
+        """cURL Import page should have a textarea for pasting cURL commands."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-input' in html
+        assert '<textarea' in html
+
+    def test_curl_import_has_parse_button(self, client):
+        """cURL Import page should have a Parse button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-parse-btn' in html
+        assert 'Parse' in html
+
+    def test_curl_import_has_code_export_tabs(self, client):
+        """cURL Import page should have code export tabs for all languages."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'data-tab="curl"' in html
+        assert 'data-tab="python"' in html
+        assert 'data-tab="javascript"' in html
+        assert 'data-tab="go"' in html
+
+    def test_curl_import_has_copy_button(self, client):
+        """cURL Import page should have a Copy button for exported code."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-copy-btn' in html
+
+    def test_curl_import_has_echo_button(self, client):
+        """cURL Import page should have a Send to Echo button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-echo-btn' in html
+        assert 'Send to Echo' in html
+
+    def test_curl_import_nav_link(self, client):
+        """Navigation should contain a link to the cURL Import page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/curl-import"' in html
+        assert 'cURL Import' in html
+
+    def test_curl_import_in_sitemap(self, client):
+        """Sitemap should include the cURL Import page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/curl-import' in resp.data
+
+    def test_curl_import_has_nonce(self, client):
+        """cURL Import script tag should have a nonce."""
+        resp = client.get('/curl-import')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+
 class TestMockResponse:
     def test_mock_response_basic(self, client):
         """Mock response endpoint should return the requested status code."""
@@ -4537,15 +4601,15 @@ class TestFeatherBadges:
         assert 'FEATHERS' in html
         assert 'httpparrot_feathers' in html
 
-    def test_all_14_badges_defined(self, client):
-        """All 14 feather badge IDs should appear in the base template."""
+    def test_all_15_badges_defined(self, client):
+        """All 15 feather badge IDs should appear in the base template."""
         resp = client.get('/')
         html = resp.data.decode()
         badge_ids = [
             'first_flight', 'quiz_whiz', 'perfect_10', 'streak_starter',
             'on_fire', 'centurion', 'wing_commander', 'completionist',
             'error_expert', 'server_sage', 'egg_hunter', 'scholar',
-            'night_owl', 'speed_demon'
+            'night_owl', 'speed_demon', 'frozen_solid'
         ]
         for badge_id in badge_ids:
             assert badge_id in html, f"Badge '{badge_id}' not found in base template"
@@ -5674,3 +5738,433 @@ class TestDetailPageLearnLinks:
         resp = client.get('/200')
         html = resp.data.decode()
         assert '/learn/200-vs-204' in html
+
+
+class TestViewTransitions:
+    """Tests for the View Transitions API progressive enhancement."""
+
+    def test_base_template_has_view_transition_meta_tag(self, client):
+        """The view-transition meta tag should be present in every page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '<meta name="view-transition" content="same-origin">' in html
+
+    def test_view_transition_meta_tag_on_detail_page(self, client):
+        """Detail pages inherit from base and should also have the meta tag."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '<meta name="view-transition" content="same-origin">' in html
+
+    def test_css_has_view_transition_at_rule(self):
+        """The stylesheet should contain the @view-transition rule."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@view-transition' in css
+        assert 'navigation: auto' in css
+
+    def test_css_has_fade_keyframes(self):
+        """The stylesheet should define fade-out and fade-in keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@keyframes fade-out' in css
+        assert '@keyframes fade-in' in css
+
+    def test_css_has_view_transition_old_new_root(self):
+        """Root view transition pseudo-elements should be styled."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '::view-transition-old(root)' in css
+        assert '::view-transition-new(root)' in css
+
+    def test_homepage_cards_have_view_transition_name(self, client):
+        """Each parrot card image on the homepage should have a view-transition-name."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'view-transition-name: parrot-200' in html
+        assert 'view-transition-name: parrot-404' in html
+        assert 'view-transition-name: parrot-500' in html
+
+    def test_detail_page_image_has_view_transition_name(self, client):
+        """The detail page hero image should have a matching view-transition-name."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'view-transition-name: parrot-200' in html
+
+    def test_detail_page_transition_name_matches_code(self, client):
+        """The view-transition-name on the detail page should match the status code."""
+        for code in ['404', '418', '500']:
+            resp = client.get(f'/{code}')
+            html = resp.data.decode()
+            assert f'view-transition-name: parrot-{code}' in html
+
+    def test_css_has_site_header_view_transition_name(self):
+        """The site header should have a view-transition-name for persistence."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'view-transition-name: site-header' in css
+
+    def test_css_reduced_motion_disables_view_transitions(self):
+        """In prefers-reduced-motion, view transition animations should be disabled."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the reduced-motion block and verify it contains view transition overrides
+        rm_start = css.find('@media (prefers-reduced-motion: reduce)')
+        assert rm_start != -1
+        rm_block = css[rm_start:css.find('\n/* === Light Theme', rm_start)]
+        assert '::view-transition-old(root)' in rm_block
+        assert '::view-transition-new(root)' in rm_block
+        assert 'animation: none !important' in rm_block
+
+
+# --- Streak Freeze & Milestone Celebrations ---
+
+class TestStreakFreeze:
+    """Verify streak freeze logic is present in the daily template."""
+
+    def test_daily_has_freezes_available_field(self, client):
+        """Daily state should include freezesAvailable field."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'freezesAvailable' in html
+
+    def test_daily_has_freeze_indicator(self, client):
+        """Daily page should have a streak freeze indicator element."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'streak-freeze-indicator' in html
+        assert 'freeze-count' in html
+
+    def test_daily_has_freeze_message(self, client):
+        """Daily page should have a streak freeze used message element."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'streak-freeze-msg' in html
+        assert 'Streak freeze used' in html
+
+    def test_daily_freeze_consumes_on_missed_day(self, client):
+        """Daily JS should check freezesAvailable when a day is missed."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'state.freezesAvailable > 0' in html
+        assert 'state.freezesAvailable--' in html
+
+    def test_daily_freeze_milestones_earn_freezes(self, client):
+        """Users earn freezes at 7-day and 14-day milestones."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'FREEZE_MILESTONES' in html
+        assert 'state.freezesAvailable++' in html
+
+    def test_daily_freeze_sets_flag_for_feather(self, client):
+        """Using a freeze sets httpparrot_freeze_used flag."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'httpparrot_freeze_used' in html
+
+    def test_freeze_indicator_css_exists(self, client):
+        """CSS should have streak-freeze-indicator styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.streak-freeze-indicator' in css
+        assert '.streak-freeze-message' in css
+
+
+class TestMilestoneCelebrations:
+    """Verify milestone celebration code is present."""
+
+    def test_daily_has_milestones_map(self, client):
+        """Daily JS should define MILESTONES with XP rewards."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'MILESTONES' in html
+        # Check all five milestone thresholds
+        for m in ['7', '14', '30', '50', '100']:
+            assert m in html
+
+    def test_daily_has_milestone_overlay(self, client):
+        """Daily page should have a milestone celebration overlay."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-overlay' in html
+        assert 'milestone-content' in html
+        assert 'milestone-number' in html
+        assert 'milestone-congrats' in html
+
+    def test_daily_has_milestone_share(self, client):
+        """Milestone overlay should have a share button."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-share' in html
+        assert 'day streak on HTTP Parrots' in html
+
+    def test_daily_has_milestone_xp_display(self, client):
+        """Milestone overlay should show bonus XP."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-xp' in html
+        assert 'Bonus XP' in html
+
+    def test_daily_milestone_auto_dismiss(self, client):
+        """Milestone overlay should auto-dismiss after 5 seconds."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert '5000' in html
+
+    def test_milestone_spawns_confetti(self, client):
+        """Milestone celebration should spawn confetti."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'showMilestoneCelebration' in html
+        assert 'spawnConfetti' in html
+
+    def test_milestone_css_exists(self, client):
+        """CSS should have milestone overlay styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.milestone-overlay' in css
+        assert '.milestone-content' in css
+        assert '.milestone-number' in css
+
+    def test_daily_checks_milestones_on_correct(self, client):
+        """After a correct answer, milestones should be checked."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'checkMilestoneRewards(state)' in html
+
+
+class TestProfileStreakFreezeIntegration:
+    """Verify profile page shows streak freeze and milestone data."""
+
+    def test_profile_has_freeze_count(self, client):
+        """Profile should display streak freeze count."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'stat-freeze-count' in html
+        assert 'Freezes' in html
+
+    def test_profile_has_milestones_section(self, client):
+        """Profile should have a milestones history section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-milestones-section' in html
+        assert 'profile-milestones-list' in html
+        assert 'Milestones' in html
+
+    def test_profile_reads_daily_state(self, client):
+        """Profile JS should read from httpparrot_daily localStorage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_daily' in html
+        assert 'freezesAvailable' in html
+        assert 'milestonesHit' in html
+
+    def test_profile_milestone_labels(self, client):
+        """Profile JS should have milestone display labels."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert '7-Day Streak' in html
+        assert '14-Day Streak' in html
+        assert '30-Day Streak' in html
+
+
+class TestFrozenSolidFeather:
+    """Verify the Frozen Solid feather badge."""
+
+    def test_frozen_solid_in_feathers_array(self, client):
+        """Frozen Solid feather should be defined in FEATHERS."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'frozen_solid' in html
+        assert 'Frozen Solid' in html
+
+    def test_frozen_solid_check_in_check_feathers(self, client):
+        """checkFeathers should check httpparrot_freeze_used flag."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('frozen_solid')" in html
+        assert "httpparrot_freeze_used" in html
+
+
+class TestCelebrationAnimations:
+    """Tests for achievement celebration animations (confetti, rank-up, XP flash)."""
+
+    def test_celebration_confetti_function_present(self, client):
+        """Base template should define spawnCelebrationConfetti function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function spawnCelebrationConfetti' in html
+
+    def test_celebration_confetti_spawns_particles(self, client):
+        """spawnCelebrationConfetti should create celebration-confetti elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'celebration-confetti' in html
+
+    def test_celebration_confetti_uses_brand_colors(self, client):
+        """Confetti particles should use teal/purple brand palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '#00c9a7' in html
+        assert '#7b61ff' in html
+
+    def test_celebration_confetti_auto_cleanup(self, client):
+        """Confetti should auto-remove on animationend."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # The function should listen for animationend and remove particles
+        assert 'animationend' in html
+
+    def test_show_feather_toast_triggers_confetti(self, client):
+        """showFeatherToast should call spawnCelebrationConfetti."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti(toast)' in html
+
+    def test_celebration_confetti_css_exists(self, client):
+        """Celebration confetti CSS class should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.celebration-confetti' in css
+        assert 'celebration-burst' in css
+
+    def test_rank_up_banner_function_present(self, client):
+        """Base template should define showRankUpBanner function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function showRankUpBanner' in html
+
+    def test_rank_up_banner_shows_rank_name(self, client):
+        """Rank-up banner should display the new rank name."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Rank Up! You are now a' in html
+
+    def test_rank_up_banner_has_icon(self, client):
+        """Rank-up banner should include a rank icon."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'rank-up-banner-icon' in html
+
+    def test_rank_up_banner_auto_dismiss(self, client):
+        """Rank-up banner should auto-dismiss after 4 seconds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Banner removes rank-up-visible class after 4000ms, then removes element after 600ms
+        assert "banner.classList.remove('rank-up-visible')" in html
+
+    def test_rank_up_banner_awards_bonus_xp(self, client):
+        """Rank-up should award bonus XP based on rank reached."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'RANK_BONUS_XP' in html
+        assert 'rank_up_bonus' in html
+
+    def test_rank_up_gold_particles(self, client):
+        """Rank-up should trigger gold particle shower."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function spawnGoldParticles' in html
+        assert 'rank-up-gold-particle' in html
+
+    def test_rank_up_banner_css_exists(self, client):
+        """Rank-up banner CSS should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-banner' in css
+        assert 'rank-up-visible' in css
+        assert 'gold-shower' in css
+        assert '.rank-up-gold-particle' in css
+
+    def test_rank_up_banner_gold_gradient(self, client):
+        """Rank-up banner should have gold gradient background."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '#ffd700' in css
+        assert '#ffb300' in css
+
+    def test_check_feathers_detects_rank_change(self, client):
+        """checkFeathers should detect rank changes and show banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'rankBefore' in html
+        assert 'rankAfter' in html
+        assert 'showRankUpBanner(rankAfter)' in html
+
+    def test_xp_milestone_flash_function_present(self, client):
+        """Base template should define checkXpMilestoneFlash function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function checkXpMilestoneFlash' in html
+
+    def test_xp_milestones_defined(self, client):
+        """XP milestone thresholds should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'XP_MILESTONES' in html
+        for milestone in ['100', '500', '1000', '5000', '10000']:
+            assert milestone in html
+
+    def test_xp_flash_triggers_glow(self, client):
+        """XP milestone crossing should add xp-flash class to badge."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-flash' in html
+
+    def test_xp_flash_floating_number(self, client):
+        """XP milestone should show floating number animation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-float-number' in html
+
+    def test_xp_flash_css_exists(self, client):
+        """XP flash CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-flash' in css
+        assert 'xp-glow-flash' in css
+        assert '.xp-float-number' in css
+        assert 'xp-float-up' in css
+
+    def test_award_calls_milestone_check(self, client):
+        """The award function should call checkXpMilestoneFlash."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'checkXpMilestoneFlash(oldTotal, total)' in html
+
+    def test_reduced_motion_disables_celebration_confetti(self, client):
+        """Reduced motion should disable celebration confetti."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.celebration-confetti { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_rank_up_banner(self, client):
+        """Reduced motion should disable rank-up banner animations."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-banner { transition: none !important; transform: none !important; }' in css
+
+    def test_reduced_motion_disables_gold_particles(self, client):
+        """Reduced motion should disable gold particles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-gold-particle { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_xp_flash(self, client):
+        """Reduced motion should disable XP flash animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-flash { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_xp_float_number(self, client):
+        """Reduced motion should disable floating XP number."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-float-number { animation: none !important; display: none !important; }' in css
+
+    def test_parrotxp_exposes_celebration_functions(self, client):
+        """ParrotXP global should expose celebration functions."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti: spawnCelebrationConfetti' in html
+        assert 'showRankUpBanner: showRankUpBanner' in html
+        assert 'checkXpMilestoneFlash: checkXpMilestoneFlash' in html

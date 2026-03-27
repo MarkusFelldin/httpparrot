@@ -64,7 +64,7 @@
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
-                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high">
+                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high" style="view-transition-name: parrot-{{ status_code }}">
             </div>
             {% else %}
             <div class="img detail-img-empty">

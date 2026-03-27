@@ -1034,6 +1034,12 @@ def playground():
     return render_template('playground.html', all_codes=codes)
 
 
+@app.route('/curl-import')
+def curl_import():
+    """Render the cURL Import/Parse Tool page."""
+    return render_template('curl_import.html')
+
+
 # Security-sensitive headers that mock-response users must not override
 _BLOCKED_MOCK_HEADERS = frozenset({
     'set-cookie', 'content-security-policy', 'x-frame-options',
@@ -1375,7 +1381,7 @@ def sitemap():
     for rule in ['/', '/quiz', '/daily', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/tester', '/cheatsheet',
                  '/headers', '/cors-checker', '/trace', '/collection',
-                 '/playground', '/api-docs', '/profile']:
+                 '/playground', '/curl-import', '/api-docs', '/profile']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

@@ -4,6 +4,7 @@
     <title>{% block title %}HTTP Parrots{% endblock %}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="view-transition" content="same-origin">
     {% block meta %}{% endblock %}
     <link rel="canonical" href="{{ request.url.split('?')[0] }}">
     <link rel="alternate" type="application/rss+xml" title="HTTP Parrots RSS Feed" href="/feed.xml">
@@ -45,6 +46,7 @@
                     <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
                     <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
                     <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
+                    <a href="/curl-import" {% if request.path == '/curl-import' %}class="nav-active" aria-current="page"{% endif %}>cURL Import</a>
                     <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
                     <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
                     <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
@@ -79,6 +81,7 @@
             <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
             <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
             <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
+            <a href="/curl-import" {% if request.path == '/curl-import' %}class="nav-active" aria-current="page"{% endif %}>cURL Import</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
             <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
             <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
@@ -243,7 +246,8 @@
             {id: 'egg_hunter', name: 'Egg Hunter', desc: 'Find 5 easter eggs', icon: '\uD83E\uDD5A', bonus: 75},
             {id: 'scholar', name: 'Scholar', desc: 'Complete 10 practice scenarios', icon: '\uD83C\uDF93', bonus: 50},
             {id: 'night_owl', name: 'Night Owl', desc: 'Use the site between midnight and 5 AM', icon: '\uD83E\uDD89', bonus: 25},
-            {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75}
+            {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75},
+            {id: 'frozen_solid', name: 'Frozen Solid', desc: 'Use a streak freeze for the first time', icon: '\u2744\uFE0F', bonus: 50}
         ];
 
         var CODES_4XX = ['400','401','402','403','404','405','406','407','408','409','410','411','412','413','414','415','416','417','418','421','422','423','424','425','426','428','429','431','451'];
@@ -258,6 +262,28 @@
             localStorage.setItem('httpparrot_feathers', JSON.stringify(list));
         }
 
+        function spawnCelebrationConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var count = 20 + Math.floor(Math.random() * 11); /* 20-30 particles */
+            var colors = ['#00c9a7', '#00b4d8', '#7b61ff', '#9b59b6', '#48cae4', '#2dd4a8'];
+            for (var i = 0; i < count; i++) {
+                var p = document.createElement('div');
+                p.className = 'celebration-confetti';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 60 + Math.random() * 120;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 40 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
         function showFeatherToast(feather) {
             var toast = document.createElement('div');
             toast.className = 'feather-toast';
@@ -267,16 +293,114 @@
                 + '<span class="feather-toast-text"><strong>' + feather.name + '</strong><br>'
                 + feather.desc + '<br><small>+' + feather.bonus + ' bonus XP</small></span>';
             document.body.appendChild(toast);
-            setTimeout(function() { toast.classList.add('feather-toast-visible'); }, 50);
+            setTimeout(function() {
+                toast.classList.add('feather-toast-visible');
+                spawnCelebrationConfetti(toast);
+            }, 50);
             setTimeout(function() {
                 toast.classList.remove('feather-toast-visible');
                 setTimeout(function() { toast.remove(); }, 400);
             }, 4000);
         }
 
+        var RANK_ICONS = {
+            'Fledgling': '\uD83D\uDC23',
+            'Nestling': '\uD83D\uDC25',
+            'Feathered Apprentice': '\uD83E\uDEB6',
+            'Wing Cadet': '\uD83E\uDD85',
+            'Parrot Scout': '\uD83E\uDD9C',
+            'Plume Knight': '\u2694\uFE0F',
+            'Wing Commander': '\uD83E\uDE96',
+            'Sky Captain': '\u2708\uFE0F',
+            'Grand Macaw': '\uD83D\uDC51',
+            'Legendary Lorikeet': '\uD83C\uDF1F'
+        };
+
+        var RANK_BONUS_XP = {
+            'Nestling': 10,
+            'Feathered Apprentice': 15,
+            'Wing Cadet': 20,
+            'Parrot Scout': 30,
+            'Plume Knight': 40,
+            'Wing Commander': 50,
+            'Sky Captain': 75,
+            'Grand Macaw': 100,
+            'Legendary Lorikeet': 150
+        };
+
+        function spawnGoldParticles() {
+            for (var i = 0; i < 30; i++) {
+                var p = document.createElement('div');
+                p.className = 'rank-up-gold-particle';
+                p.style.left = (Math.random() * 100) + 'vw';
+                p.style.top = '0px';
+                p.style.setProperty('--fall-dist', (80 + Math.random() * 200) + 'px');
+                p.style.animationDelay = (Math.random() * 0.5) + 's';
+                var shades = ['#ffd700', '#ffb300', '#ffe066', '#fff3b0'];
+                p.style.background = shades[Math.floor(Math.random() * shades.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        function showRankUpBanner(rankTitle) {
+            var icon = RANK_ICONS[rankTitle] || '\uD83C\uDF1F';
+            var banner = document.createElement('div');
+            banner.className = 'rank-up-banner';
+            banner.setAttribute('role', 'status');
+            banner.setAttribute('aria-live', 'assertive');
+            banner.innerHTML = '<span class="rank-up-banner-icon">' + icon + '</span>'
+                + '<span class="rank-up-banner-text">Rank Up! You are now a <strong>' + rankTitle + '</strong>!</span>';
+            document.body.appendChild(banner);
+            /* Award bonus XP for ranking up */
+            var bonusXp = RANK_BONUS_XP[rankTitle] || 0;
+            if (bonusXp > 0) {
+                var t = getTotal() + bonusXp;
+                localStorage.setItem('httpparrot_xp', String(t));
+                var act = getActivity();
+                act.push({date: new Date().toISOString().slice(0, 10), action: 'rank_up_bonus', xp: bonusXp});
+                localStorage.setItem('httpparrot_activity', JSON.stringify(act));
+            }
+            setTimeout(function() {
+                banner.classList.add('rank-up-visible');
+                spawnGoldParticles();
+            }, 50);
+            setTimeout(function() {
+                banner.classList.remove('rank-up-visible');
+                setTimeout(function() { banner.remove(); }, 600);
+            }, 4000);
+        }
+
+        var XP_MILESTONES = [100, 500, 1000, 5000, 10000];
+
+        function checkXpMilestoneFlash(oldTotal, newTotal) {
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            for (var i = 0; i < XP_MILESTONES.length; i++) {
+                if (oldTotal < XP_MILESTONES[i] && newTotal >= XP_MILESTONES[i]) {
+                    badge.classList.remove('xp-flash');
+                    /* Force reflow to restart animation */
+                    void badge.offsetWidth;
+                    badge.classList.add('xp-flash');
+                    /* Floating number */
+                    var floater = document.createElement('span');
+                    floater.className = 'xp-float-number';
+                    floater.textContent = '+' + (newTotal - oldTotal);
+                    badge.style.position = 'relative';
+                    badge.appendChild(floater);
+                    floater.addEventListener('animationend', function() { this.remove(); });
+                    badge.addEventListener('animationend', function() {
+                        badge.classList.remove('xp-flash');
+                    }, {once: true});
+                    break;
+                }
+            }
+        }
+
         function checkFeathers() {
             var earned = getFeathers();
             var total = getTotal();
+            var rankBefore = getRankInfo(total).rank;
             var activity = getActivity();
             var newlyEarned = [];
 
@@ -348,6 +472,9 @@
             /* Speed Demon — check via stored flag */
             if (!has('speed_demon') && localStorage.getItem('httpparrot_speed_demon') === 'true') newlyEarned.push('speed_demon');
 
+            /* Frozen Solid — check via stored flag set when a streak freeze is used */
+            if (!has('frozen_solid') && localStorage.getItem('httpparrot_freeze_used') === 'true') newlyEarned.push('frozen_solid');
+
             /* Award bonus XP and show toasts for new feathers */
             if (newlyEarned.length > 0) {
                 for (var fi = 0; fi < newlyEarned.length; fi++) {
@@ -369,11 +496,18 @@
                 saveFeathers(earned);
                 updateBadge();
             }
+            /* Detect rank change and show rank-up banner */
+            var rankAfter = getRankInfo(getTotal()).rank;
+            if (rankAfter !== rankBefore) {
+                showRankUpBanner(rankAfter);
+                updateBadge();
+            }
         }
 
         function awardWithFeathers(amount, action) {
             if (!amount || amount <= 0) return;
-            var total = getTotal() + amount;
+            var oldTotal = getTotal();
+            var total = oldTotal + amount;
             localStorage.setItem('httpparrot_xp', String(total));
             var activity = getActivity();
             var today = new Date().toISOString().slice(0, 10);
@@ -384,6 +518,7 @@
             activity = activity.filter(function(e) { return e.date >= cutoffStr; });
             localStorage.setItem('httpparrot_activity', JSON.stringify(activity));
             updateBadge();
+            checkXpMilestoneFlash(oldTotal, total);
             checkFeathers();
         }
 
@@ -396,6 +531,10 @@
             getActivity: getActivity,
             getFeathers: getFeathers,
             checkFeathers: checkFeathers,
+            spawnCelebrationConfetti: spawnCelebrationConfetti,
+            showRankUpBanner: showRankUpBanner,
+            checkXpMilestoneFlash: checkXpMilestoneFlash,
+            XP_MILESTONES: XP_MILESTONES,
             RANKS: RANKS,
             FEATHERS: FEATHERS
         };
