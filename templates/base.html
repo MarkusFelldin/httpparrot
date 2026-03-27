@@ -366,6 +366,7 @@
             {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75},
             {id: 'frozen_solid', name: 'Frozen Solid', desc: 'Use a streak freeze for the first time', icon: '\u2744\uFE0F', bonus: 50},
             {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75},
+            {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
             /* --- Meta-Feathers (achievements for earning other feathers) --- */
             {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
             {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
@@ -608,6 +609,9 @@
                 try { reviewData = JSON.parse(localStorage.getItem('httpparrot_review')); } catch(e) {}
                 if (reviewData && reviewData.total_reviews >= 50) newlyEarned.push('memory_master');
             }
+
+            /* Parrot Petter — first time clicking any parrot on a detail page */
+            if (!has('parrot_petter') && localStorage.getItem('httpparrot_parrot_petted') === 'true') newlyEarned.push('parrot_petter');
 
             /* --- Meta-Feather checks --- */
             var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];

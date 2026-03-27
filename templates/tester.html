@@ -100,7 +100,28 @@
                     card.appendChild(header);
 
                     if (data.time_ms !== undefined) {
-                        header.appendChild(el('div', 'tester-result-time', data.time_ms + 'ms'));
+                        var timeWrap = el('div', 'tester-timing-bar-wrap');
+                        var timeLabel = el('span', 'tester-timing-label', data.time_ms + 'ms');
+                        var barOuter = el('div', 'tester-timing-bar-outer');
+                        var barInner = el('div', 'tester-timing-bar-inner');
+                        // Color by speed: green < 200ms, yellow < 500ms, orange < 1000ms, red >= 1000ms
+                        var ms = data.time_ms;
+                        var barColor, barCategory;
+                        if (ms < 200) { barColor = '#2dd4a8'; barCategory = 'Fast'; }
+                        else if (ms < 500) { barColor = '#f9c74f'; barCategory = 'Moderate'; }
+                        else if (ms < 1000) { barColor = '#f4845f'; barCategory = 'Slow'; }
+                        else { barColor = '#ff6b6b'; barCategory = 'Very slow'; }
+                        // Bar width: scale to max 2000ms (100%), min 8%
+                        var pct = Math.min(100, Math.max(8, (ms / 2000) * 100));
+                        barInner.style.width = pct + '%';
+                        barInner.style.background = barColor;
+                        barOuter.appendChild(barInner);
+                        var catLabel = el('span', 'tester-timing-category', barCategory);
+                        catLabel.style.color = barColor;
+                        timeWrap.appendChild(timeLabel);
+                        timeWrap.appendChild(barOuter);
+                        timeWrap.appendChild(catLabel);
+                        card.appendChild(timeWrap);
                     }
 
                     if (data.headers && Object.keys(data.headers).length > 0) {

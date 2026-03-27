@@ -959,8 +959,14 @@ def header_explainer():
 
 @app.route('/profile')
 def profile():
-    """Render the XP profile page — all state stored client-side in localStorage."""
-    return render_template('profile.html')
+    """Render the XP profile page — all state stored client-side in localStorage.
+
+    Accepts an optional ``flock`` query parameter containing a base64-encoded
+    profile snapshot.  When present the template renders a read-only visitor
+    profile card alongside the user's own data.
+    """
+    flock = request.args.get('flock', '')
+    return render_template('profile.html', flock=flock)
 
 
 @app.route('/review')

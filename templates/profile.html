@@ -78,6 +78,60 @@
             </div>
         </section>
 
+        <!-- Flock comparison card (shown when ?flock= is present) -->
+        <section class="flock-comparison-section" id="flock-comparison-section" aria-label="Flock profile comparison" style="display:none">
+            <h2>Flock Comparison</h2>
+            <div class="flock-comparison-grid">
+                <div class="flock-card flock-card--visitor" id="flock-visitor-card">
+                    <div class="flock-card-badge">Visitor</div>
+                    <span class="flock-card-icon" aria-hidden="true">&#x1F99C;</span>
+                    <div class="flock-card-rank" id="flock-visitor-rank">--</div>
+                    <div class="flock-card-xp" id="flock-visitor-xp">0 XP</div>
+                    <div class="flock-card-stat"><span class="flock-card-stat-label">Streak</span><span class="flock-card-stat-value" id="flock-visitor-streak">0</span></div>
+                    <div class="flock-card-stat"><span class="flock-card-stat-label">Collection</span><span class="flock-card-stat-value" id="flock-visitor-collection">0/72</span></div>
+                    <div class="flock-card-feathers" id="flock-visitor-feathers"></div>
+                </div>
+                <div class="flock-card flock-card--you" id="flock-you-card">
+                    <div class="flock-card-badge">You</div>
+                    <span class="flock-card-icon" aria-hidden="true">&#x1F99C;</span>
+                    <div class="flock-card-rank" id="flock-you-rank">--</div>
+                    <div class="flock-card-xp" id="flock-you-xp">0 XP</div>
+                    <div class="flock-card-stat"><span class="flock-card-stat-label">Streak</span><span class="flock-card-stat-value" id="flock-you-streak">0</span></div>
+                    <div class="flock-card-stat"><span class="flock-card-stat-label">Collection</span><span class="flock-card-stat-value" id="flock-you-collection">0/72</span></div>
+                    <div class="flock-card-feathers" id="flock-you-feathers"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profile Card (screenshot-shareable) -->
+        <section class="profile-card-section" id="profile-card-section" aria-label="Shareable profile card">
+            <h2>Your Profile Card</h2>
+            <div class="profile-share-card" id="profile-share-card">
+                <div class="profile-share-card-inner">
+                    <span class="profile-share-card-icon" id="profile-card-icon" aria-hidden="true">&#x1F99C;</span>
+                    <div class="profile-share-card-rank" id="profile-card-rank">Fledgling</div>
+                    <div class="profile-share-card-xp" id="profile-card-xp">0 XP</div>
+                    <div class="profile-share-card-stats">
+                        <span class="profile-share-card-stat" id="profile-card-streak">Streak: 0</span>
+                        <span class="profile-share-card-stat" id="profile-card-collection">Collection: 0/72</span>
+                    </div>
+                    <div class="profile-share-card-feathers" id="profile-card-feathers"></div>
+                    <div class="profile-share-card-brand">httpparrots.com</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Share Profile -->
+        <section class="profile-share-section" id="profile-share-section" aria-label="Share your profile">
+            <h2>Share Profile</h2>
+            <div class="profile-share-buttons">
+                <button class="btn-back profile-share-btn" id="copy-flock-code" type="button">Copy Flock Code</button>
+                <button class="btn-back profile-share-btn" id="copy-flock-link" type="button">Copy Link</button>
+                <a class="btn-back profile-share-btn" id="share-flock-x" href="#" target="_blank" rel="noopener">Share on X</a>
+            </div>
+            <div class="profile-share-toast" id="profile-share-toast" role="status" aria-live="polite" style="display:none"></div>
+        </section>
+
         <section class="profile-feathers-section" aria-label="Achievement badges">
             <h2>Feathers</h2>
             <div class="profile-feathers-grid" id="profile-feathers-grid"></div>
@@ -119,6 +173,215 @@
 <script nonce="{{ csp_nonce }}">
 (function() {
     if (typeof ParrotXP === 'undefined') return;
+
+    var FLOCK_PARAM = {{ flock|tojson }};
+
+    /* --- Flock code helpers --- */
+    function buildFlockData() {
+        var total = ParrotXP.getTotal();
+        var info = ParrotXP.getRankInfo(total);
+        var earned = ParrotXP.getFeathers();
+        var parrotdex = [];
+        try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+        var activity = ParrotXP.getActivity();
+        var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })
+            .map(function(e) { return e.date; })
+            .filter(function(v, i, a) { return a.indexOf(v) === i; })
+            .sort();
+        var streak = 0;
+        if (dailyDays.length > 0) {
+            streak = 1;
+            for (var i = dailyDays.length - 1; i > 0; i--) {
+                var d1 = new Date(dailyDays[i]);
+                var d2 = new Date(dailyDays[i - 1]);
+                if ((d1 - d2) / 86400000 === 1) streak++; else break;
+            }
+        }
+        /* Top 3 earned feathers (most recently earned) */
+        var top3 = earned.slice(-3);
+        return {
+            r: info.rank,
+            x: total,
+            s: streak,
+            f: top3,
+            c: parrotdex.length
+        };
+    }
+
+    function encodeFlockData(data) {
+        var json = JSON.stringify(data);
+        return btoa(unescape(encodeURIComponent(json)));
+    }
+
+    function decodeFlockData(b64) {
+        try {
+            var json = decodeURIComponent(escape(atob(b64)));
+            return JSON.parse(json);
+        } catch(e) { return null; }
+    }
+
+    function getFlockUrl() {
+        var data = buildFlockData();
+        return 'httpparrots.com/profile?flock=' + encodeFlockData(data);
+    }
+
+    function showShareToast(msg) {
+        var toast = document.getElementById('profile-share-toast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(function() { toast.style.display = 'none'; }, 2500);
+    }
+
+    /* --- Share button wiring --- */
+    var copyCodeBtn = document.getElementById('copy-flock-code');
+    if (copyCodeBtn) {
+        copyCodeBtn.addEventListener('click', function() {
+            var code = encodeFlockData(buildFlockData());
+            navigator.clipboard.writeText(code).then(function() {
+                copyCodeBtn.textContent = 'Copied!';
+                setTimeout(function() { copyCodeBtn.textContent = 'Copy Flock Code'; }, 2000);
+            }, function() { showShareToast('Copy failed'); });
+        });
+    }
+
+    var copyLinkBtn = document.getElementById('copy-flock-link');
+    if (copyLinkBtn) {
+        copyLinkBtn.addEventListener('click', function() {
+            var url = getFlockUrl();
+            navigator.clipboard.writeText(url).then(function() {
+                copyLinkBtn.textContent = 'Copied!';
+                setTimeout(function() { copyLinkBtn.textContent = 'Copy Link'; }, 2000);
+            }, function() { showShareToast('Copy failed'); });
+        });
+    }
+
+    var shareXBtn = document.getElementById('share-flock-x');
+    if (shareXBtn) {
+        var shareText = 'Check out my HTTP Parrots profile!\n' + getFlockUrl();
+        shareXBtn.href = 'https://x.com/intent/tweet?text=' + encodeURIComponent(shareText);
+    }
+
+    /* --- Populate profile card (screenshot-shareable) --- */
+    function populateProfileCard() {
+        var total = ParrotXP.getTotal();
+        var info = ParrotXP.getRankInfo(total);
+        var earned = ParrotXP.getFeathers();
+        var parrotdex = [];
+        try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+        var activity = ParrotXP.getActivity();
+        var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })
+            .map(function(e) { return e.date; })
+            .filter(function(v, i, a) { return a.indexOf(v) === i; }).sort();
+        var streak = 0;
+        if (dailyDays.length > 0) {
+            streak = 1;
+            for (var i = dailyDays.length - 1; i > 0; i--) {
+                var d1 = new Date(dailyDays[i]);
+                var d2 = new Date(dailyDays[i - 1]);
+                if ((d1 - d2) / 86400000 === 1) streak++; else break;
+            }
+        }
+        var RANK_ICONS = {
+            'Fledgling': '\uD83D\uDC23', 'Nestling': '\uD83D\uDC25',
+            'Feathered Apprentice': '\uD83E\uDEB6', 'Wing Cadet': '\uD83E\uDD85',
+            'Parrot Scout': '\uD83E\uDD9C', 'Plume Knight': '\u2694\uFE0F',
+            'Wing Commander': '\uD83E\uDE96', 'Sky Captain': '\u2708\uFE0F',
+            'Grand Macaw': '\uD83D\uDC51', 'Legendary Lorikeet': '\uD83C\uDF1F'
+        };
+        var iconEl = document.getElementById('profile-card-icon');
+        if (iconEl) iconEl.textContent = RANK_ICONS[info.rank] || '\uD83E\uDD9C';
+        var rankEl = document.getElementById('profile-card-rank');
+        if (rankEl) rankEl.textContent = info.rank;
+        var xpEl = document.getElementById('profile-card-xp');
+        if (xpEl) xpEl.textContent = total + ' XP';
+        var streakEl = document.getElementById('profile-card-streak');
+        if (streakEl) streakEl.textContent = 'Streak: ' + streak;
+        var collEl = document.getElementById('profile-card-collection');
+        if (collEl) collEl.textContent = 'Collection: ' + parrotdex.length + '/72';
+        var feathersEl = document.getElementById('profile-card-feathers');
+        if (feathersEl) {
+            var top3 = earned.slice(-3);
+            top3.forEach(function(fid) {
+                for (var j = 0; j < ParrotXP.FEATHERS.length; j++) {
+                    if (ParrotXP.FEATHERS[j].id === fid) {
+                        var s = document.createElement('span');
+                        s.className = 'profile-share-card-feather-icon';
+                        s.textContent = ParrotXP.FEATHERS[j].icon;
+                        s.title = ParrotXP.FEATHERS[j].name;
+                        feathersEl.appendChild(s);
+                        break;
+                    }
+                }
+            });
+        }
+    }
+    populateProfileCard();
+
+    /* --- Flock comparison --- */
+    function populateFlockComparison(visitorData) {
+        var section = document.getElementById('flock-comparison-section');
+        if (!section) return;
+        section.style.display = '';
+
+        /* Visitor side */
+        var vRank = document.getElementById('flock-visitor-rank');
+        if (vRank) vRank.textContent = visitorData.r || '--';
+        var vXp = document.getElementById('flock-visitor-xp');
+        if (vXp) vXp.textContent = (visitorData.x || 0) + ' XP';
+        var vStreak = document.getElementById('flock-visitor-streak');
+        if (vStreak) vStreak.textContent = visitorData.s || 0;
+        var vColl = document.getElementById('flock-visitor-collection');
+        if (vColl) vColl.textContent = (visitorData.c || 0) + '/72';
+        var vFeathers = document.getElementById('flock-visitor-feathers');
+        if (vFeathers && visitorData.f) {
+            visitorData.f.forEach(function(fid) {
+                for (var j = 0; j < ParrotXP.FEATHERS.length; j++) {
+                    if (ParrotXP.FEATHERS[j].id === fid) {
+                        var s = document.createElement('span');
+                        s.className = 'flock-card-feather-icon';
+                        s.textContent = ParrotXP.FEATHERS[j].icon;
+                        s.title = ParrotXP.FEATHERS[j].name;
+                        vFeathers.appendChild(s);
+                        break;
+                    }
+                }
+            });
+        }
+
+        /* Your side */
+        var myData = buildFlockData();
+        var yRank = document.getElementById('flock-you-rank');
+        if (yRank) yRank.textContent = myData.r;
+        var yXp = document.getElementById('flock-you-xp');
+        if (yXp) yXp.textContent = myData.x + ' XP';
+        var yStreak = document.getElementById('flock-you-streak');
+        if (yStreak) yStreak.textContent = myData.s;
+        var yColl = document.getElementById('flock-you-collection');
+        if (yColl) yColl.textContent = myData.c + '/72';
+        var yFeathers = document.getElementById('flock-you-feathers');
+        if (yFeathers && myData.f) {
+            myData.f.forEach(function(fid) {
+                for (var j = 0; j < ParrotXP.FEATHERS.length; j++) {
+                    if (ParrotXP.FEATHERS[j].id === fid) {
+                        var s = document.createElement('span');
+                        s.className = 'flock-card-feather-icon';
+                        s.textContent = ParrotXP.FEATHERS[j].icon;
+                        s.title = ParrotXP.FEATHERS[j].name;
+                        yFeathers.appendChild(s);
+                        break;
+                    }
+                }
+            });
+        }
+    }
+
+    if (FLOCK_PARAM) {
+        var visitorData = decodeFlockData(FLOCK_PARAM);
+        if (visitorData) {
+            populateFlockComparison(visitorData);
+        }
+    }
 
     var total = ParrotXP.getTotal();
     var info = ParrotXP.getRankInfo(total);

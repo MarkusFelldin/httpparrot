@@ -61,7 +61,7 @@
             <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
             <span aria-current="page">{{ status_code }}</span>
         </nav>
-        <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
+        <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx parrot-clickable parrot-click-hint" id="detail-parrot" role="button" tabindex="0" aria-label="Click the parrot for a fun reaction">
             {% if image %}
             <div class="img">
                 <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high" style="view-transition-name: parrot-{{ status_code }}">
@@ -71,6 +71,7 @@
                 <p>No parrot found for this status code</p>
             </div>
             {% endif %}
+            <div class="parrot-speech-bubble" id="parrot-speech-bubble" aria-live="polite"></div>
             <div class="img-text">
                 <div class="img-status-code category-{{ status_code[0] }}xx">{{ status_code }}</div>
                 <div class="img-status-code-text">{{ description }}</div>
@@ -492,4 +493,90 @@
     })();
     </script>
     {% endif %}
+    <script nonce="{{ csp_nonce }}">
+    /* Interactive parrot click — animation, speech bubble, sound, feather */
+    (function() {
+        var parrotEl = document.getElementById('detail-parrot');
+        var bubble = document.getElementById('parrot-speech-bubble');
+        if (!parrotEl || !bubble) return;
+        var category = '{{ status_code[0] }}';
+        var animClass = 'parrot-anim-' + category + 'xx';
+        var eli5Text = {{ (eli5 or '')|tojson }};
+        var description = {{ info.get('description', '')|tojson }};
+        var funFacts = [
+            'HTTP was invented by Tim Berners-Lee in 1989!',
+            'The first web server was a NeXT computer at CERN.',
+            'HTTP/2 was standardized in 2015.',
+            'Status code 418 (I\'m a teapot) is a real standard from RFC 2324.',
+            'The average web page makes over 70 HTTP requests.',
+            'HTTP/3 uses QUIC instead of TCP.',
+            'The 100 Continue status lets clients check before sending large payloads.',
+            'A 204 No Content means success, but nothing to show.',
+            'Cloudflare introduced 499 for client-closed requests.',
+            'The 451 code is named after Fahrenheit 451 by Ray Bradbury.'
+        ];
+        var texts = [];
+        if (eli5Text) texts.push(eli5Text);
+        if (description) texts.push(description);
+        texts = texts.concat(funFacts);
+        var animating = false;
+
+        /* Remove click hint if user already petted before */
+        if (localStorage.getItem('httpparrot_parrot_petted') === 'true') {
+            parrotEl.classList.add('parrot-click-hint-hidden');
+        }
+
+        function handleClick() {
+            if (animating) return;
+            animating = true;
+
+            /* Remove click-me hint on first interaction */
+            parrotEl.classList.remove('parrot-click-hint');
+            parrotEl.classList.add('parrot-click-hint-hidden');
+
+            /* Play sound if enabled */
+            if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) {
+                ParrotSound.squawk();
+            }
+
+            /* Track first interaction for Parrot Petter feather */
+            if (localStorage.getItem('httpparrot_parrot_petted') !== 'true') {
+                localStorage.setItem('httpparrot_parrot_petted', 'true');
+                if (typeof ParrotXP !== 'undefined') {
+                    ParrotXP.award(5, 'parrot_pet');
+                    ParrotXP.checkFeathers();
+                }
+            }
+
+            /* Add animation class */
+            parrotEl.classList.remove(animClass);
+            void parrotEl.offsetWidth;
+            parrotEl.classList.add(animClass);
+
+            /* Show speech bubble with random text */
+            var text = texts[Math.floor(Math.random() * texts.length)];
+            bubble.textContent = text;
+            bubble.classList.add('visible');
+
+            /* Clean up after animation */
+            setTimeout(function() {
+                parrotEl.classList.remove(animClass);
+                animating = false;
+            }, 1000);
+
+            /* Hide bubble after a delay */
+            setTimeout(function() {
+                bubble.classList.remove('visible');
+            }, 4000);
+        }
+
+        parrotEl.addEventListener('click', handleClick);
+        parrotEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleClick();
+            }
+        });
+    })();
+    </script>
 {% endblock %}
