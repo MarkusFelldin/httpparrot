@@ -21,11 +21,11 @@
 .review-header h1 {
     font-size: 2rem;
     font-weight: 800;
-    color: #f0f0f0;
+    color: var(--text-primary);
     margin: 0 0 0.5rem;
 }
 .review-header p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1.05rem;
     margin: 0;
 }
@@ -35,9 +35,9 @@
     gap: 2rem;
     margin-bottom: 2rem;
     padding: 1rem;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-interactive);
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-interactive);
 }
 .review-stat-item {
     text-align: center;
@@ -45,7 +45,7 @@
 .review-stat-value {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
 }
 .review-stat-value.stat-due { color: #7b61ff; }
@@ -58,8 +58,8 @@
     letter-spacing: 0.05em;
 }
 .review-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface-interactive);
+    border: 1px solid var(--border-interactive);
     border-radius: 12px;
     padding: 2rem;
     margin-bottom: 1.5rem;
@@ -123,7 +123,7 @@
 }
 .review-option-btn:hover:not(:disabled) {
     background: rgba(255,255,255,0.08);
-    color: #f0f0f0;
+    color: var(--text-primary);
     border-color: rgba(255,255,255,0.2);
 }
 .review-option-btn:disabled {
@@ -160,7 +160,7 @@
     color: #b0b0c0;
 }
 .review-explanation p strong {
-    color: #f0f0f0;
+    color: var(--text-primary);
 }
 .review-next-btn {
     display: none;
@@ -193,7 +193,7 @@
     margin: 0 0 0.5rem;
 }
 .review-complete p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1rem;
 }
 .review-empty {
@@ -201,12 +201,12 @@
     padding: 3rem 1rem;
 }
 .review-empty h2 {
-    color: #f0f0f0;
+    color: var(--text-primary);
     font-size: 1.5rem;
     margin: 0 0 0.5rem;
 }
 .review-empty p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1rem;
 }
 .review-start-btn {
@@ -226,6 +226,76 @@
 .review-start-btn:hover {
     background: rgba(123, 97, 255, 0.25);
     border-color: rgba(123, 97, 255, 0.5);
+}
+/* Leitner box distribution bar */
+.leitner-dist-bar {
+    background: var(--surface-interactive);
+    border: 1px solid var(--border-interactive);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+}
+.leitner-dist-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.leitner-mastered-count {
+    font-family: 'JetBrains Mono', monospace;
+    color: #2dd4a8;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+.leitner-dist-boxes {
+    display: flex;
+    gap: 0.4rem;
+    align-items: flex-end;
+    height: 60px;
+}
+.leitner-dist-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+}
+.leitner-dist-fill {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: height 0.3s ease;
+}
+.leitner-dist-box-1 .leitner-dist-fill { background: #ff6b6b; }
+.leitner-dist-box-2 .leitner-dist-fill { background: #f9c74f; }
+.leitner-dist-box-3 .leitner-dist-fill { background: #48cae4; }
+.leitner-dist-box-4 .leitner-dist-fill { background: #a78bfa; }
+.leitner-dist-box-5 .leitner-dist-fill { background: #2dd4a8; }
+.leitner-dist-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #888;
+    margin-top: 0.25rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+.leitner-dist-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.15rem;
+}
+.review-caught-up {
+    text-align: center;
+    color: #888;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
 }
 @media (max-width: 600px) {
     .review-options {
@@ -268,7 +338,46 @@
             </div>
         </div>
 
+        <div class="leitner-dist-bar" id="leitner-dist" role="region" aria-label="Leitner box distribution">
+            <div class="leitner-dist-title">
+                <span>Box Distribution</span>
+                <span class="leitner-mastered-count" id="leitner-mastered" aria-live="polite">Mastered: 0</span>
+            </div>
+            <div class="leitner-dist-boxes" id="leitner-boxes">
+                <div class="leitner-dist-box leitner-dist-box-1">
+                    <span class="leitner-dist-count" id="leitner-count-1">0</span>
+                    <div class="leitner-dist-fill" id="leitner-fill-1" style="height:4px;"></div>
+                    <span class="leitner-dist-label">Box 1</span>
+                </div>
+                <div class="leitner-dist-box leitner-dist-box-2">
+                    <span class="leitner-dist-count" id="leitner-count-2">0</span>
+                    <div class="leitner-dist-fill" id="leitner-fill-2" style="height:4px;"></div>
+                    <span class="leitner-dist-label">Box 2</span>
+                </div>
+                <div class="leitner-dist-box leitner-dist-box-3">
+                    <span class="leitner-dist-count" id="leitner-count-3">0</span>
+                    <div class="leitner-dist-fill" id="leitner-fill-3" style="height:4px;"></div>
+                    <span class="leitner-dist-label">Box 3</span>
+                </div>
+                <div class="leitner-dist-box leitner-dist-box-4">
+                    <span class="leitner-dist-count" id="leitner-count-4">0</span>
+                    <div class="leitner-dist-fill" id="leitner-fill-4" style="height:4px;"></div>
+                    <span class="leitner-dist-label">Box 4</span>
+                </div>
+                <div class="leitner-dist-box leitner-dist-box-5">
+                    <span class="leitner-dist-count" id="leitner-count-5">0</span>
+                    <div class="leitner-dist-fill" id="leitner-fill-5" style="height:4px;"></div>
+                    <span class="leitner-dist-label">Box 5</span>
+                </div>
+            </div>
+            <div class="review-caught-up" id="review-caught-up" style="display:none;" aria-live="polite">
+                All caught up! Come back tomorrow.
+            </div>
+        </div>
+
         <div id="review-area"></div>
+
+        <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
     </main>
 {% endblock %}
 
@@ -425,6 +534,36 @@
         return null;
     }
 
+    /* --- Leitner Distribution Visualization --- */
+    function updateLeitnerDist(data) {
+        var counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+        for (var key in data.items) {
+            var lvl = data.items[key].box_level;
+            if (lvl >= 1 && lvl <= 5) counts[lvl]++;
+        }
+        var total = 0;
+        for (var b = 1; b <= 5; b++) total += counts[b];
+        var maxCount = Math.max(counts[1], counts[2], counts[3], counts[4], counts[5], 1);
+        for (var b = 1; b <= 5; b++) {
+            var countEl = document.getElementById('leitner-count-' + b);
+            var fillEl = document.getElementById('leitner-fill-' + b);
+            if (countEl) countEl.textContent = counts[b];
+            if (fillEl) {
+                var pct = (counts[b] / maxCount) * 100;
+                fillEl.style.height = Math.max(4, pct * 0.56) + 'px';
+            }
+        }
+        var masteredEl = document.getElementById('leitner-mastered');
+        if (masteredEl) masteredEl.textContent = 'Mastered: ' + counts[5];
+
+        /* Show caught-up message when due queue is empty */
+        var caughtUp = document.getElementById('review-caught-up');
+        if (caughtUp) {
+            var dueNow = getDueItems(data);
+            caughtUp.style.display = dueNow.length === 0 ? 'block' : 'none';
+        }
+    }
+
     /* --- UI --- */
     var reviewData = loadReviewData();
     reviewData = initItems(reviewData);
@@ -446,6 +585,7 @@
         document.getElementById('review-correct').textContent = sessionCorrect;
         document.getElementById('review-wrong').textContent = sessionWrong;
         document.getElementById('review-remaining').textContent = Math.max(0, dueQueue.length - currentIndex);
+        updateLeitnerDist(reviewData);
     }
 
     function clearElement(el) {
@@ -634,6 +774,22 @@
     } else {
         showItem(0);
     }
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+(function() {
+    var btn = document.getElementById('back-to-top');
+    if (!btn) return;
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 400) {
+            btn.classList.add('visible');
+        } else {
+            btn.classList.remove('visible');
+        }
+    }, {passive: true});
+    btn.addEventListener('click', function() {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    });
 })();
 </script>
 {% endblock %}

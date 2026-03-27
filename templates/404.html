@@ -87,4 +87,217 @@
         parrot.addEventListener('keydown', handleCatchKey);
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* 404 Memory Card Game — triggers after 3 failed URL attempts */
+    (function() {
+        var MEMORY_PAIRS = [
+            {code: '200', name: 'OK'},
+            {code: '301', name: 'Moved Permanently'},
+            {code: '404', name: 'Not Found'},
+            {code: '500', name: 'Internal Server Error'},
+            {code: '401', name: 'Unauthorized'},
+            {code: '503', name: 'Service Unavailable'},
+            {code: '418', name: "I'm a Teapot"},
+            {code: '429', name: 'Too Many Requests'}
+        ];
+
+        var HIDDEN_FACTS = [
+            'HTTP status code 418 was defined in RFC 2324 as an April Fools joke!',
+            'The 404 code was named after room 404 at CERN where the original web servers lived.',
+            'Status code 451 is named after Fahrenheit 451, Ray Bradbury\'s dystopian novel.',
+            'HTTP 200 OK is the most common response on the internet by far.'
+        ];
+
+        /* Track failed URL attempts in sessionStorage */
+        var countKey = 'httpparrot_404_count';
+        var count = parseInt(sessionStorage.getItem(countKey) || '0', 10) + 1;
+        sessionStorage.setItem(countKey, String(count));
+
+        if (count < 3) return;
+
+        /* Show the memory game prompt */
+        var container = document.getElementById('main-content');
+        if (!container) return;
+
+        var prompt = document.createElement('div');
+        prompt.className = 'memory-game-prompt';
+
+        var promptText = document.createElement('p');
+        promptText.textContent = "You seem lost! Want to play a memory game while you're here?";
+        prompt.appendChild(promptText);
+
+        var startBtn = document.createElement('button');
+        startBtn.className = 'memory-game-start-btn';
+        startBtn.setAttribute('type', 'button');
+        startBtn.textContent = 'Play Memory Game';
+        prompt.appendChild(startBtn);
+
+        container.appendChild(prompt);
+
+        startBtn.addEventListener('click', function() {
+            startMemoryGame(container);
+        });
+
+        function startMemoryGame(parent) {
+            /* Replace the 404 content with the game */
+            while (parent.firstChild) parent.removeChild(parent.firstChild);
+            parent.className = 'container memory-game-container';
+
+            var header = document.createElement('h1');
+            header.className = 'memory-game-title';
+            header.textContent = 'HTTP Status Code Memory Game';
+            parent.appendChild(header);
+
+            var subtitle = document.createElement('p');
+            subtitle.className = 'memory-game-subtitle';
+            subtitle.textContent = 'Match each status code to its name!';
+            parent.appendChild(subtitle);
+
+            var grid = document.createElement('div');
+            grid.className = 'memory-game-grid';
+            grid.setAttribute('role', 'grid');
+            grid.setAttribute('aria-label', 'Memory card game grid');
+            parent.appendChild(grid);
+
+            /* Build card data: codes + names, shuffled */
+            var cards = [];
+            for (var i = 0; i < MEMORY_PAIRS.length; i++) {
+                cards.push({type: 'code', value: MEMORY_PAIRS[i].code, pairId: i});
+                cards.push({type: 'name', value: MEMORY_PAIRS[i].name, pairId: i});
+            }
+            /* Fisher-Yates shuffle */
+            for (var s = cards.length - 1; s > 0; s--) {
+                var r = Math.floor(Math.random() * (s + 1));
+                var tmp = cards[s]; cards[s] = cards[r]; cards[r] = tmp;
+            }
+
+            var flipped = [];
+            var matched = 0;
+            var locked = false;
+
+            for (var c = 0; c < cards.length; c++) {
+                var card = document.createElement('button');
+                card.className = 'memory-card';
+                card.setAttribute('type', 'button');
+                card.setAttribute('aria-label', 'Memory card ' + (c + 1));
+                card.setAttribute('data-pair-id', String(cards[c].pairId));
+                card.setAttribute('data-card-type', cards[c].type);
+                card.setAttribute('data-card-value', cards[c].value);
+
+                var inner = document.createElement('div');
+                inner.className = 'memory-card-inner';
+
+                var front = document.createElement('div');
+                front.className = 'memory-card-front';
+                front.textContent = '?';
+
+                var back = document.createElement('div');
+                back.className = 'memory-card-back';
+                if (cards[c].type === 'code') {
+                    back.classList.add('memory-card-code');
+                } else {
+                    back.classList.add('memory-card-name');
+                }
+                back.textContent = cards[c].value;
+
+                inner.appendChild(front);
+                inner.appendChild(back);
+                card.appendChild(inner);
+                grid.appendChild(card);
+
+                card.addEventListener('click', (function(cardEl) {
+                    return function() {
+                        if (locked) return;
+                        if (cardEl.classList.contains('memory-card-flipped')) return;
+                        if (cardEl.classList.contains('memory-card-matched')) return;
+
+                        cardEl.classList.add('memory-card-flipped');
+                        flipped.push(cardEl);
+
+                        if (flipped.length === 2) {
+                            locked = true;
+                            var a = flipped[0];
+                            var b = flipped[1];
+                            var aPair = a.getAttribute('data-pair-id');
+                            var bPair = b.getAttribute('data-pair-id');
+                            var aType = a.getAttribute('data-card-type');
+                            var bType = b.getAttribute('data-card-type');
+
+                            if (aPair === bPair && aType !== bType) {
+                                /* Match! */
+                                a.classList.add('memory-card-matched');
+                                b.classList.add('memory-card-matched');
+                                matched++;
+                                flipped = [];
+                                locked = false;
+                                if (matched === MEMORY_PAIRS.length) {
+                                    onGameComplete(parent);
+                                }
+                            } else {
+                                /* No match — flip back */
+                                setTimeout(function() {
+                                    a.classList.remove('memory-card-flipped');
+                                    b.classList.remove('memory-card-flipped');
+                                    flipped = [];
+                                    locked = false;
+                                }, 900);
+                            }
+                        }
+                    };
+                })(card));
+            }
+        }
+
+        function onGameComplete(parent) {
+            var result = document.createElement('div');
+            result.className = 'memory-game-complete';
+            result.setAttribute('role', 'status');
+            result.setAttribute('aria-live', 'polite');
+
+            var fact = HIDDEN_FACTS[Math.floor(Math.random() * HIDDEN_FACTS.length)];
+
+            var congrats = document.createElement('h2');
+            congrats.className = 'memory-game-congrats';
+            congrats.textContent = 'Congratulations!';
+            result.appendChild(congrats);
+
+            var factP = document.createElement('p');
+            factP.className = 'memory-game-fact';
+            factP.textContent = 'Hidden fact: ' + fact;
+            result.appendChild(factP);
+
+            var award = document.createElement('p');
+            award.className = 'memory-game-feather-award';
+            award.textContent = 'You earned the "Photographic Memory" feather!';
+            result.appendChild(award);
+
+            var homeLink = document.createElement('a');
+            homeLink.href = '/';
+            homeLink.className = 'btn-back memory-game-home-btn';
+            homeLink.textContent = '\u2190 Back to all parrots';
+            result.appendChild(homeLink);
+
+            parent.appendChild(result);
+
+            /* Mark completion and award feather */
+            localStorage.setItem('httpparrot_memory_game_complete', 'true');
+
+            /* Track in eggs_found for Parrotdex */
+            var eggs = [];
+            try { eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]'); } catch(e) {}
+            if (eggs.indexOf('memory_game') === -1) {
+                eggs.push('memory_game');
+                localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            }
+
+            /* Award XP and trigger feather check */
+            if (typeof ParrotXP !== 'undefined') {
+                ParrotXP.award(50, 'memory_game_complete');
+            }
+
+            /* Reset the 404 counter */
+            sessionStorage.removeItem('httpparrot_404_count');
+        }
+    })();
+    </script>
 {% endblock %}

@@ -101,29 +101,19 @@
                 </div>
             </div>
 
-            <!-- Learning Paths tile -->
+            <!-- Next Up / Smart Recommender tile -->
             <div class="bento-tile bento-tile--paths" id="bento-paths">
                 <div class="bento-tile-header">
                     <span class="bento-tile-icon" aria-hidden="true">&#x1F4DA;</span>
-                    <span class="bento-tile-title">Learning Paths</span>
+                    <span class="bento-tile-title">Next Up</span>
                 </div>
                 <div class="bento-tile-body">
-                    <div class="bento-paths-list" id="bento-paths-list">
-                        <div class="bento-path-item" data-path-id="http-foundations">
-                            <span class="bento-path-name">HTTP Foundations</span>
-                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-http-foundations"></div></div>
-                        </div>
-                        <div class="bento-path-item" data-path-id="error-whisperer">
-                            <span class="bento-path-name">Error Whisperer</span>
-                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-error-whisperer"></div></div>
-                        </div>
-                        <div class="bento-path-item" data-path-id="redirect-master">
-                            <span class="bento-path-name">Redirect Master</span>
-                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-redirect-master"></div></div>
-                        </div>
+                    <div class="bento-nextup" id="bento-nextup">
+                        <div class="bento-nextup-message" id="bento-nextup-message">Start a learning path</div>
+                        <div class="bento-nextup-sub" id="bento-nextup-sub">Pick a topic and begin your journey</div>
                     </div>
                 </div>
-                <a href="/paths" class="bento-tile-action">Continue Learning</a>
+                <a href="/paths" class="bento-tile-action" id="bento-nextup-action">Get Started</a>
             </div>
         </section>
 
@@ -144,6 +134,7 @@
                 </div>
             {% endfor %}
         </div>
+        <div id="fuzzy-indicator" class="fuzzy-indicator" role="status" aria-live="polite" style="display:none;">Showing fuzzy matches</div>
         <div id="no-results" class="no-results" role="status" aria-live="polite">
             No parrots found matching your search.
         </div>
@@ -185,9 +176,14 @@
         const dropdown = document.getElementById('filter-dropdown');
         const potdSection = document.getElementById('potd-section');
 
+        const fuzzyIndicator = document.getElementById('fuzzy-indicator');
+
         function filterCards() {
             const q = searchEl.value.toLowerCase().trim();
             let visible = 0;
+            let isFuzzy = false;
+
+            /* First pass: exact substring match */
             cards.forEach(function(card) {
                 const code = card.dataset.code;
                 const name = card.dataset.name;
@@ -198,7 +194,24 @@
                 card.style.display = show ? '' : 'none';
                 if (show) visible++;
             });
+
+            /* Fuzzy fallback when exact match returns zero results */
+            if (q && visible === 0 && typeof ParrotSearch !== 'undefined') {
+                cards.forEach(function(card) {
+                    const code = card.dataset.code;
+                    const name = card.dataset.name;
+                    const catMatch = activeCat === 'all' || code[0] === activeCat;
+                    const desc = card.dataset.desc || '';
+                    var fuzzyHit = ParrotSearch.fuzzyMatch(q, code + ' ' + name + ' ' + desc);
+                    const show = catMatch && fuzzyHit;
+                    card.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                if (visible > 0) isFuzzy = true;
+            }
+
             noResults.style.display = visible ? 'none' : 'block';
+            fuzzyIndicator.style.display = (isFuzzy && visible > 0) ? '' : 'none';
             /* Hide dashboard when filtering or searching */
             if (potdSection) {
                 potdSection.style.display = (q || activeCat !== 'all') ? 'none' : '';
@@ -600,10 +613,13 @@
             var streakEl = document.getElementById('bento-streak-count');
             if (streakEl && dailyState.streak) {
                 streakEl.textContent = dailyState.streak;
+                if (dailyState.streak > 0) {
+                    streakEl.classList.add('has-streak');
+                }
             }
         } catch(e) {}
 
-        /* XP Progress */
+        /* XP Progress — animated bar fill on load */
         try {
             if (typeof ParrotXP !== 'undefined') {
                 var total = ParrotXP.getTotal();
@@ -617,28 +633,164 @@
                     var progressInLevel = total - info.currentThreshold;
                     var levelRange = info.nextXp - info.currentThreshold;
                     var pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
-                    if (fillEl) fillEl.style.width = pct + '%';
+                    if (fillEl) {
+                        fillEl.style.width = '0%';
+                        fillEl.classList.add('animate-fill');
+                        setTimeout(function() { fillEl.style.width = pct + '%'; }, 100);
+                    }
                     if (textEl) textEl.textContent = progressInLevel + ' / ' + levelRange + ' XP';
                     if (barEl) barEl.setAttribute('aria-valuenow', pct);
                 } else {
-                    if (fillEl) fillEl.style.width = '100%';
+                    if (fillEl) {
+                        fillEl.style.width = '0%';
+                        fillEl.classList.add('animate-fill');
+                        setTimeout(function() { fillEl.style.width = '100%'; }, 100);
+                    }
                     if (textEl) textEl.textContent = 'MAX RANK';
                     if (barEl) barEl.setAttribute('aria-valuenow', 100);
                 }
             }
         } catch(e) {}
 
-        /* Learning Paths progress */
+        /* Smart "Next Up" recommender — checks localStorage for highest-priority action */
         try {
-            var pathIds = ['http-foundations', 'error-whisperer', 'redirect-master'];
-            var stepCounts = { 'http-foundations': 14, 'error-whisperer': 17, 'redirect-master': 18 };
-            pathIds.forEach(function(pid) {
-                var done = JSON.parse(localStorage.getItem('httpparrot_path_' + pid) || '[]');
-                var total = stepCounts[pid] || 1;
-                var pct = Math.min(100, Math.round((done.length / total) * 100));
-                var bar = document.getElementById('bento-path-fill-' + pid);
-                if (bar) bar.style.width = pct + '%';
-            });
+            var msgEl = document.getElementById('bento-nextup-message');
+            var subEl = document.getElementById('bento-nextup-sub');
+            var actionEl = document.getElementById('bento-nextup-action');
+            if (msgEl && subEl && actionEl) {
+                (function() {
+                    /* Priority 1: Pending reviews */
+                    try {
+                        var reviewData = JSON.parse(localStorage.getItem('httpparrot_review') || '[]');
+                        if (Array.isArray(reviewData) && reviewData.length > 0) {
+                            var dueCount = reviewData.filter(function(r) {
+                                return !r.nextReview || new Date(r.nextReview) <= new Date();
+                            }).length;
+                            if (dueCount > 0) {
+                                msgEl.textContent = 'You have ' + dueCount + ' review' + (dueCount !== 1 ? 's' : '') + ' due';
+                                subEl.textContent = 'Reinforce what you learned';
+                                actionEl.href = '/review';
+                                actionEl.textContent = 'Review Now';
+                                return;
+                            }
+                        }
+                    } catch(e) {}
+
+                    /* Priority 2: Daily challenge not done today */
+                    try {
+                        var dailyData = JSON.parse(localStorage.getItem('httpparrot_daily') || '{}');
+                        var today = new Date().toISOString().slice(0, 10);
+                        if (!dailyData.lastDay || dailyData.lastDay !== today) {
+                            msgEl.textContent = "Today's daily challenge is waiting";
+                            subEl.textContent = 'Keep your streak alive';
+                            actionEl.href = '/daily';
+                            actionEl.textContent = 'Play Daily';
+                            return;
+                        }
+                    } catch(e) {}
+
+                    /* Priority 3: Continue an in-progress learning path */
+                    try {
+                        var pathIds = ['http-foundations', 'error-whisperer', 'redirect-master'];
+                        var pathNames = { 'http-foundations': 'HTTP Foundations', 'error-whisperer': 'Error Whisperer', 'redirect-master': 'Redirect Master' };
+                        var stepCounts = { 'http-foundations': 14, 'error-whisperer': 17, 'redirect-master': 18 };
+                        for (var i = 0; i < pathIds.length; i++) {
+                            var pid = pathIds[i];
+                            var done = JSON.parse(localStorage.getItem('httpparrot_path_' + pid) || '[]');
+                            if (done.length > 0 && done.length < stepCounts[pid]) {
+                                msgEl.textContent = 'Continue ' + pathNames[pid] + ' (step ' + done.length + '/' + stepCounts[pid] + ')';
+                                subEl.textContent = 'Pick up where you left off';
+                                actionEl.href = '/paths/' + pid;
+                                actionEl.textContent = 'Continue';
+                                return;
+                            }
+                        }
+                    } catch(e) {}
+
+                    /* Priority 4: Weekly challenge */
+                    try {
+                        var weeklyData = JSON.parse(localStorage.getItem('httpparrot_weekly') || '{}');
+                        if (!weeklyData.completed) {
+                            msgEl.textContent = "Try this week's challenge";
+                            subEl.textContent = 'A themed set of questions awaits';
+                            actionEl.href = '/weekly';
+                            actionEl.textContent = 'Start Challenge';
+                            return;
+                        }
+                    } catch(e) {}
+
+                    /* Priority 5: Least-visited category suggestion */
+                    try {
+                        var catVisits = JSON.parse(localStorage.getItem('httpparrot_cat_visits') || '{}');
+                        var categories = ['1xx', '2xx', '3xx', '4xx', '5xx'];
+                        var catNames = {'1xx': '1xx Informational', '2xx': '2xx Success', '3xx': '3xx Redirection', '4xx': '4xx Client Error', '5xx': '5xx Server Error'};
+                        var least = null;
+                        var leastCount = Infinity;
+                        for (var ci = 0; ci < categories.length; ci++) {
+                            var cv = catVisits[categories[ci]] || 0;
+                            if (cv < leastCount) { leastCount = cv; least = categories[ci]; }
+                        }
+                        if (least && leastCount < 3) {
+                            msgEl.textContent = 'Explore ' + catNames[least];
+                            subEl.textContent = 'You haven\'t visited many ' + least + ' codes yet';
+                            actionEl.href = '/?cat=' + least[0];
+                            actionEl.textContent = 'Explore';
+                            return;
+                        }
+                    } catch(e) {}
+
+                    /* Priority 6: Confusion pair suggestion */
+                    try {
+                        var pairsViewed = JSON.parse(localStorage.getItem('httpparrot_pairs_viewed') || '[]');
+                        var suggestedPairs = [
+                            {slug: '401-vs-403', label: '401 vs 403'},
+                            {slug: '301-vs-302', label: '301 vs 302'},
+                            {slug: '200-vs-204', label: '200 vs 204'},
+                            {slug: '500-vs-502', label: '500 vs 502'},
+                            {slug: '400-vs-422', label: '400 vs 422'}
+                        ];
+                        for (var pi = 0; pi < suggestedPairs.length; pi++) {
+                            if (pairsViewed.indexOf(suggestedPairs[pi].slug) === -1) {
+                                msgEl.textContent = 'Learn: ' + suggestedPairs[pi].label;
+                                subEl.textContent = 'A commonly confused pair of status codes';
+                                actionEl.href = '/learn/' + suggestedPairs[pi].slug;
+                                actionEl.textContent = 'Study Pair';
+                                return;
+                            }
+                        }
+                    } catch(e) {}
+
+                    /* Priority 7: Default — start a learning path */
+                    msgEl.textContent = 'Start a learning path';
+                    subEl.textContent = 'Pick a topic and begin your journey';
+                    actionEl.href = '/paths';
+                    actionEl.textContent = 'Get Started';
+                })();
+            }
+        } catch(e) {}
+
+        /* Daily Login Reward Calendar */
+        try {
+            var LOGIN_KEY = 'httpparrot_login_calendar';
+            var rewards = [5, 10, 15, 20, 25, 30, 50];
+            var today = new Date().toISOString().slice(0, 10);
+            var cal = JSON.parse(localStorage.getItem(LOGIN_KEY) || 'null') || {lastClaimDate: '', dayOfWeek: 0, totalClaims: 0};
+            if (cal.lastClaimDate !== today) {
+                if (cal.dayOfWeek >= 7) cal.dayOfWeek = 0; /* reset cycle */
+                var reward = rewards[cal.dayOfWeek] || 5;
+                cal.lastClaimDate = today;
+                cal.dayOfWeek++;
+                cal.totalClaims++;
+                localStorage.setItem(LOGIN_KEY, JSON.stringify(cal));
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(reward, 'daily_login');
+                /* Show brief toast */
+                var toast = document.createElement('div');
+                toast.className = 'login-reward-toast';
+                toast.textContent = 'Daily visit bonus: +' + reward + ' XP!';
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('login-reward-visible'); }, 50);
+                setTimeout(function() { toast.classList.remove('login-reward-visible'); setTimeout(function() { toast.remove(); }, 500); }, 3000);
+            }
         } catch(e) {}
     })();
     </script>

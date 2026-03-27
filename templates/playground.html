@@ -21,6 +21,12 @@
                         <option value="redirect_chain">Redirect Chain</option>
                         <option value="json_api">JSON API Response</option>
                         <option value="auth_required">Auth Required</option>
+                        <option value="cache_hit">Cache Hit (304)</option>
+                        <option value="webhook_payload">Webhook Payload</option>
+                        <option value="file_download">File Download</option>
+                        <option value="validation_error">Validation Error (422)</option>
+                        <option value="sse_stream">SSE Stream</option>
+                        <option value="rate_limited_429">Rate Limited (429)</option>
                     </select>
                 </div>
                 <div class="playground-section">
@@ -114,6 +120,60 @@ Content-Type: text/html</code></pre>
                     ['WWW-Authenticate', 'Bearer realm="api"'],
                 ],
                 body: '{"error": "Unauthorized", "message": "Valid authentication credentials are required."}'
+            },
+            cache_hit: {
+                status: '304',
+                headers: [
+                    ['ETag', '"abc123def456"'],
+                    ['Cache-Control', 'public, max-age=3600'],
+                    ['Last-Modified', 'Wed, 25 Mar 2026 12:00:00 GMT'],
+                ],
+                body: ''
+            },
+            webhook_payload: {
+                status: '200',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                    ['X-Webhook-Id', 'wh_' + Math.random().toString(36).slice(2, 10)],
+                    ['X-Webhook-Event', 'order.completed'],
+                ],
+                body: '{\n  "event": "order.completed",\n  "data": {\n    "order_id": "ord_12345",\n    "amount": 49.99,\n    "currency": "USD",\n    "customer": {\n      "email": "user@example.com"\n    },\n    "items": [\n      {"name": "Widget", "qty": 2}\n    ]\n  },\n  "timestamp": "2026-03-27T10:30:00Z"\n}'
+            },
+            file_download: {
+                status: '200',
+                headers: [
+                    ['Content-Type', 'application/octet-stream'],
+                    ['Content-Disposition', 'attachment; filename="report-2026.pdf"'],
+                    ['Content-Length', '204800'],
+                ],
+                body: ''
+            },
+            validation_error: {
+                status: '422',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                ],
+                body: '{\n  "error": "Validation Failed",\n  "message": "The given data was invalid.",\n  "errors": {\n    "email": ["The email field must be a valid email address."],\n    "password": ["The password must be at least 8 characters.", "The password must contain a number."],\n    "name": ["The name field is required."]\n  }\n}'
+            },
+            sse_stream: {
+                status: '200',
+                headers: [
+                    ['Content-Type', 'text/event-stream'],
+                    ['Cache-Control', 'no-cache'],
+                    ['Connection', 'keep-alive'],
+                ],
+                body: 'event: message\ndata: {"text": "Hello from the server!"}\n\nevent: update\ndata: {"progress": 42, "status": "processing"}\n\nevent: done\ndata: {"text": "Stream complete"}'
+            },
+            rate_limited_429: {
+                status: '429',
+                headers: [
+                    ['Content-Type', 'application/json'],
+                    ['Retry-After', '30'],
+                    ['X-RateLimit-Limit', '1000'],
+                    ['X-RateLimit-Remaining', '0'],
+                    ['X-RateLimit-Reset', String(Math.floor(Date.now() / 1000) + 30)],
+                ],
+                body: '{\n  "error": "Too Many Requests",\n  "message": "API rate limit exceeded. Please wait 30 seconds before retrying.",\n  "retry_after": 30,\n  "docs": "https://api.example.com/docs/rate-limits"\n}'
             }
         };
 

@@ -175,6 +175,7 @@ _PRUNE_INTERVAL = 300  # prune stale entries every 5 minutes
 
 
 def is_rate_limited(client_ip):
+    """Return True if client_ip has exceeded RATE_LIMIT_MAX requests within the window."""
     global _rate_limit_last_prune
     now = time.time()
     # Periodically prune stale entries to prevent unbounded memory growth
@@ -221,6 +222,7 @@ def _prune_expired_bins():
 
 @app.context_processor
 def inject_csp_nonce():
+    """Generate a per-request CSP nonce and inject it into the template context."""
     nonce = secrets.token_urlsafe(32)
     g.csp_nonce = nonce
     return {'csp_nonce': nonce}
@@ -228,6 +230,7 @@ def inject_csp_nonce():
 
 @app.after_request
 def set_security_headers(response):
+    """Attach security headers (CSP, HSTS, X-Frame-Options, etc.) to every response."""
     nonce = getattr(g, 'csp_nonce', '')
     response.headers.pop('Server', None)
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -301,6 +304,7 @@ IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.JPG', '.png', '.gif']
 
 
 def _find_image(code):
+    """Search for a parrot image file matching the status code across supported extensions."""
     for ext in IMAGE_EXTENSIONS:
         path = os.path.join('static', code + ext)
         if os.path.exists(path):
@@ -310,6 +314,7 @@ def _find_image(code):
 
 # Build caches at startup
 def _build_caches():
+    """Build startup caches: pruned status-code list and code-to-image lookup dict."""
     pruned = []
     image_map = {}
     for sc in status_code_list:
@@ -328,10 +333,12 @@ _name_cache = {sc.code: sc.name for sc in status_code_list}
 
 
 def pruned_status_codes():
+    """Return the cached list of status codes that have associated parrot images."""
     return _pruned_cache
 
 
 def find_image(code):
+    """Return the image filename for a status code, or None if not found."""
     return _image_cache.get(code)
 
 
@@ -959,8 +966,14 @@ def header_explainer():
 
 @app.route('/profile')
 def profile():
-    """Render the XP profile page — all state stored client-side in localStorage."""
-    return render_template('profile.html')
+    """Render the XP profile page — all state stored client-side in localStorage.
+
+    Accepts an optional ``flock`` query parameter containing a base64-encoded
+    profile snapshot.  When present the template renders a read-only visitor
+    profile card alongside the user's own data.
+    """
+    flock = request.args.get('flock', '')
+    return render_template('profile.html', flock=flock)
 
 
 @app.route('/review')
@@ -1025,6 +1038,7 @@ def check_cors():
         results['actual'] = {'error': 'Could not connect'}
     # Analysis — extract CORS headers from whichever response returned them
     def _cors_header(section, name):
+        """Extract a CORS header value from the preflight or actual response."""
         return results.get(section, {}).get('headers', {}).get(name, '')
 
     acao = _cors_header('actual', 'Access-Control-Allow-Origin') or _cors_header('preflight', 'Access-Control-Allow-Origin')
@@ -1227,12 +1241,55 @@ def api_security_audit():
     })
 
 
+def _levenshtein(a, b):
+    """Compute Levenshtein edit distance between two strings."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        curr = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        prev = curr
+    return prev[len(b)]
+
+
+def _fuzzy_word_match(query, text, threshold=2):
+    """Check if query fuzzy-matches any word in text.
+
+    Supports word-prefix matching (e.g. "unauth" matches "unauthorized")
+    and Levenshtein distance within threshold.
+    """
+    import re
+    words = re.split(r'[\s\-_/]+', text)
+    for word in words:
+        # Word prefix match
+        if word.startswith(query):
+            return True
+        # Full Levenshtein match
+        if _levenshtein(query, word) <= threshold:
+            return True
+        # Prefix-length Levenshtein for partial queries
+        if len(query) >= 3 and len(word) > len(query):
+            sub = word[:len(query)]
+            if _levenshtein(query, sub) <= max(1, threshold // 2):
+                return True
+    return False
+
+
 @app.route('/api/search')
 def api_search():
     """Search status codes by code number, name, description, or keywords.
 
     Returns a JSON array of matching status codes with relevance scores.
     Query parameter: q (required).
+    Falls back to fuzzy matching (Levenshtein distance + word-prefix) when
+    exact matches return zero results.
     """
     query = request.args.get('q', '').strip().lower()
     if not query:
@@ -1283,6 +1340,23 @@ def api_search():
                 "score": score,
             })
 
+    # Fuzzy fallback when exact matches return zero results
+    if not results and len(query) >= 2:
+        for sc in status_code_list:
+            code = sc.code
+            name = sc.name.lower()
+            info = STATUS_INFO.get(code, {})
+            description = info.get('description', '').lower()
+            text = name + ' ' + description
+            if _fuzzy_word_match(query, text):
+                results.append({
+                    "code": code,
+                    "name": sc.name,
+                    "description": info.get('description', ''),
+                    "score": 15,
+                    "fuzzy": True,
+                })
+
     results.sort(key=lambda r: (-r['score'], r['code']))
     return jsonify(results)
 
@@ -1310,6 +1384,50 @@ def check_url():
             "url": url,
             "headers": headers,
             "time_ms": round(resp.elapsed.total_seconds() * 1000),
+        })
+    except req.RequestException:
+        return jsonify({"error": "Could not connect to the provided URL"}), 502
+
+
+@app.route('/api/fetch-url')
+def fetch_url():
+    """Make a GET request to a user-provided URL and return status, headers, and body.
+
+    Returns the first 10 KB of the response body (truncated if larger),
+    along with status_code, headers, time_ms, content_type, and a truncated flag.
+    Rate-limited and SSRF-protected via resolve_and_validate().
+    """
+    if is_rate_limited(request.remote_addr):
+        logger.warning('Rate limit exceeded for %s', request.remote_addr)
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    url = _ensure_scheme(url)
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        logger.warning('SSRF blocked: %s from %s', url, request.remote_addr)
+        return jsonify({"error": "URL not allowed"}), 403
+    try:
+        resp = req.get(safe_url, allow_redirects=False, timeout=10, stream=True)
+        headers = {k: v for k, v in resp.headers.items()
+                   if k.lower() not in ('set-cookie',)}
+        content_type = resp.headers.get('Content-Type', '')
+        max_body = 10 * 1024  # 10 KB
+        body = resp.content[:max_body]
+        truncated = len(resp.content) > max_body
+        try:
+            body_text = body.decode('utf-8', errors='replace')
+        except Exception:
+            body_text = body.decode('latin-1', errors='replace')
+        return jsonify({
+            "code": resp.status_code,
+            "url": url,
+            "headers": headers,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+            "body": body_text,
+            "content_type": content_type,
+            "truncated": truncated,
         })
     except req.RequestException:
         return jsonify({"error": "Could not connect to the provided URL"}), 502
@@ -1495,6 +1613,7 @@ def api_drip():
         return jsonify({"error": "numbytes must be between 1 and 10240."}), 400
 
     def _drip_generator():
+        """Yield byte chunks at timed intervals to simulate a slow drip response."""
         chunk_count = max(1, int(duration))
         bytes_per_chunk = max(1, numbytes // chunk_count)
         remainder = numbytes - (bytes_per_chunk * chunk_count)
@@ -1521,6 +1640,7 @@ def api_stream(n):
     codes = [sc.code for sc in pruned_status_codes()]
 
     def _stream_generator():
+        """Yield one JSON line per second for streaming simulation."""
         for i in range(n):
             line = json.dumps({
                 "id": i,
@@ -1804,6 +1924,7 @@ def api_diff():
     )
 
     def _code_detail(code, name, related):
+        """Build a detail dict for one side of a status code comparison."""
         info = STATUS_INFO.get(code, {})
         extra = STATUS_EXTRA.get(code, {})
         return {
@@ -1916,6 +2037,7 @@ def robots():
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/check-url\n"
+        "Disallow: /api/fetch-url\n"
         "Disallow: /api/check-cors\n"
         "Disallow: /api/security-audit\n"
         "Disallow: /api/trace-redirects\n"

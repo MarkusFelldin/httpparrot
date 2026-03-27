@@ -176,6 +176,40 @@
         </nav>
     </header>
 
+    <!-- Keyboard Shortcuts Overlay -->
+    <div class="kbd-shortcuts-overlay" id="kbd-shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
+        <div class="kbd-shortcuts-backdrop" id="kbd-shortcuts-backdrop"></div>
+        <div class="kbd-shortcuts-panel">
+            <div class="kbd-shortcuts-header">
+                <h2 class="kbd-shortcuts-title">Keyboard Shortcuts</h2>
+                <button class="kbd-shortcuts-close" id="kbd-shortcuts-close" type="button" aria-label="Close shortcuts overlay">&times;</button>
+            </div>
+            <div class="kbd-shortcuts-body">
+                <div class="kbd-shortcuts-group">
+                    <h3 class="kbd-shortcuts-group-title">General</h3>
+                    <div class="kbd-shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
+                    <div class="kbd-shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Esc</kbd><span>Close overlay / unfocus</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="home">
+                    <h3 class="kbd-shortcuts-group-title">Homepage</h3>
+                    <div class="kbd-shortcut-row"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd><span>Navigate grid</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Enter</kbd><span>Open selected card</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="quiz">
+                    <h3 class="kbd-shortcuts-group-title">Quiz / Daily / Weekly</h3>
+                    <div class="kbd-shortcut-row"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd><span>Select answer</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Enter</kbd><span>Next question</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="detail">
+                    <h3 class="kbd-shortcuts-group-title">Detail Page</h3>
+                    <div class="kbd-shortcut-row"><kbd>&larr;</kbd><span>Previous code</span></div>
+                    <div class="kbd-shortcut-row"><kbd>&rarr;</kbd><span>Next code</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% block content %}{% endblock %}
 
     <footer class="site-footer" role="contentinfo">
@@ -346,6 +380,26 @@
             var xpEl = document.getElementById('xp-badge-xp');
             if (rankEl) rankEl.textContent = info.rank;
             if (xpEl) xpEl.textContent = total + ' XP';
+            /* Mood ring: set glow color based on dominant category */
+            try {
+                var activity = getActivity();
+                var now = Date.now();
+                var week = 7 * 24 * 60 * 60 * 1000;
+                var cats = {1:0, 2:0, 3:0, 4:0, 5:0};
+                var moodColors = {1:'var(--color-cyan)',2:'var(--color-teal)',3:'var(--color-gold)',4:'var(--color-coral)',5:'var(--color-purple)'};
+                activity.forEach(function(a) {
+                    if (a.action === 'page_visit' && a.date && (now - new Date(a.date).getTime()) < week) {
+                        var code = (a.detail || '').toString();
+                        var cat = parseInt(code[0]);
+                        if (cats.hasOwnProperty(cat)) cats[cat] += a.xp || 1;
+                    }
+                });
+                var dominant = 2; /* default teal */
+                var maxXp = 0;
+                for (var c in cats) { if (cats[c] > maxXp) { maxXp = cats[c]; dominant = c; } }
+                var badge = document.getElementById('xp-badge');
+                if (badge) badge.style.setProperty('--mood-color', moodColors[dominant]);
+            } catch(e) {}
         }
 
         /* --- Feathers (Achievement Badges) --- */
@@ -365,7 +419,17 @@
             {id: 'night_owl', name: 'Night Owl', desc: 'Use the site between midnight and 5 AM', icon: '\uD83E\uDD89', bonus: 25},
             {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75},
             {id: 'frozen_solid', name: 'Frozen Solid', desc: 'Use a streak freeze for the first time', icon: '\u2744\uFE0F', bonus: 50},
-            {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75}
+            {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75},
+            {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
+            {id: 'photo_memory', name: 'Photographic Memory', desc: 'Complete the 404 memory card game', icon: '\uD83E\uDDE0', bonus: 100},
+            {id: 'loyal_parrot', name: 'Loyal Parrot', desc: 'Complete a full 7-day login cycle', icon: '\uD83D\uDC9A', bonus: 75},
+            /* --- Meta-Feathers (achievements for earning other feathers) --- */
+            {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
+            {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
+            {id: 'streak_lord', name: 'Streak Lord', desc: 'Hit the 30-day streak milestone', icon: '\uD83D\uDC51', bonus: 250, meta: true},
+            {id: 'triple_threat', name: 'Triple Threat', desc: 'Earn Quiz Whiz + Scholar + Memory Master', icon: '\uD83D\uDD31', bonus: 300, meta: true},
+            {id: 'full_spectrum', name: 'Full Spectrum', desc: 'Earn Error Expert + Server Sage', icon: '\uD83C\uDF08', bonus: 250, meta: true},
+            {id: 'parrot_polymath', name: 'Parrot Polymath', desc: 'Earn any 12 base feathers', icon: '\uD83E\uDDA9', bonus: 500, meta: true}
         ];
 
         var CODES_4XX = ['400','401','402','403','404','405','406','407','408','409','410','411','412','413','414','415','416','417','418','421','422','423','424','425','426','428','429','431','451'];
@@ -402,6 +466,39 @@
             }
         }
 
+        function spawnFlockFormation(isLegendary) {
+            /* Respect prefers-reduced-motion */
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var count = isLegendary ? 15 : (5 + Math.floor(Math.random() * 4));
+            var container = document.createElement('div');
+            container.className = 'flock-formation-container';
+            if (isLegendary) container.classList.add('flock-formation-legendary');
+            document.body.appendChild(container);
+            for (var i = 0; i < count; i++) {
+                var bird = document.createElement('span');
+                bird.className = 'flock-parrot';
+                bird.setAttribute('aria-hidden', 'true');
+                bird.textContent = '\uD83E\uDD9C';
+                /* V-formation offset: lead parrot at center, others fan out */
+                var row = Math.floor((i + 1) / 2);
+                var side = (i % 2 === 0) ? 1 : -1;
+                if (i === 0) { row = 0; side = 0; }
+                var yOffset = row * 38;
+                var xOffset = side * row * 32;
+                bird.style.setProperty('--flock-y', yOffset + 'px');
+                bird.style.setProperty('--flock-x', xOffset + 'px');
+                bird.style.animationDelay = (i * 0.07) + 's';
+                if (i === 0) bird.classList.add('flock-parrot-lead');
+                if (isLegendary) {
+                    bird.classList.add('flock-parrot-golden');
+                    bird.style.animationDuration = '3s';
+                }
+                container.appendChild(bird);
+            }
+            var cleanupTime = isLegendary ? 4000 : 3000;
+            setTimeout(function() { container.remove(); }, cleanupTime);
+        }
+
         function showFeatherToast(feather) {
             var toast = document.createElement('div');
             toast.className = 'feather-toast';
@@ -414,6 +511,7 @@
             setTimeout(function() {
                 toast.classList.add('feather-toast-visible');
                 spawnCelebrationConfetti(toast);
+                spawnFlockFormation(false);
                 if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
             }, 50);
             setTimeout(function() {
@@ -483,6 +581,10 @@
             setTimeout(function() {
                 banner.classList.add('rank-up-visible');
                 spawnGoldParticles();
+                /* Legendary Lorikeet gets a golden mega-flock of 15 parrots */
+                if (rankTitle === 'Legendary Lorikeet') {
+                    spawnFlockFormation(true);
+                }
                 if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
             }, 50);
             setTimeout(function() {
@@ -602,6 +704,77 @@
                 if (reviewData && reviewData.total_reviews >= 50) newlyEarned.push('memory_master');
             }
 
+            /* Parrot Petter — first time clicking any parrot on a detail page */
+            if (!has('parrot_petter') && localStorage.getItem('httpparrot_parrot_petted') === 'true') newlyEarned.push('parrot_petter');
+
+            /* Photographic Memory — completed the 404 memory card game */
+            if (!has('photo_memory') && localStorage.getItem('httpparrot_memory_game_complete') === 'true') newlyEarned.push('photo_memory');
+            if (!has('loyal_parrot')) { try { var lc = JSON.parse(localStorage.getItem('httpparrot_login_calendar') || '{}'); if (lc.dayOfWeek >= 7 || lc.totalClaims >= 7) newlyEarned.push('loyal_parrot'); } catch(e) {} }
+
+            /* --- Meta-Feather checks --- */
+            var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];
+
+            /* Explorer — visit at least one code from each of the 5 categories */
+            if (!has('explorer')) {
+                var has1 = false, has2 = false, has3 = false, has4 = false, has5 = false;
+                for (var pi = 0; pi < parrotdex.length; pi++) {
+                    var pc = String(parrotdex[pi]);
+                    if (pc.charAt(0) === '1') has1 = true;
+                    if (pc.charAt(0) === '2') has2 = true;
+                    if (pc.charAt(0) === '3') has3 = true;
+                    if (pc.charAt(0) === '4') has4 = true;
+                    if (pc.charAt(0) === '5') has5 = true;
+                }
+                if (has1 && has2 && has3 && has4 && has5) newlyEarned.push('explorer');
+            }
+
+            /* Polyglot — use quiz, practice, debug, AND review */
+            if (!has('polyglot')) {
+                var hasQuiz = false, hasPractice = false, hasDebug = false, hasReview = false;
+                for (var ai = 0; ai < activity.length; ai++) {
+                    if (activity[ai].action === 'quiz_correct') hasQuiz = true;
+                    if (activity[ai].action === 'practice_correct') hasPractice = true;
+                    if (activity[ai].action === 'debug_correct') hasDebug = true;
+                    if (activity[ai].action === 'review_correct') hasReview = true;
+                }
+                if (hasQuiz && hasPractice && hasDebug && hasReview) newlyEarned.push('polyglot');
+            }
+
+            /* Streak Lord — hit the 30-day milestone */
+            if (!has('streak_lord')) {
+                var dailyState = null;
+                try { dailyState = JSON.parse(localStorage.getItem('httpparrot_daily')); } catch(e) {}
+                if (dailyState && dailyState.milestonesHit && dailyState.milestonesHit.indexOf(30) !== -1) {
+                    newlyEarned.push('streak_lord');
+                }
+            }
+
+            /* Triple Threat — earn Quiz Whiz + Scholar + Memory Master */
+            if (!has('triple_threat')) {
+                var allEarnedSoFar = earned.concat(newlyEarned);
+                if (allEarnedSoFar.indexOf('quiz_whiz') !== -1 && allEarnedSoFar.indexOf('scholar') !== -1 && allEarnedSoFar.indexOf('memory_master') !== -1) {
+                    newlyEarned.push('triple_threat');
+                }
+            }
+
+            /* Full Spectrum — earn Error Expert + Server Sage */
+            if (!has('full_spectrum')) {
+                var allEarnedSoFar2 = earned.concat(newlyEarned);
+                if (allEarnedSoFar2.indexOf('error_expert') !== -1 && allEarnedSoFar2.indexOf('server_sage') !== -1) {
+                    newlyEarned.push('full_spectrum');
+                }
+            }
+
+            /* Parrot Polymath — earn any 12 base feathers (not counting meta-feathers) */
+            if (!has('parrot_polymath')) {
+                var allEarnedSoFar3 = earned.concat(newlyEarned);
+                var baseCount = 0;
+                for (var bc = 0; bc < allEarnedSoFar3.length; bc++) {
+                    if (META_IDS.indexOf(allEarnedSoFar3[bc]) === -1) baseCount++;
+                }
+                if (baseCount >= 12) newlyEarned.push('parrot_polymath');
+            }
+
             /* Award bonus XP and show toasts for new feathers */
             if (newlyEarned.length > 0) {
                 for (var fi = 0; fi < newlyEarned.length; fi++) {
@@ -659,6 +832,7 @@
             getFeathers: getFeathers,
             checkFeathers: checkFeathers,
             spawnCelebrationConfetti: spawnCelebrationConfetti,
+            spawnFlockFormation: spawnFlockFormation,
             showRankUpBanner: showRankUpBanner,
             checkXpMilestoneFlash: checkXpMilestoneFlash,
             XP_MILESTONES: XP_MILESTONES,
@@ -1174,6 +1348,141 @@
                 }, 500);
             }, 5000);
         }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* ParrotSearch — shared fuzzy/typo-tolerant search utility */
+    window.ParrotSearch = (function() {
+        /**
+         * Compute Levenshtein distance between two strings.
+         */
+        function levenshtein(a, b) {
+            if (a === b) return 0;
+            if (!a.length) return b.length;
+            if (!b.length) return a.length;
+            var prev = [];
+            var curr = [];
+            for (var j = 0; j <= b.length; j++) prev[j] = j;
+            for (var i = 1; i <= a.length; i++) {
+                curr[0] = i;
+                for (var j2 = 1; j2 <= b.length; j2++) {
+                    var cost = a[i - 1] === b[j2 - 1] ? 0 : 1;
+                    curr[j2] = Math.min(prev[j2] + 1, curr[j2 - 1] + 1, prev[j2 - 1] + cost);
+                }
+                var tmp = prev;
+                prev = curr;
+                curr = tmp;
+            }
+            return prev[b.length];
+        }
+
+        /**
+         * Check if query matches any word in text as a prefix.
+         * "unauth" matches "unauthorized", "intern" matches "internal".
+         */
+        function wordPrefixMatch(query, text) {
+            var words = text.split(/[\s\-_\/]+/);
+            for (var i = 0; i < words.length; i++) {
+                if (words[i].indexOf(query) === 0) return true;
+            }
+            return false;
+        }
+
+        /**
+         * Fuzzy match: returns true if query matches text.
+         * 1. Exact substring match (fastest)
+         * 2. Word-prefix match ("unauth" -> "unauthorized")
+         * 3. Levenshtein distance on individual words (threshold default 2)
+         */
+        function fuzzyMatch(query, text, threshold) {
+            if (!query || !text) return false;
+            threshold = threshold !== undefined ? threshold : 2;
+            query = query.toLowerCase();
+            text = text.toLowerCase();
+            /* Exact substring */
+            if (text.indexOf(query) !== -1) return true;
+            /* Word prefix */
+            if (wordPrefixMatch(query, text)) return true;
+            /* Levenshtein on words */
+            var words = text.split(/[\s\-_\/]+/);
+            for (var i = 0; i < words.length; i++) {
+                if (levenshtein(query, words[i]) <= threshold) return true;
+                /* Also check prefix-length Levenshtein for partial queries */
+                if (query.length >= 3 && words[i].length > query.length) {
+                    var sub = words[i].substring(0, query.length);
+                    if (levenshtein(query, sub) <= Math.max(1, Math.floor(threshold / 2))) return true;
+                }
+            }
+            return false;
+        }
+
+        return {
+            levenshtein: levenshtein,
+            wordPrefixMatch: wordPrefixMatch,
+            fuzzyMatch: fuzzyMatch
+        };
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Keyboard Shortcuts Overlay — press ? to open */
+    (function() {
+        var overlay = document.getElementById('kbd-shortcuts-overlay');
+        var backdrop = document.getElementById('kbd-shortcuts-backdrop');
+        var closeBtn = document.getElementById('kbd-shortcuts-close');
+        if (!overlay) return;
+
+        function openShortcuts() {
+            overlay.removeAttribute('hidden');
+            /* Force reflow then add visible class for transition */
+            void overlay.offsetWidth;
+            overlay.classList.add('kbd-shortcuts-visible');
+            closeBtn.focus();
+        }
+
+        function closeShortcuts() {
+            overlay.classList.remove('kbd-shortcuts-visible');
+            overlay.addEventListener('transitionend', function handler() {
+                overlay.setAttribute('hidden', '');
+                overlay.removeEventListener('transitionend', handler);
+            });
+        }
+
+        function isShortcutsOpen() {
+            return overlay.classList.contains('kbd-shortcuts-visible');
+        }
+
+        /* Show context-relevant groups based on current page */
+        var path = window.location.pathname;
+        var groups = overlay.querySelectorAll('[data-context]');
+        for (var i = 0; i < groups.length; i++) {
+            var ctx = groups[i].getAttribute('data-context');
+            if (ctx === 'home' && path !== '/') groups[i].style.display = 'none';
+            if (ctx === 'quiz' && !/^\/(quiz|daily|weekly)/.test(path)) groups[i].style.display = 'none';
+            if (ctx === 'detail' && !/^\/\d{3}$/.test(path)) groups[i].style.display = 'none';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            /* Ignore when typing in inputs/textareas */
+            var tag = document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (document.activeElement.isContentEditable) return;
+
+            if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (isShortcutsOpen()) {
+                    closeShortcuts();
+                } else {
+                    openShortcuts();
+                }
+            }
+            if (e.key === 'Escape' && isShortcutsOpen()) {
+                e.preventDefault();
+                closeShortcuts();
+            }
+        });
+
+        if (backdrop) backdrop.addEventListener('click', closeShortcuts);
+        if (closeBtn) closeBtn.addEventListener('click', closeShortcuts);
     })();
     </script>
     {% block scripts %}{% endblock %}

@@ -25,6 +25,7 @@
         <div class="compare-selectors">
             <div class="compare-select-wrap">
                 <label for="select-a" class="compare-select-label">Code A</label>
+                <input type="text" class="compare-search-input" id="compare-search-a" placeholder="Type to filter..." autocomplete="off" aria-label="Filter codes for Code A">
                 <select id="select-a" class="compare-select" aria-label="Select first status code">
                     <option value="">Choose a code...</option>
                     {% for c in code_list %}
@@ -35,6 +36,7 @@
             <button id="swap-codes" class="compare-swap-btn" aria-label="Swap codes" title="Swap codes">&#8646;</button>
             <div class="compare-select-wrap">
                 <label for="select-b" class="compare-select-label">Code B</label>
+                <input type="text" class="compare-search-input" id="compare-search-b" placeholder="Type to filter..." autocomplete="off" aria-label="Filter codes for Code B">
                 <select id="select-b" class="compare-select" aria-label="Select second status code">
                     <option value="">Choose a code...</option>
                     {% for c in code_list %}
@@ -252,20 +254,7 @@
             return null;
         }
 
-        function update() {
-            var a = selA.value;
-            var b = selB.value;
-
-            /* Update URL params without reloading */
-            if (a || b) {
-                var params = new URLSearchParams();
-                if (a) params.set('a', a);
-                if (b) params.set('b', b);
-                history.replaceState(null, '', '/compare?' + params.toString());
-            } else {
-                history.replaceState(null, '', '/compare');
-            }
-
+        function renderContent(a, b) {
             /* Clear previous result */
             while (result.firstChild) result.removeChild(result.firstChild);
             while (summaryEl.firstChild) summaryEl.removeChild(summaryEl.firstChild);
@@ -289,15 +278,19 @@
 
             /* Cards */
             var columns = el('div', 'compare-columns');
-            columns.appendChild(a ? buildCard(a) : buildPlaceholder('Select Code A'));
-            columns.appendChild(b ? buildCard(b) : buildPlaceholder('Select Code B'));
+            var cardA = a ? buildCard(a) : buildPlaceholder('Select Code A');
+            var cardB = b ? buildCard(b) : buildPlaceholder('Select Code B');
+            cardA.classList.add('fading-in');
+            cardB.classList.add('fading-in');
+            columns.appendChild(cardA);
+            columns.appendChild(cardB);
             result.appendChild(columns);
 
             /* Visual diff section */
             if (a && b && a !== b) {
                 var infoA = statusInfo[a] || {};
                 var infoB = statusInfo[b] || {};
-                var diffWrap = el('div', 'compare-diff-wrap');
+                var diffWrap = el('div', 'compare-diff-wrap diff-expanding');
                 diffWrap.appendChild(el('h2', 'compare-diff-heading', 'Key Differences'));
 
                 var descDiff = buildDiffSection('Description', infoA.description || '', infoB.description || '');
@@ -329,11 +322,45 @@
                 }
 
                 result.appendChild(diffWrap);
+                /* Trigger expansion animation */
+                requestAnimationFrame(function() {
+                    diffWrap.classList.remove('diff-expanding');
+                    diffWrap.classList.add('diff-expanded');
+                });
             }
         }
 
-        /* Swap button */
+        function update() {
+            var a = selA.value;
+            var b = selB.value;
+
+            /* Update URL params without reloading */
+            if (a || b) {
+                var params = new URLSearchParams();
+                if (a) params.set('a', a);
+                if (b) params.set('b', b);
+                history.replaceState(null, '', '/compare?' + params.toString());
+            } else {
+                history.replaceState(null, '', '/compare');
+            }
+
+            /* Crossfade: fade out existing cards, then swap DOM */
+            var existingCards = result.querySelectorAll('.compare-card');
+            if (existingCards.length > 0) {
+                existingCards.forEach(function(card) {
+                    card.classList.add('fading-out');
+                });
+                setTimeout(function() {
+                    renderContent(a, b);
+                }, 250);
+            } else {
+                renderContent(a, b);
+            }
+        }
+
+        /* Swap button with rotation animation */
         swapBtn.addEventListener('click', function() {
+            swapBtn.classList.toggle('swap-rotating');
             var tmp = selA.value;
             selA.value = selB.value;
             selB.value = tmp;
@@ -362,6 +389,36 @@
 
         /* Initial render */
         update();
+
+        /* Fuzzy search filter for select dropdowns */
+        function setupSelectFilter(inputId, selectId) {
+            var input = document.getElementById(inputId);
+            var select = document.getElementById(selectId);
+            if (!input || !select) return;
+            var options = select.querySelectorAll('option');
+
+            input.addEventListener('input', function() {
+                var q = input.value.toLowerCase().trim();
+                var firstMatch = '';
+                options.forEach(function(opt) {
+                    if (!opt.value) { opt.style.display = ''; return; } /* keep placeholder */
+                    var text = opt.textContent.toLowerCase();
+                    var show = false;
+                    if (!q) {
+                        show = true;
+                    } else if (text.indexOf(q) !== -1) {
+                        show = true;
+                    } else if (typeof ParrotSearch !== 'undefined' && ParrotSearch.fuzzyMatch(q, text)) {
+                        show = true;
+                    }
+                    opt.style.display = show ? '' : 'none';
+                    if (show && !firstMatch && opt.value) firstMatch = opt.value;
+                });
+            });
+        }
+
+        setupSelectFilter('compare-search-a', 'select-a');
+        setupSelectFilter('compare-search-b', 'select-b');
     })();
     </script>
 {% endblock %}

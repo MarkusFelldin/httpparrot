@@ -21,11 +21,11 @@
 .debug-header h1 {
     font-size: 2rem;
     font-weight: 800;
-    color: #f0f0f0;
+    color: var(--text-primary);
     margin: 0 0 0.5rem;
 }
 .debug-header p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1.05rem;
     margin: 0;
 }
@@ -35,9 +35,9 @@
     gap: 2rem;
     margin-bottom: 2rem;
     padding: 1rem;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-interactive);
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-interactive);
 }
 .debug-score-item {
     text-align: center;
@@ -45,7 +45,7 @@
 .debug-score-value {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
 }
 .debug-score-value.score-found-val { color: #2dd4a8; }
@@ -67,7 +67,7 @@
     padding: 0.5rem 1.2rem 0.5rem 1.8rem;
     border-radius: 999px;
     border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-interactive);
     color: #c0c0d0;
     cursor: pointer;
     font-size: 0.9rem;
@@ -77,10 +77,10 @@
 }
 .debug-filter-btn:hover {
     background: rgba(255,255,255,0.08);
-    color: #f0f0f0;
+    color: var(--text-primary);
 }
 .debug-filter-btn.active {
-    color: #f0f0f0;
+    color: var(--text-primary);
     border-color: rgba(255,255,255,0.2);
 }
 .debug-filter-btn.active[data-difficulty="all"] {
@@ -154,8 +154,8 @@
     gap: 1.5rem;
 }
 .debug-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface-interactive);
+    border: 1px solid var(--border-interactive);
     border-radius: 12px;
     padding: 1.5rem;
     transition: all 0.2s;
@@ -192,7 +192,7 @@
 .debug-card-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text-primary);
 }
 .debug-description {
     color: #b0b0c0;
@@ -208,7 +208,7 @@
 }
 .debug-panel {
     background: rgba(0,0,0,0.25);
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-interactive);
     border-radius: 8px;
     overflow: hidden;
 }
@@ -218,8 +218,8 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     padding: 0.4rem 0.75rem;
-    background: rgba(255,255,255,0.04);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface-interactive);
+    border-bottom: 1px solid var(--border-interactive);
 }
 .debug-panel-label.request-label { color: #7b61ff; }
 .debug-panel-label.response-label { color: #f9c74f; }
@@ -253,7 +253,7 @@
     transition: background 0.15s;
 }
 .debug-bug-option:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-interactive);
 }
 .debug-bug-option input[type="checkbox"] {
     margin-top: 0.2rem;
@@ -346,7 +346,7 @@
     margin-bottom: 0.25rem;
 }
 .debug-result-explain {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 0.85rem;
     line-height: 1.5;
 }
@@ -397,6 +397,46 @@
     .debug-card {
         padding: 1rem 0.75rem;
     }
+}
+/* Results summary overlay (mirrors quiz-results pattern) */
+.debug-results-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.debug-results-card {
+    background: rgba(26,26,31,0.95); border: 1px solid var(--border-default);
+    border-radius: 20px; padding: 2.5rem; text-align: center; max-width: 400px; width: 90%;
+}
+.debug-results-title {
+    font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--color-teal), var(--color-blue));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.debug-results-score {
+    font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 0.25rem;
+}
+.debug-results-xp {
+    font-size: 0.95rem; color: #a78bfa; font-weight: 600; margin-bottom: 1rem;
+}
+.debug-results-grid {
+    font-size: 1.5rem; letter-spacing: 0.2em; margin-bottom: 1.5rem; line-height: 1.6;
+    word-break: break-all;
+}
+.debug-results-share, .debug-results-again {
+    display: block; width: 100%; margin-top: 0.5rem;
+    padding: 0.65rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: #c0c0d0; cursor: pointer;
+    font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+}
+.debug-results-share:hover, .debug-results-again:hover {
+    background: rgba(255,255,255,0.12); color: var(--text-primary);
+}
+.debug-results-again {
+    background: rgba(0, 201, 167, 0.15); border-color: rgba(0, 201, 167, 0.3); color: #2dd4a8;
+}
+.debug-results-again:hover {
+    background: rgba(0, 201, 167, 0.25); border-color: rgba(0, 201, 167, 0.5);
 }
 </style>
 {% endblock %}
@@ -500,6 +540,8 @@
             </div>
             {% endfor %}
         </div>
+
+        <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
     </main>
 {% endblock %}
 
@@ -685,10 +727,137 @@
             results.classList.add('visible');
 
             updateRemaining();
+            checkCompletion();
         });
     });
 
+    function getVisibleCards() {
+        var cards = document.querySelectorAll('.debug-card');
+        var visible = [];
+        cards.forEach(function(card) {
+            if (isCardVisible(card)) visible.push(card);
+        });
+        return visible;
+    }
+
+    function checkCompletion() {
+        var visible = getVisibleCards();
+        if (visible.length === 0) return;
+        var allAnswered = visible.every(function(card) { return card.classList.contains('answered'); });
+        if (!allAnswered) return;
+
+        var sessionFound = 0;
+        var sessionTotal = 0;
+        var emojiParts = [];
+        visible.forEach(function(card) {
+            var bugsData = JSON.parse(card.getAttribute('data-bugs'));
+            var totalBugs = bugsData.length;
+            sessionTotal += totalBugs;
+            var summary = card.querySelector('.debug-result-summary');
+            if (summary && summary.classList.contains('perfect')) {
+                sessionFound += totalBugs;
+                emojiParts.push('\uD83D\uDFE2');
+            } else if (summary && summary.classList.contains('partial')) {
+                var match = summary.textContent.match(/Found (\d+) of (\d+)/);
+                if (match) sessionFound += parseInt(match[1]);
+                emojiParts.push('\uD83D\uDFE1');
+            } else {
+                emojiParts.push('\uD83D\uDD34');
+            }
+        });
+
+        var xpEarned = sessionFound * 20;
+        var emojis = emojiParts.join('');
+        var resultText = 'HTTP Parrots Debug: ' + sessionFound + '/' + sessionTotal + ' bugs found\n' + emojis + '\nhttpparrots.com/debug';
+
+        setTimeout(function() {
+            var overlay = document.createElement('div');
+            overlay.className = 'debug-results-overlay';
+            overlay.setAttribute('data-testid', 'debug-results-overlay');
+            var card = document.createElement('div');
+            card.className = 'debug-results-card';
+
+            var title = document.createElement('div');
+            title.className = 'debug-results-title';
+            title.textContent = sessionFound === sessionTotal ? 'All Bugs Squashed!' : 'Session Complete!';
+            card.appendChild(title);
+
+            var score = document.createElement('div');
+            score.className = 'debug-results-score';
+            score.textContent = sessionFound + ' / ' + sessionTotal + ' bugs found';
+            card.appendChild(score);
+
+            var xp = document.createElement('div');
+            xp.className = 'debug-results-xp';
+            xp.textContent = '+' + xpEarned + ' XP earned';
+            card.appendChild(xp);
+
+            var grid = document.createElement('div');
+            grid.className = 'debug-results-grid';
+            grid.textContent = emojis;
+            card.appendChild(grid);
+
+            var shareBtn = document.createElement('button');
+            shareBtn.className = 'debug-results-share';
+            shareBtn.textContent = 'Share Results';
+            shareBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(resultText).then(function() {
+                    shareBtn.textContent = 'Copied!';
+                    setTimeout(function() { shareBtn.textContent = 'Share Results'; }, 2000);
+                }).catch(function() {
+                    shareBtn.textContent = 'Failed';
+                    setTimeout(function() { shareBtn.textContent = 'Share Results'; }, 2000);
+                });
+            });
+            card.appendChild(shareBtn);
+
+            var againBtn = document.createElement('button');
+            againBtn.className = 'debug-results-again';
+            againBtn.textContent = 'Try Again';
+            againBtn.addEventListener('click', function() {
+                overlay.remove();
+                totalFound = 0; totalMissed = 0;
+                document.getElementById('debug-found').textContent = '0';
+                document.getElementById('debug-missed').textContent = '0';
+                document.querySelectorAll('.debug-card').forEach(function(c) {
+                    c.classList.remove('answered');
+                    c.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                        cb.disabled = false;
+                        cb.checked = false;
+                    });
+                    c.querySelectorAll('.debug-bug-option').forEach(function(opt) {
+                        opt.classList.remove('correct-found', 'missed-bug', 'false-positive-bug');
+                    });
+                    c.querySelector('.debug-submit-btn').disabled = false;
+                    var results = c.querySelector('.debug-results');
+                    if (results) results.classList.remove('visible');
+                });
+                updateRemaining();
+            });
+            card.appendChild(againBtn);
+
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        }, 600);
+    }
+
     updateRemaining();
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+(function() {
+    var btn = document.getElementById('back-to-top');
+    if (!btn) return;
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 400) {
+            btn.classList.add('visible');
+        } else {
+            btn.classList.remove('visible');
+        }
+    }, {passive: true});
+    btn.addEventListener('click', function() {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    });
 })();
 </script>
 {% endblock %}

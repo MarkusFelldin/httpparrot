@@ -18,6 +18,10 @@
                         <span class="tester-input-icon" aria-hidden="true">&#x1F50D;</span>
                         <label for="url-input" class="sr-only">URL to test</label>
                         <input type="text" class="tester-input" id="url-input" placeholder="example.com" autocomplete="off" aria-label="URL to test">
+                        <div class="tester-method-toggle" role="radiogroup" aria-label="HTTP method">
+                            <button type="button" class="tester-method-btn active" data-method="HEAD" aria-pressed="true">HEAD</button>
+                            <button type="button" class="tester-method-btn" data-method="GET" aria-pressed="false">GET</button>
+                        </div>
                         <button type="submit" class="tester-submit" id="submit-btn">Ping</button>
                     </div>
                 </form>
@@ -42,6 +46,7 @@
             500:'Internal Server Error',502:'Bad Gateway',503:'Service Unavailable',504:'Gateway Time-out'
         };
         const colors = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
+        var selectedMethod = 'HEAD';
 
         function el(tag, cls, text) {
             const e = document.createElement(tag);
@@ -50,10 +55,49 @@
             return e;
         }
 
+        function clearChildren(node) {
+            while (node.firstChild) node.removeChild(node.firstChild);
+        }
+
         function showError(container, msg) {
-            container.innerHTML = '';
+            clearChildren(container);
             container.appendChild(el('div', 'tester-error', msg));
         }
+
+        function formatBody(body, contentType) {
+            if (contentType && contentType.indexOf('json') !== -1) {
+                try {
+                    return JSON.stringify(JSON.parse(body), null, 2);
+                } catch(e) {
+                    return body;
+                }
+            }
+            return body;
+        }
+
+        function getContentTypeBadge(contentType) {
+            if (!contentType) return 'unknown';
+            if (contentType.indexOf('json') !== -1) return 'JSON';
+            if (contentType.indexOf('html') !== -1) return 'HTML';
+            if (contentType.indexOf('xml') !== -1) return 'XML';
+            if (contentType.indexOf('text/plain') !== -1) return 'Text';
+            if (contentType.indexOf('css') !== -1) return 'CSS';
+            if (contentType.indexOf('javascript') !== -1) return 'JS';
+            return contentType.split(';')[0].split('/').pop().toUpperCase();
+        }
+
+        // Method toggle
+        document.querySelectorAll('.tester-method-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tester-method-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                    b.setAttribute('aria-pressed', 'false');
+                });
+                btn.classList.add('active');
+                btn.setAttribute('aria-pressed', 'true');
+                selectedMethod = btn.getAttribute('data-method');
+            });
+        });
 
         document.getElementById('tester-form').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -64,12 +108,16 @@
             const heroImg = document.getElementById('hero-img');
             const btn = document.getElementById('submit-btn');
             heroImg.classList.add('pinging');
-            while (result.firstChild) result.removeChild(result.firstChild);
+            clearChildren(result);
             result.appendChild(el('div', 'tester-loading', 'Pinging...'));
             btn.disabled = true;
             btn.textContent = 'Pinging...';
 
-            fetch('/api/check-url?url=' + encodeURIComponent(url))
+            var endpoint = selectedMethod === 'GET'
+                ? '/api/fetch-url?url=' + encodeURIComponent(url)
+                : '/api/check-url?url=' + encodeURIComponent(url);
+
+            fetch(endpoint)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     btn.disabled = false;
@@ -87,7 +135,7 @@
                     const cat = String(code)[0];
                     const color = colors[cat] || '#fff';
 
-                    while (result.firstChild) result.removeChild(result.firstChild);
+                    clearChildren(result);
                     const card = el('div', 'tester-result');
                     card.style.borderColor = color + '30';
                     card.style.boxShadow = '0 8px 40px ' + color + '15, 0 0 80px ' + color + '08';
@@ -100,7 +148,26 @@
                     card.appendChild(header);
 
                     if (data.time_ms !== undefined) {
-                        header.appendChild(el('div', 'tester-result-time', data.time_ms + 'ms'));
+                        var timeWrap = el('div', 'tester-timing-bar-wrap');
+                        var timeLabel = el('span', 'tester-timing-label', data.time_ms + 'ms');
+                        var barOuter = el('div', 'tester-timing-bar-outer');
+                        var barInner = el('div', 'tester-timing-bar-inner');
+                        var ms = data.time_ms;
+                        var barColor, barCategory;
+                        if (ms < 200) { barColor = '#2dd4a8'; barCategory = 'Fast'; }
+                        else if (ms < 500) { barColor = '#f9c74f'; barCategory = 'Moderate'; }
+                        else if (ms < 1000) { barColor = '#f4845f'; barCategory = 'Slow'; }
+                        else { barColor = '#ff6b6b'; barCategory = 'Very slow'; }
+                        var pct = Math.min(100, Math.max(8, (ms / 2000) * 100));
+                        barInner.style.width = pct + '%';
+                        barInner.style.background = barColor;
+                        barOuter.appendChild(barInner);
+                        var catLabel = el('span', 'tester-timing-category', barCategory);
+                        catLabel.style.color = barColor;
+                        timeWrap.appendChild(timeLabel);
+                        timeWrap.appendChild(barOuter);
+                        timeWrap.appendChild(catLabel);
+                        card.appendChild(timeWrap);
                     }
 
                     if (data.headers && Object.keys(data.headers).length > 0) {
@@ -116,6 +183,50 @@
                         });
                         hdrs.appendChild(table);
                         card.appendChild(hdrs);
+                    }
+
+                    // Response body preview (GET mode only)
+                    if (data.body !== undefined && data.body !== null) {
+                        var bodySection = el('div', 'tester-body-preview');
+                        var bodyHeader = el('div', 'tester-body-header');
+                        var bodyTitle = el('span', 'tester-body-title', 'Response Body');
+                        var badge = el('span', 'tester-content-type-badge', getContentTypeBadge(data.content_type));
+                        var bodyActions = el('div', 'tester-body-actions');
+                        var copyBtn = document.createElement('button');
+                        copyBtn.className = 'tester-copy-body-btn';
+                        copyBtn.textContent = 'Copy Body';
+                        copyBtn.type = 'button';
+                        copyBtn.addEventListener('click', function() {
+                            navigator.clipboard.writeText(data.body).then(function() {
+                                copyBtn.textContent = 'Copied!';
+                                setTimeout(function() { copyBtn.textContent = 'Copy Body'; }, 2000);
+                            });
+                        });
+                        var collapseBtn = document.createElement('button');
+                        collapseBtn.className = 'tester-body-collapse-btn';
+                        collapseBtn.textContent = 'Collapse';
+                        collapseBtn.type = 'button';
+                        var bodyContent = el('div', 'tester-body-content');
+                        var pre = document.createElement('pre');
+                        pre.className = 'tester-body-pre';
+                        var formattedBody = formatBody(data.body, data.content_type);
+                        pre.textContent = formattedBody;
+                        bodyContent.appendChild(pre);
+                        if (data.truncated) {
+                            bodyContent.appendChild(el('div', 'tester-body-truncated', 'Body truncated at 10 KB'));
+                        }
+                        collapseBtn.addEventListener('click', function() {
+                            var collapsed = bodyContent.classList.toggle('collapsed');
+                            collapseBtn.textContent = collapsed ? 'Expand' : 'Collapse';
+                        });
+                        bodyActions.appendChild(copyBtn);
+                        bodyActions.appendChild(collapseBtn);
+                        bodyHeader.appendChild(bodyTitle);
+                        bodyHeader.appendChild(badge);
+                        bodyHeader.appendChild(bodyActions);
+                        bodySection.appendChild(bodyHeader);
+                        bodySection.appendChild(bodyContent);
+                        card.appendChild(bodySection);
                     }
 
                     const actions = el('div', 'tester-result-actions');
