@@ -6465,34 +6465,30 @@ class TestMilestoneCelebrations:
         for m in ['7', '14', '30', '50', '100']:
             assert m in html
 
-    def test_daily_has_milestone_overlay(self, client):
-        """Daily page should have a milestone celebration overlay."""
+    def test_daily_has_milestone_toast(self, client):
+        """Daily page should show milestone celebrations as toasts."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert 'milestone-overlay' in html
-        assert 'milestone-content' in html
-        assert 'milestone-number' in html
-        assert 'milestone-congrats' in html
+        assert 'showMilestoneCelebration' in html
+        assert 'login-reward-toast' in html
 
-    def test_daily_has_milestone_share(self, client):
-        """Milestone overlay should have a share button."""
+    def test_daily_has_milestone_xp_text(self, client):
+        """Milestone celebration should show bonus XP in toast."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert 'milestone-share' in html
-        assert 'day streak on HTTP Parrots' in html
-
-    def test_daily_has_milestone_xp_display(self, client):
-        """Milestone overlay should show bonus XP."""
-        resp = client.get('/daily')
-        html = resp.data.decode()
-        assert 'milestone-xp' in html
         assert 'Bonus XP' in html
 
-    def test_daily_milestone_auto_dismiss(self, client):
-        """Milestone overlay should auto-dismiss after 5 seconds."""
+    def test_daily_milestone_function_exists(self, client):
+        """Daily page should have showMilestoneCelebration function."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert '5000' in html
+        assert 'function showMilestoneCelebration' in html
+
+    def test_daily_milestone_auto_dismiss(self, client):
+        """Milestone toast should auto-dismiss."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert '4000' in html
 
     def test_milestone_spawns_confetti(self, client):
         """Milestone celebration should spawn confetti."""
@@ -6501,13 +6497,11 @@ class TestMilestoneCelebrations:
         assert 'showMilestoneCelebration' in html
         assert 'spawnConfetti' in html
 
-    def test_milestone_css_exists(self, client):
-        """CSS should have milestone overlay styles."""
+    def test_milestone_toast_uses_existing_css(self, client):
+        """Milestone toast should reuse login-reward-toast CSS."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
-        assert '.milestone-overlay' in css
-        assert '.milestone-content' in css
-        assert '.milestone-number' in css
+        assert '.login-reward-toast' in css
 
     def test_daily_checks_milestones_on_correct(self, client):
         """After a correct answer, milestones should be checked."""

@@ -29,15 +29,7 @@
             <span aria-hidden="true">&#x2744;&#xFE0F;</span> Streak freeze used! Your streak is safe.
         </div>
 
-        <div class="milestone-overlay" id="milestone-overlay" style="display:none;" role="dialog" aria-label="Milestone celebration">
-            <div class="milestone-content">
-                <div class="milestone-number" id="milestone-number"></div>
-                <div class="milestone-congrats" id="milestone-congrats"></div>
-                <div class="milestone-xp" id="milestone-xp"></div>
-                <button class="btn-back milestone-share" id="milestone-share">Share</button>
-                <button class="btn-back milestone-dismiss" id="milestone-dismiss">Dismiss</button>
-            </div>
-        </div>
+        <!-- Milestone celebrations now handled by feather toast + confetti system -->
 
         <div class="daily-scenario" id="daily-scenario">
             <div class="daily-scenario-label">Which HTTP status code fits this scenario?</div>
@@ -217,28 +209,18 @@
         }
 
         function showMilestoneCelebration(days, bonusXp) {
-            var overlay = document.getElementById('milestone-overlay');
-            document.getElementById('milestone-number').textContent = days + '-Day Streak!';
-            document.getElementById('milestone-congrats').textContent = 'Congratulations! You reached a ' + days + '-day streak!';
-            document.getElementById('milestone-xp').textContent = '+' + bonusXp + ' Bonus XP';
-            overlay.style.display = '';
-
-            spawnConfetti(document.getElementById('milestone-number'));
-
-            var shareBtn = document.getElementById('milestone-share');
-            shareBtn.onclick = function() {
-                var text = 'I hit a ' + days + '-day streak on HTTP Parrots! httpparrots.com/daily';
-                navigator.clipboard.writeText(text).then(function() {
-                    shareBtn.textContent = 'Copied!';
-                    setTimeout(function() { shareBtn.textContent = 'Share'; }, 2000);
-                }).catch(function() {});
-            };
-
-            var dismissBtn = document.getElementById('milestone-dismiss');
-            dismissBtn.onclick = function() { overlay.style.display = 'none'; };
-            overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
-
-            setTimeout(function() { overlay.style.display = 'none'; }, 5000);
+            /* Non-blocking toast instead of overlay */
+            var toast = document.createElement('div');
+            toast.className = 'login-reward-toast';
+            toast.textContent = days + '-Day Streak! +' + bonusXp + ' Bonus XP';
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.classList.add('login-reward-visible'); }, 50);
+            setTimeout(function() {
+                toast.classList.remove('login-reward-visible');
+                setTimeout(function() { toast.remove(); }, 500);
+            }, 4000);
+            /* Trigger confetti on the streak display */
+            try { spawnConfetti(document.getElementById('streak-count')); } catch(e) {}
         }
 
         // Init
@@ -264,15 +246,6 @@
         updateStreakDisplay(state.streak);
         updateFreezeDisplay(state.freezesAvailable);
         saveState(state);
-
-        // Wire milestone overlay dismiss permanently (not just inside showMilestoneCelebration)
-        var milestoneOverlay = document.getElementById('milestone-overlay');
-        var milestoneDismiss = document.getElementById('milestone-dismiss');
-        function dismissMilestone() { milestoneOverlay.style.display = 'none'; }
-        if (milestoneDismiss) milestoneDismiss.addEventListener('click', dismissMilestone);
-        if (milestoneOverlay) milestoneOverlay.addEventListener('click', function(e) {
-            if (e.target === milestoneOverlay) dismissMilestone();
-        });
 
         // If already answered today, show the result
         if (state.lastDay === DAY_NUMBER && state.answered) {
