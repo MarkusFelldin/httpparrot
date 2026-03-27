@@ -9,6 +9,7 @@ CONFUSION_PAIRS = [
         "slug": "401-vs-403",
         "codes": ["401", "403"],
         "title": "401 Unauthorized vs 403 Forbidden",
+        "category": "Auth pairs",
         "tldr": "401 means the server doesn't know who you are (missing or invalid credentials); 403 means it knows who you are but you're not allowed.",
         "decision_tree": [
             {"question": "Did the client send valid credentials?", "yes": "403", "no": "401"},
@@ -30,6 +31,7 @@ CONFUSION_PAIRS = [
         "slug": "301-vs-302",
         "codes": ["301", "302"],
         "title": "301 Moved Permanently vs 302 Found",
+        "category": "Redirect pairs",
         "tldr": "301 says 'this URL has permanently moved \u2014 update your bookmarks'; 302 says 'temporarily go here, but keep using the original URL'.",
         "decision_tree": [
             {"question": "Is the old URL going away forever?", "yes": "301", "no": "302"},
@@ -51,6 +53,7 @@ CONFUSION_PAIRS = [
         "slug": "307-vs-308",
         "codes": ["307", "308"],
         "title": "307 Temporary Redirect vs 308 Permanent Redirect",
+        "category": "Redirect pairs",
         "tldr": "Both preserve the original HTTP method (unlike 301/302 which may change POST to GET); 307 is temporary and 308 is permanent.",
         "decision_tree": [
             {"question": "Should the client use the new URL for all future requests?", "yes": "308", "no": "307"},
@@ -72,6 +75,7 @@ CONFUSION_PAIRS = [
         "slug": "400-vs-422",
         "codes": ["400", "422"],
         "title": "400 Bad Request vs 422 Unprocessable Entity",
+        "category": "Client error pairs",
         "tldr": "400 means the request is malformed (bad syntax, unparseable); 422 means the syntax is valid but the content is semantically wrong.",
         "decision_tree": [
             {"question": "Can the server parse the request body at all?", "yes": "422", "no": "400"},
@@ -93,6 +97,7 @@ CONFUSION_PAIRS = [
         "slug": "404-vs-410",
         "codes": ["404", "410"],
         "title": "404 Not Found vs 410 Gone",
+        "category": "Client error pairs",
         "tldr": "404 means the resource was not found (it may appear later or may never have existed); 410 means it existed but was deliberately and permanently removed.",
         "decision_tree": [
             {"question": "Did the resource ever exist on this server?", "yes": "Could be 410", "no": "404"},
@@ -114,6 +119,7 @@ CONFUSION_PAIRS = [
         "slug": "500-vs-502",
         "codes": ["500", "502"],
         "title": "500 Internal Server Error vs 502 Bad Gateway",
+        "category": "Error pairs",
         "tldr": "500 means the server itself encountered an unexpected error; 502 means the server is a proxy/gateway and got an invalid response from an upstream service.",
         "decision_tree": [
             {"question": "Is the server acting as a proxy or gateway?", "yes": "Could be 502", "no": "500"},
@@ -135,6 +141,7 @@ CONFUSION_PAIRS = [
         "slug": "500-vs-503",
         "codes": ["500", "503"],
         "title": "500 Internal Server Error vs 503 Service Unavailable",
+        "category": "Error pairs",
         "tldr": "500 is an unexpected bug or crash; 503 means the server is temporarily unable to handle requests (overloaded, in maintenance, etc.).",
         "decision_tree": [
             {"question": "Is the server aware it cannot handle requests right now?", "yes": "503", "no": "500"},
@@ -156,6 +163,7 @@ CONFUSION_PAIRS = [
         "slug": "200-vs-204",
         "codes": ["200", "204"],
         "title": "200 OK vs 204 No Content",
+        "category": "Success pairs",
         "tldr": "Both mean success, but 200 includes a response body while 204 intentionally sends no body at all.",
         "decision_tree": [
             {"question": "Does the response need to include data in the body?", "yes": "200", "no": "204"},
@@ -177,6 +185,7 @@ CONFUSION_PAIRS = [
         "slug": "302-vs-307",
         "codes": ["302", "307"],
         "title": "302 Found vs 307 Temporary Redirect",
+        "category": "Redirect pairs",
         "tldr": "Both are temporary redirects, but 302 may change POST to GET (and often does in practice) while 307 guarantees the HTTP method is preserved.",
         "decision_tree": [
             {"question": "Must the original HTTP method (e.g., POST) be preserved?", "yes": "307", "no": "302 is fine"},
@@ -194,6 +203,138 @@ CONFUSION_PAIRS = [
             {"scenario": "An API endpoint temporarily moves and clients must re-send their PUT body to the new location.", "correct": "307", "wrong": "302"},
         ],
     },
+    {
+        "slug": "502-vs-504",
+        "codes": ["502", "504"],
+        "title": "502 Bad Gateway vs 504 Gateway Timeout",
+        "category": "Error pairs",
+        "tldr": "502 means the gateway/proxy received an invalid response from the upstream server; 504 means the upstream server didn't respond in time.",
+        "decision_tree": [
+            {"question": "Did the upstream server respond at all?", "yes": "502 (bad response)", "no": "504 (no response)"},
+            {"question": "Did the proxy/gateway hit a timeout waiting for the upstream?", "yes": "504", "no": "502"},
+            {"question": "Was the upstream response received but malformed or unintelligible?", "yes": "502", "no": "504"},
+        ],
+        "examples": [
+            {"scenario": "Nginx proxies a request to a Node.js backend that returns a garbled, unparseable response.", "code": "502", "explanation": "The upstream responded, but its response was invalid \u2014 the proxy can't forward it."},
+            {"scenario": "An API gateway waits 30 seconds for a microservice that never responds, then gives up.", "code": "504", "explanation": "The upstream service didn't respond before the gateway's timeout expired."},
+            {"scenario": "A load balancer connects to a backend that immediately resets the TCP connection.", "code": "502", "explanation": "The upstream responded with an error (connection reset), not a valid HTTP response."},
+        ],
+        "quiz": [
+            {"scenario": "A reverse proxy tries to reach a backend that is hung in an infinite loop and never sends a response.", "correct": "504", "wrong": "502"},
+            {"scenario": "A CDN edge server receives a response from the origin with missing HTTP headers and garbage data.", "correct": "502", "wrong": "504"},
+            {"scenario": "A microservice mesh times out after waiting 60 seconds for a downstream service.", "correct": "504", "wrong": "502"},
+        ],
+    },
+    {
+        "slug": "401-vs-407",
+        "codes": ["401", "407"],
+        "title": "401 Unauthorized vs 407 Proxy Authentication Required",
+        "category": "Auth pairs",
+        "tldr": "401 means the origin server requires authentication; 407 means an intermediate proxy requires authentication before it will forward the request.",
+        "decision_tree": [
+            {"question": "Is authentication required by the origin server or by a proxy?", "yes": "If proxy: 407; if origin: 401", "no": "Neither applies"},
+            {"question": "Does the response include a Proxy-Authenticate header?", "yes": "407", "no": "401"},
+            {"question": "Is the client expected to use the Authorization header or Proxy-Authorization header?", "yes": "Authorization \u2192 401; Proxy-Authorization \u2192 407", "no": "Check which layer needs credentials"},
+        ],
+        "examples": [
+            {"scenario": "A user hits a REST API without a Bearer token and gets a WWW-Authenticate challenge.", "code": "401", "explanation": "The origin server needs the client to authenticate \u2014 the WWW-Authenticate header confirms this."},
+            {"scenario": "A corporate proxy intercepts a request and demands credentials via Proxy-Authenticate.", "code": "407", "explanation": "The proxy, not the target server, needs authentication before forwarding the request."},
+            {"scenario": "An API call fails because the OAuth access token is expired.", "code": "401", "explanation": "The origin server rejected the credential \u2014 the client needs to refresh its token."},
+        ],
+        "quiz": [
+            {"scenario": "A developer's HTTP request is blocked by a company firewall proxy that requires a username and password.", "correct": "407", "wrong": "401"},
+            {"scenario": "A mobile app sends a request with no API key to a protected endpoint.", "correct": "401", "wrong": "407"},
+            {"scenario": "An enterprise proxy requires NTLM authentication before allowing outbound requests.", "correct": "407", "wrong": "401"},
+        ],
+    },
+    {
+        "slug": "204-vs-205",
+        "codes": ["204", "205"],
+        "title": "204 No Content vs 205 Reset Content",
+        "category": "Success pairs",
+        "tldr": "Both return no body, but 204 simply means 'success, nothing to send back' while 205 tells the client to reset its document view (e.g., clear a form).",
+        "decision_tree": [
+            {"question": "Should the client reset its form or UI after the response?", "yes": "205", "no": "204"},
+            {"question": "Is this a simple acknowledgement with no UI side-effects?", "yes": "204", "no": "205"},
+            {"question": "Does the server want the browser to clear the input fields?", "yes": "205", "no": "204"},
+        ],
+        "examples": [
+            {"scenario": "DELETE /api/users/42 succeeds and the server has nothing to return.", "code": "204", "explanation": "The resource is deleted; there's no body and no need for the client to reset its view."},
+            {"scenario": "A form submits feedback and the server wants the browser to clear all form fields.", "code": "205", "explanation": "205 tells the user agent to reset the document that initiated the request \u2014 clearing the form."},
+            {"scenario": "A PUT /settings request succeeds and the client already has all the data it sent.", "code": "204", "explanation": "No body is needed and the client should stay on the same view."},
+        ],
+        "quiz": [
+            {"scenario": "A search filter form is submitted and the server wants the browser to clear all filter inputs.", "correct": "205", "wrong": "204"},
+            {"scenario": "A 'mark as read' endpoint succeeds with nothing to return.", "correct": "204", "wrong": "205"},
+            {"scenario": "A data entry form is submitted and the server instructs the browser to reset for a new entry.", "correct": "205", "wrong": "204"},
+        ],
+    },
+    {
+        "slug": "409-vs-412",
+        "codes": ["409", "412"],
+        "title": "409 Conflict vs 412 Precondition Failed",
+        "category": "Client error pairs",
+        "tldr": "409 means the request conflicts with the current resource state (e.g., a concurrent edit); 412 means a precondition header (If-Match, If-Unmodified-Since) evaluated to false.",
+        "decision_tree": [
+            {"question": "Did the client send precondition headers (If-Match, If-None-Match, If-Unmodified-Since)?", "yes": "412 if they fail", "no": "409"},
+            {"question": "Is the conflict due to the resource's current state vs. the request's intent?", "yes": "409", "no": "412"},
+            {"question": "Is this an optimistic locking / ETag mismatch scenario using conditional headers?", "yes": "412", "no": "409"},
+        ],
+        "examples": [
+            {"scenario": "Two users edit the same document; the second save conflicts with the first's changes.", "code": "409", "explanation": "The resource state has changed in a way that conflicts with the update \u2014 no precondition headers were used."},
+            {"scenario": "A PUT request includes If-Match with a stale ETag; the server's current ETag doesn't match.", "code": "412", "explanation": "The If-Match precondition failed \u2014 the resource has been modified since the client last fetched it."},
+            {"scenario": "A user tries to create an account with a username that is already taken.", "code": "409", "explanation": "The request conflicts with existing state (duplicate username) \u2014 it's not a precondition header issue."},
+        ],
+        "quiz": [
+            {"scenario": "A client sends PUT with If-Unmodified-Since, but the resource was updated after that timestamp.", "correct": "412", "wrong": "409"},
+            {"scenario": "A CI/CD pipeline tries to deploy version 2, but version 3 has already been deployed by another pipeline.", "correct": "409", "wrong": "412"},
+            {"scenario": "An API uses ETags for optimistic concurrency and the client's If-Match header doesn't match.", "correct": "412", "wrong": "409"},
+        ],
+    },
+    {
+        "slug": "301-vs-308",
+        "codes": ["301", "308"],
+        "title": "301 Moved Permanently vs 308 Permanent Redirect",
+        "category": "Redirect pairs",
+        "tldr": "Both are permanent redirects, but 301 may change POST to GET (browsers historically do this) while 308 guarantees the HTTP method is preserved.",
+        "decision_tree": [
+            {"question": "Must the original HTTP method (e.g., POST) be preserved after the redirect?", "yes": "308", "no": "301 is fine"},
+            {"question": "Are you permanently redirecting an API endpoint that receives POST/PUT/DELETE?", "yes": "308", "no": "301"},
+            {"question": "Is this a simple permanent redirect of a browser-visited page (GET)?", "yes": "301", "no": "308 is safer"},
+        ],
+        "examples": [
+            {"scenario": "A website permanently moves from /old-page to /new-page and all traffic is GET.", "code": "301", "explanation": "Since it's a GET-only page, method preservation is irrelevant \u2014 301 is the standard choice."},
+            {"scenario": "An API permanently moves POST /v1/orders to /v2/orders and clients must keep POSTing.", "code": "308", "explanation": "308 guarantees clients will re-send the POST body to the new URL instead of converting to GET."},
+            {"scenario": "A company rebrands its website domain and wants SEO link equity to transfer for all pages.", "code": "301", "explanation": "For a domain-wide redirect of user-facing pages (GET), 301 is universally supported and understood by search engines."},
+        ],
+        "quiz": [
+            {"scenario": "A REST API permanently relocates its POST /api/payments endpoint to a new domain.", "correct": "308", "wrong": "301"},
+            {"scenario": "A blog permanently moves all its articles from /blog/ to /articles/ (GET traffic only).", "correct": "301", "wrong": "308"},
+            {"scenario": "An endpoint that accepts file uploads via PUT permanently moves to a new path.", "correct": "308", "wrong": "301"},
+        ],
+    },
+    {
+        "slug": "503-vs-504",
+        "codes": ["503", "504"],
+        "title": "503 Service Unavailable vs 504 Gateway Timeout",
+        "category": "Error pairs",
+        "tldr": "503 means the server itself is temporarily unable to handle requests (overload, maintenance); 504 means a gateway/proxy timed out waiting for an upstream server.",
+        "decision_tree": [
+            {"question": "Is the server reporting its own unavailability (maintenance, overload)?", "yes": "503", "no": "504"},
+            {"question": "Is a proxy or gateway involved, and did it time out waiting for an upstream?", "yes": "504", "no": "503"},
+            {"question": "Can the server include a Retry-After header because it knows when it will recover?", "yes": "503", "no": "504 (the gateway doesn't know when the upstream will recover)"},
+        ],
+        "examples": [
+            {"scenario": "A web server returns a maintenance page during a scheduled deploy window.", "code": "503", "explanation": "The server itself is aware it's temporarily unavailable and can suggest a Retry-After time."},
+            {"scenario": "An API gateway waits 30 seconds for an upstream service that never responds.", "code": "504", "explanation": "The gateway timed out \u2014 the upstream service didn't respond in time."},
+            {"scenario": "A server is overwhelmed by traffic and starts rejecting new connections.", "code": "503", "explanation": "The server recognises it's at capacity \u2014 this is its own state, not a proxy timeout."},
+        ],
+        "quiz": [
+            {"scenario": "A load balancer's connection to a backend microservice times out after 60 seconds.", "correct": "504", "wrong": "503"},
+            {"scenario": "A web application enables a maintenance mode flag and rejects all traffic with Retry-After: 3600.", "correct": "503", "wrong": "504"},
+            {"scenario": "A reverse proxy gives up after waiting for an unresponsive upstream database service.", "correct": "504", "wrong": "503"},
+        ],
+    },
 ]
 
 # Quick lookup by slug
@@ -204,3 +345,13 @@ CONFUSION_PAIRS_BY_CODE = {}
 for _pair in CONFUSION_PAIRS:
     for _code in _pair["codes"]:
         CONFUSION_PAIRS_BY_CODE.setdefault(_code, []).append(_pair["slug"])
+
+# Ordered list of category names (display order) and pairs grouped by category
+CONFUSION_PAIR_CATEGORY_ORDER = [
+    "Auth pairs", "Redirect pairs", "Success pairs",
+    "Client error pairs", "Error pairs",
+]
+PAIRS_BY_CATEGORY = {}
+for _pair in CONFUSION_PAIRS:
+    _cat = _pair.get("category", "Other")
+    PAIRS_BY_CATEGORY.setdefault(_cat, []).append(_pair)

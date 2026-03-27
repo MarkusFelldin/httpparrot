@@ -24,7 +24,9 @@ from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
 from scenarios import SCENARIOS
 from debug_exercises import DEBUG_EXERCISES
-from confusion_pairs import CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG, CONFUSION_PAIRS_BY_CODE
+from confusion_pairs import (CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG,
+                              CONFUSION_PAIRS_BY_CODE, CONFUSION_PAIR_CATEGORY_ORDER,
+                              PAIRS_BY_CATEGORY)
 from learning_paths import LEARNING_PATHS, LEARNING_PATHS_BY_ID
 
 app = Flask(__name__)
@@ -197,6 +199,24 @@ def _ensure_scheme(url):
     if not url.startswith(('http://', 'https://')):
         return 'https://' + url
     return url
+
+
+# --- Webhook Inspector / Request Bin ---
+
+_webhook_bins = {}  # {bin_id: {created: timestamp, requests: [...]}}
+_WEBHOOK_BIN_TTL = 3600  # 1 hour
+_WEBHOOK_BIN_MAX_REQUESTS = 50
+_WEBHOOK_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
+                          'set-cookie', 'x-api-key'}
+
+
+def _prune_expired_bins():
+    """Remove bins older than TTL."""
+    now = time.time()
+    expired = [bid for bid, b in _webhook_bins.items()
+               if now - b['created'] > _WEBHOOK_BIN_TTL]
+    for bid in expired:
+        del _webhook_bins[bid]
 
 
 @app.context_processor
@@ -640,6 +660,12 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/personality')
+def personality():
+    """Render the 'Which HTTP Status Code Are You?' personality quiz."""
+    return render_template('personality.html')
+
+
 @app.route('/daily')
 def daily():
     """Render the daily HTTP challenge — one scenario question per day."""
@@ -687,6 +713,112 @@ def daily():
                            image=image,
                            day_number=day_number,
                            date_str=today.isoformat())
+
+
+@app.route('/weekly')
+def weekly():
+    """Render the weekly themed challenge — 5 questions from a rotating theme."""
+    today = date.today()
+    week_number = today.isocalendar()[1]
+    rng = random.Random(week_number)
+
+    WEEKLY_THEMES = [
+        {
+            "name": "Redirect Week",
+            "description": "Master the art of HTTP redirects. 301 or 302? 307 or 308? Prove you know the difference.",
+            "icon": "&#x27A1;&#xFE0F;",
+            "categories": ["redirects"],
+            "code_prefixes": ["3"],
+        },
+        {
+            "name": "Auth Week",
+            "description": "Authentication and authorization are the gatekeepers of the web. Do you know who gets in?",
+            "icon": "&#x1F512;",
+            "categories": ["auth"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "Error Week",
+            "description": "Client errors, server errors, and everything that can go wrong. Time to debug!",
+            "icon": "&#x1F6A8;",
+            "categories": ["errors"],
+            "code_prefixes": ["4", "5"],
+        },
+        {
+            "name": "Success Week",
+            "description": "Not everything is errors. Celebrate the 2xx codes that mean things went right!",
+            "icon": "&#x2705;",
+            "categories": ["crud"],
+            "code_prefixes": ["2"],
+        },
+        {
+            "name": "Caching Week",
+            "description": "304, ETag, If-Modified-Since. Make the web faster by knowing when not to fetch.",
+            "icon": "&#x26A1;",
+            "categories": ["caching"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "API Design Week",
+            "description": "Build better APIs. Know the right status codes for rate limits, content negotiation, and more.",
+            "icon": "&#x1F4E1;",
+            "categories": ["api-design"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "Debug Week",
+            "description": "Server errors, bad gateways, and timeouts. Can you triage them all?",
+            "icon": "&#x1F41B;",
+            "categories": ["errors"],
+            "code_prefixes": ["5"],
+        },
+        {
+            "name": "Speed Round",
+            "description": "A wild mix from every category. Think fast, answer faster!",
+            "icon": "&#x1F3C3;",
+            "categories": [],
+            "code_prefixes": [],
+        },
+    ]
+
+    theme = WEEKLY_THEMES[week_number % len(WEEKLY_THEMES)]
+
+    # Select matching scenarios
+    candidates = []
+    for s in SCENARIOS:
+        if theme["categories"] and s["category"] in theme["categories"]:
+            candidates.append(s)
+        elif theme["code_prefixes"]:
+            if any(s["correct"].startswith(p) for p in theme["code_prefixes"]):
+                candidates.append(s)
+
+    # Speed Round or not enough matches: use all scenarios
+    if len(candidates) < 5:
+        candidates = list(SCENARIOS)
+
+    rng.shuffle(candidates)
+    questions = candidates[:5]
+
+    # Build question data with options and correct indices
+    question_data = []
+    for q in questions:
+        opts = list(q["options"])
+        rng.shuffle(opts)
+        correct_idx = opts.index(q["correct"])
+        question_data.append({
+            "id": q["id"],
+            "description": q["description"],
+            "options": opts,
+            "correct_index": correct_idx,
+            "correct_code": q["correct"],
+            "explanations": q["explanations"],
+        })
+
+    return render_template('weekly.html',
+                           theme=theme,
+                           questions=question_data,
+                           week_number=week_number,
+                           week_start=today.isoformat())
 
 
 @app.route('/practice')
@@ -768,8 +900,10 @@ _LEARN_CAT_BGS = {
 
 @app.route('/learn')
 def learn_index():
-    """List all confusion pair lessons."""
-    return render_template('learn_index.html', pairs=CONFUSION_PAIRS)
+    """List all confusion pair lessons, grouped by category."""
+    return render_template('learn_index.html', pairs=CONFUSION_PAIRS,
+                           category_order=CONFUSION_PAIR_CATEGORY_ORDER,
+                           pairs_by_category=PAIRS_BY_CATEGORY)
 
 
 @app.route('/learn/<slug>')
@@ -1740,11 +1874,11 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/daily', '/practice', '/debug',
+    for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
                  '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
-                 '/profile', '/review', '/fault-simulator']:
+                 '/profile', '/review', '/fault-simulator', '/webhook-inspector']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -1791,9 +1925,77 @@ def robots():
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"
+        "Disallow: /api/bin/\n"
+        "Disallow: /bin/\n"
         f"\nSitemap: {request.url_root}sitemap.xml\n"
     )
     return app.response_class(content, mimetype='text/plain')
+
+
+@app.route('/webhook-inspector')
+def webhook_inspector():
+    """Render the Webhook Inspector page for creating and viewing request bins."""
+    return render_template('webhook_inspector.html')
+
+
+@app.route('/api/bin/create', methods=['POST'])
+def create_bin():
+    """Create a new webhook bin and return its ID and hook URL.
+
+    Rate-limited to prevent abuse. Prunes expired bins on each call.
+    Returns JSON with bin_id and url fields.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    _prune_expired_bins()
+    bin_id = secrets.token_urlsafe(6)[:8]
+    _webhook_bins[bin_id] = {'created': time.time(), 'requests': []}
+    hook_url = request.url_root.rstrip('/') + '/bin/' + bin_id + '/hook'
+    return jsonify({'bin_id': bin_id, 'url': hook_url}), 201
+
+
+@app.route('/bin/<bin_id>/hook', methods=['GET', 'POST', 'PUT', 'DELETE',
+           'PATCH', 'HEAD', 'OPTIONS'])
+def capture_hook(bin_id):
+    """Capture any incoming request into the specified bin.
+
+    Strips sensitive headers (Authorization, Cookie, etc.) before storing.
+    Stores up to 50 requests per bin; older requests beyond the cap are
+    silently discarded (newest requests kept).
+    """
+    b = _webhook_bins.get(bin_id)
+    if not b:
+        return jsonify({"error": "Bin not found or expired"}), 404
+    if time.time() - b['created'] > _WEBHOOK_BIN_TTL:
+        del _webhook_bins[bin_id]
+        return jsonify({"error": "Bin not found or expired"}), 404
+    safe_headers = {k: v for k, v in request.headers
+                    if k.lower() not in _WEBHOOK_STRIP_HEADERS}
+    entry = {
+        'method': request.method,
+        'url': request.url,
+        'headers': safe_headers,
+        'query': dict(request.args),
+        'body': request.get_data(as_text=True),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    }
+    b['requests'].append(entry)
+    # Keep only the most recent N requests
+    if len(b['requests']) > _WEBHOOK_BIN_MAX_REQUESTS:
+        b['requests'] = b['requests'][-_WEBHOOK_BIN_MAX_REQUESTS:]
+    return jsonify({"status": "captured"}), 200
+
+
+@app.route('/api/bin/<bin_id>')
+def get_bin(bin_id):
+    """Return JSON array of captured requests for the given bin."""
+    b = _webhook_bins.get(bin_id)
+    if not b:
+        return jsonify({"error": "Bin not found or expired"}), 404
+    if time.time() - b['created'] > _WEBHOOK_BIN_TTL:
+        del _webhook_bins[bin_id]
+        return jsonify({"error": "Bin not found or expired"}), 404
+    return jsonify(b['requests'])
 
 
 if __name__ == '__main__':

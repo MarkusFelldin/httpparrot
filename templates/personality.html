@@ -1,0 +1,577 @@
+{% extends "base.html" %}
+
+{% block title %}Which HTTP Status Code Are You? - HTTP Parrots{% endblock %}
+{% block subtitle %}Personality Quiz{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Take the HTTP Personality Quiz! Discover which HTTP status code matches your personality. Fun viral quiz for developers.">
+    <meta property="og:title" content="Which HTTP Status Code Are You?">
+    <meta property="og:description" content="I just found out which HTTP status code I am! Take the quiz and share your result.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+{% endblock %}
+
+{% block content %}
+    <main class="quiz-container personality-container" id="main-content" role="main">
+        <h1 class="personality-title">Which HTTP Status Code Are You?</h1>
+        <p class="personality-subtitle">Answer 8 questions to discover your HTTP personality</p>
+
+        <div class="personality-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="8" aria-label="Quiz progress">
+            <div class="personality-progress-bar" id="progress-bar" style="width: 0%"></div>
+            <span class="personality-progress-text" id="progress-text">Question 1 of 8</span>
+        </div>
+
+        <div id="quiz-area">
+            <div class="personality-question" id="question-card" role="group" aria-label="Current question">
+                <h2 class="personality-question-text" id="question-text"></h2>
+                <div class="personality-choices" id="choices"></div>
+            </div>
+        </div>
+
+        <div id="result-area" class="personality-result" style="display:none" aria-live="polite">
+            <div class="personality-result-card" id="result-card">
+                <div class="personality-result-badge" id="result-badge"></div>
+                <img id="result-img" class="personality-result-img" src="" alt="" width="400" height="333">
+                <h2 class="personality-result-name" id="result-name"></h2>
+                <p class="personality-result-desc" id="result-desc"></p>
+                <ul class="personality-traits" id="result-traits"></ul>
+                <div class="personality-share-section">
+                    <div class="personality-share-buttons">
+                        <button class="btn-back personality-share-btn" id="copy-result" type="button">
+                            Copy Result
+                        </button>
+                        <a class="btn-back personality-share-btn" id="twitter-share" href="#" target="_blank" rel="noopener">
+                            Share on X
+                        </a>
+                    </div>
+                    <a class="btn-back personality-detail-link" id="detail-link" href="#">
+                        Learn more about this status code
+                    </a>
+                    <button class="btn-back personality-retake" id="retake-btn" type="button">
+                        Retake Quiz
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var QUESTIONS = [
+            {
+                text: "How do you handle being overwhelmed?",
+                choices: [
+                    { label: "Tell people to slow down and come back later", code: "429" },
+                    { label: "Shut down completely until I recover", code: "503" },
+                    { label: "Just stop responding and hope they go away", code: "408" },
+                    { label: "Accept the task but deal with it when I can", code: "202" }
+                ]
+            },
+            {
+                text: "Someone asks for something you can't provide?",
+                choices: [
+                    { label: "I have no idea what they're talking about", code: "404" },
+                    { label: "I know what it is but I'm not giving it to them", code: "403" },
+                    { label: "I don't even know how to do that yet", code: "501" },
+                    { label: "Done! But there's nothing to show for it", code: "204" }
+                ]
+            },
+            {
+                text: "How do you redirect people?",
+                choices: [
+                    { label: "Permanently \u2014 update your bookmarks, I've moved on", code: "301" },
+                    { label: "Temporarily \u2014 I'll be back at the old place soon", code: "302" },
+                    { label: "Temporarily, but don't change how you got here", code: "307" },
+                    { label: "Permanently, and do it exactly the same way", code: "308" }
+                ]
+            },
+            {
+                text: "What's your approach to conflict?",
+                choices: [
+                    { label: "Point out the contradiction and refuse to proceed", code: "409" },
+                    { label: "Only engage if conditions are met first", code: "412" },
+                    { label: "Require everyone to agree on rules before starting", code: "428" },
+                    { label: "Refuse if the approach is wrong, suggest a better one", code: "405" }
+                ]
+            },
+            {
+                text: "You just accomplished something big. How do you react?",
+                choices: [
+                    { label: "Everything went perfectly, life is good", code: "200" },
+                    { label: "I made something brand new and I'm proud of it", code: "201" },
+                    { label: "I completely transformed into something better", code: "301" },
+                    { label: "I'm a teapot and I'm not even sorry", code: "418" }
+                ]
+            },
+            {
+                text: "How do you handle mistakes?",
+                choices: [
+                    { label: "Melt down internally and panic", code: "500" },
+                    { label: "Blame it on someone else upstream", code: "502" },
+                    { label: "Admit the request itself was flawed", code: "400" },
+                    { label: "Apologize and ask them to try again soon", code: "503" }
+                ]
+            },
+            {
+                text: "What's your communication style?",
+                choices: [
+                    { label: "Clear and direct \u2014 you get exactly what you asked for", code: "200" },
+                    { label: "Mysterious \u2014 I acknowledge you but say nothing", code: "204" },
+                    { label: "Demanding \u2014 prove who you are first", code: "401" },
+                    { label: "Chaotic \u2014 I might work, I might not", code: "500" }
+                ]
+            },
+            {
+                text: "Pick the life motto that resonates most:",
+                choices: [
+                    { label: "Everything in its right place", code: "200" },
+                    { label: "Not my circus, not my monkeys", code: "403" },
+                    { label: "I'll get there eventually, just not today", code: "503" },
+                    { label: "I refuse to brew coffee", code: "418" }
+                ]
+            }
+        ];
+
+        var PERSONALITIES = {
+            "200": {
+                name: "The Reliable One",
+                tagline: "You're a 200 OK \u2014 everything just works when you're around",
+                description: "You're the backbone everyone depends on. Steady, consistent, and always delivering exactly what's expected. People know they can count on you.",
+                traits: [
+                    "Dependable to a fault \u2014 you always come through",
+                    "Clear communicator who delivers on promises",
+                    "The person everyone calls when things need to work",
+                    "Quietly confident without needing the spotlight"
+                ],
+                image: "200"
+            },
+            "201": {
+                name: "The Creator",
+                tagline: "You're a 201 Created \u2014 always bringing something new into the world",
+                description: "You thrive on building and making things. Every interaction with you results in something new being born. You're the inventor, the artist, the maker.",
+                traits: [
+                    "Endlessly creative and full of new ideas",
+                    "Leaves a mark everywhere you go",
+                    "Finds joy in the act of creation itself",
+                    "Others are inspired by your productivity"
+                ],
+                image: "201"
+            },
+            "202": {
+                name: "The Procrastinator",
+                tagline: "You're a 202 Accepted \u2014 acknowledged, but processing later",
+                description: "You gracefully accept every request that comes your way, but you'll get around to it on your own schedule. You never say no, you just say 'later'.",
+                traits: [
+                    "Master of 'I'll get to it eventually'",
+                    "Great at making people feel heard",
+                    "Works best under your own timeline",
+                    "Surprisingly reliable \u2014 just not fast"
+                ],
+                image: "202"
+            },
+            "204": {
+                name: "The Minimalist",
+                tagline: "You're a 204 No Content \u2014 successful but say nothing about it",
+                description: "You get things done without fanfare. No unnecessary words, no drama, just quiet competence. Your silence speaks volumes.",
+                traits: [
+                    "Actions speak louder than words",
+                    "Efficient to the point of being mysterious",
+                    "People wonder what you're thinking",
+                    "Elegantly understated in everything"
+                ],
+                image: "204"
+            },
+            "301": {
+                name: "The Reinventor",
+                tagline: "You're a 301 Moved Permanently \u2014 always redirecting to somewhere better",
+                description: "You're constantly evolving and moving forward. Once you've grown past something, there's no going back. You help others find their way too.",
+                traits: [
+                    "Embraces change and never looks back",
+                    "Naturally guides others to better places",
+                    "Reinvents yourself every few years",
+                    "Burns bridges gracefully"
+                ],
+                image: "301"
+            },
+            "302": {
+                name: "The Wanderer",
+                tagline: "You're a 302 Found \u2014 temporarily somewhere else, but you'll be back",
+                description: "You love exploring and trying new things, but you always come back to your roots. Your temporary detours often lead to the best discoveries.",
+                traits: [
+                    "Adventurous spirit with a home base",
+                    "Keeps people guessing about where you'll be next",
+                    "Flexible and adaptable to any situation",
+                    "The friend who's always traveling somewhere"
+                ],
+                image: "302"
+            },
+            "307": {
+                name: "The Traditionalist",
+                tagline: "You're a 307 Temporary Redirect \u2014 detour, but don't change the method",
+                description: "You respect the process. Even when things need to change temporarily, you insist on doing it the right way. Shortcuts aren't your style.",
+                traits: [
+                    "Stickler for doing things properly",
+                    "Respects the original plan even during detours",
+                    "Reliable even in unpredictable situations",
+                    "The one who reads the whole manual first"
+                ],
+                image: "307"
+            },
+            "400": {
+                name: "The Perfectionist",
+                tagline: "You're a 400 Bad Request \u2014 if it's not formatted right, it's not happening",
+                description: "You have high standards and you're not afraid to say when something doesn't meet them. You catch every typo, every inconsistency, every flaw.",
+                traits: [
+                    "Impossibly high standards for everything",
+                    "The first to spot what's wrong",
+                    "Frustrating but ultimately right most of the time",
+                    "Your code reviews are legendary"
+                ],
+                image: "400"
+            },
+            "401": {
+                name: "The Bouncer",
+                tagline: "You're a 401 Unauthorized \u2014 who are you and why should I care?",
+                description: "You don't let just anyone in. Trust is earned, not given. You protect what matters and aren't afraid to challenge people who show up unannounced.",
+                traits: [
+                    "Fiercely protective of your inner circle",
+                    "Trust must be earned, never assumed",
+                    "Intimidating exterior hides a warm heart",
+                    "The friend who screens all your calls"
+                ],
+                image: "401"
+            },
+            "403": {
+                name: "The Gatekeeper",
+                tagline: "You're a 403 Forbidden \u2014 I know who you are and the answer is still no",
+                description: "You know exactly who's asking and you've already decided. You set clear boundaries and enforce them without hesitation. No means no.",
+                traits: [
+                    "Excellent at setting and maintaining boundaries",
+                    "Decisive \u2014 you know exactly where you stand",
+                    "Respectfully firm in every situation",
+                    "People know not to push their luck with you"
+                ],
+                image: "403"
+            },
+            "404": {
+                name: "The Enigma",
+                tagline: "You're a 404 Not Found \u2014 people keep looking for you but can't find you",
+                description: "You're elusive and hard to pin down. People are always searching for you, and there's an air of mystery about where you'll turn up next.",
+                traits: [
+                    "Impossible to reach when you don't want to be found",
+                    "The most famous introvert in the room",
+                    "Everyone's been looking for you at some point",
+                    "Your absence is more notable than most people's presence"
+                ],
+                image: "404"
+            },
+            "405": {
+                name: "The Principled One",
+                tagline: "You're a 405 Method Not Allowed \u2014 right idea, wrong approach",
+                description: "You're open to engagement, but only on your terms. The goal might be fine, but if the approach is wrong, you'll shut it down and suggest a better way.",
+                traits: [
+                    "Strong opinions on how things should be done",
+                    "Happy to help if you ask the right way",
+                    "Principled without being inflexible",
+                    "The architect who rejects your first three designs"
+                ],
+                image: "405"
+            },
+            "408": {
+                name: "The Patient One (Until You're Not)",
+                tagline: "You're a 408 Request Timeout \u2014 I waited, and you took too long",
+                description: "You give people their chance, but your patience has limits. When someone takes too long to respond, you move on without guilt.",
+                traits: [
+                    "Generous with your time, but only up to a point",
+                    "Hates being left on read",
+                    "Moves on quickly when people waste your time",
+                    "The friend who leaves after waiting 15 minutes"
+                ],
+                image: "408"
+            },
+            "409": {
+                name: "The Debater",
+                tagline: "You're a 409 Conflict \u2014 we have a disagreement and it needs resolving",
+                description: "You spot contradictions others miss and refuse to pretend everything is fine. Conflict doesn't scare you because resolution is always worth it.",
+                traits: [
+                    "Thrives in healthy debate and discussion",
+                    "Can't let contradictions slide",
+                    "Seeks resolution, not just agreement",
+                    "The one who raises the uncomfortable question"
+                ],
+                image: "409"
+            },
+            "412": {
+                name: "The Strategist",
+                tagline: "You're a 412 Precondition Failed \u2014 you didn't meet my requirements",
+                description: "You think ahead and set clear expectations. Nothing happens without proper conditions being met first. You're always three steps ahead.",
+                traits: [
+                    "Plans everything meticulously in advance",
+                    "Sets clear expectations before committing",
+                    "Never caught off guard",
+                    "The person with a backup plan for the backup plan"
+                ],
+                image: "412"
+            },
+            "418": {
+                name: "The Rebel",
+                tagline: "You're a 418 I'm a Teapot \u2014 I refuse to brew coffee and I'm proud of it",
+                description: "You march to the beat of your own drum and you're delightfully unapologetic about it. Life's too short to be serious all the time.",
+                traits: [
+                    "Refuses to be what others expect",
+                    "Finds humor in absurdity",
+                    "A walking easter egg in human form",
+                    "The most memorable person in any room"
+                ],
+                image: "418"
+            },
+            "428": {
+                name: "The Negotiator",
+                tagline: "You're a 428 Precondition Required \u2014 let's agree on the rules first",
+                description: "You believe in ground rules. Before anything starts, everyone needs to be on the same page. Your structured approach prevents chaos.",
+                traits: [
+                    "Natural mediator and rule-setter",
+                    "Fair but firm in negotiations",
+                    "Prevents problems before they happen",
+                    "The organizer of every group project"
+                ],
+                image: "428"
+            },
+            "429": {
+                name: "The Boundary Setter",
+                tagline: "You're a 429 Too Many Requests \u2014 I need you to slow down",
+                description: "You know your limits and you enforce them. When people push too hard or too fast, you firmly tell them to back off. Self-care is your superpower.",
+                traits: [
+                    "Master of saying 'that's enough for today'",
+                    "Protects your energy at all costs",
+                    "Respects limits \u2014 yours and others'",
+                    "The friend who actually takes mental health days"
+                ],
+                image: "429"
+            },
+            "500": {
+                name: "The Hot Mess",
+                tagline: "You're a 500 Internal Server Error \u2014 something went wrong and it's probably your fault",
+                description: "You're unpredictable, chaotic, and somehow lovable despite it all. Things go sideways around you, but you always make it interesting.",
+                traits: [
+                    "Life is never boring when you're around",
+                    "Breaks things in spectacular fashion",
+                    "Somehow always survives the chaos",
+                    "Everyone has a story about that time you crashed"
+                ],
+                image: "500"
+            },
+            "501": {
+                name: "The Honest One",
+                tagline: "You're a 501 Not Implemented \u2014 I could do it, I just haven't built that yet",
+                description: "You're refreshingly honest about your limitations. Instead of faking it, you openly admit when something is beyond your current abilities. Growth is your game.",
+                traits: [
+                    "Honest about what you can and can't do",
+                    "Always learning and adding new skills",
+                    "Potential is your middle name",
+                    "Respects expertise and knows when to say 'not yet'"
+                ],
+                image: "501"
+            },
+            "502": {
+                name: "The Middleman",
+                tagline: "You're a 502 Bad Gateway \u2014 I'm fine, it's the people behind me who are the problem",
+                description: "You work well individually, but sometimes the people you depend on let you down. You get blamed for things that aren't your fault.",
+                traits: [
+                    "The messenger who gets shot",
+                    "Caught in the middle of other people's drama",
+                    "Personally reliable but your network isn't",
+                    "Stress levels directly tied to your dependencies"
+                ],
+                image: "502"
+            },
+            "503": {
+                name: "The Burnout Survivor",
+                tagline: "You're a 503 Service Unavailable \u2014 I need a break, check back later",
+                description: "You give it your all until you can't anymore. You're not broken, just temporarily out of service. Rest is not weakness, it's maintenance.",
+                traits: [
+                    "Goes hard until the tank is empty",
+                    "Not broken, just recharging",
+                    "Values rest as part of the process",
+                    "Will come back stronger \u2014 always does"
+                ],
+                image: "503"
+            }
+        };
+
+        var scores = {};
+        var currentQ = 0;
+
+        function init() {
+            scores = {};
+            currentQ = 0;
+            document.getElementById('quiz-area').style.display = '';
+            document.getElementById('result-area').style.display = 'none';
+            showQuestion();
+        }
+
+        function showQuestion() {
+            var q = QUESTIONS[currentQ];
+            document.getElementById('question-text').textContent = q.text;
+            var container = document.getElementById('choices');
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            var labels = ['A', 'B', 'C', 'D'];
+            q.choices.forEach(function(choice, i) {
+                var btn = document.createElement('button');
+                btn.className = 'quiz-btn personality-choice-btn';
+                btn.type = 'button';
+
+                var label = document.createElement('span');
+                label.className = 'quiz-btn-label';
+                label.textContent = labels[i];
+
+                var text = document.createElement('span');
+                text.className = 'quiz-btn-text';
+                text.textContent = choice.label;
+
+                btn.appendChild(label);
+                btn.appendChild(text);
+
+                btn.addEventListener('click', function() {
+                    selectAnswer(choice.code, btn);
+                });
+
+                container.appendChild(btn);
+            });
+
+            updateProgress();
+        }
+
+        function selectAnswer(code, btn) {
+            scores[code] = (scores[code] || 0) + 1;
+
+            /* Brief highlight */
+            btn.classList.add('correct');
+            var allBtns = document.querySelectorAll('.personality-choice-btn');
+            allBtns.forEach(function(b) { b.disabled = true; });
+
+            setTimeout(function() {
+                currentQ++;
+                if (currentQ >= QUESTIONS.length) {
+                    showResult();
+                } else {
+                    showQuestion();
+                }
+            }, 400);
+        }
+
+        function updateProgress() {
+            var pct = Math.round((currentQ / QUESTIONS.length) * 100);
+            var bar = document.getElementById('progress-bar');
+            bar.style.width = pct + '%';
+            document.getElementById('progress-text').textContent =
+                'Question ' + (currentQ + 1) + ' of ' + QUESTIONS.length;
+            var prog = document.querySelector('.personality-progress');
+            prog.setAttribute('aria-valuenow', currentQ);
+        }
+
+        function getTopCode() {
+            var maxCount = 0;
+            var topCode = '200';
+            for (var code in scores) {
+                if (scores[code] > maxCount) {
+                    maxCount = scores[code];
+                    topCode = code;
+                }
+            }
+            return topCode;
+        }
+
+        function showResult() {
+            document.getElementById('quiz-area').style.display = 'none';
+            document.getElementById('result-area').style.display = '';
+
+            var code = getTopCode();
+            var p = PERSONALITIES[code];
+            if (!p) {
+                /* Fallback to 200 if code not in PERSONALITIES */
+                p = PERSONALITIES['200'];
+                code = '200';
+            }
+
+            /* Update progress to 100% */
+            document.getElementById('progress-bar').style.width = '100%';
+            document.getElementById('progress-text').textContent = 'Quiz Complete!';
+            var prog = document.querySelector('.personality-progress');
+            prog.setAttribute('aria-valuenow', QUESTIONS.length);
+
+            document.getElementById('result-badge').textContent = code;
+            var img = document.getElementById('result-img');
+            img.src = '/' + code + '.jpg';
+            img.alt = code + ' ' + p.name + ' parrot';
+            document.getElementById('result-name').textContent = p.tagline;
+            document.getElementById('result-desc').textContent = p.description;
+
+            var traitsList = document.getElementById('result-traits');
+            while (traitsList.firstChild) traitsList.removeChild(traitsList.firstChild);
+            p.traits.forEach(function(trait) {
+                var li = document.createElement('li');
+                li.textContent = trait;
+                traitsList.appendChild(li);
+            });
+
+            /* Share text */
+            var shareText = 'I got ' + code + ' ' + p.name + '! ' + p.tagline + '\n\nWhich HTTP status code are you? Take the quiz:\nhttpparrots.com/personality';
+
+            /* Copy button */
+            document.getElementById('copy-result').addEventListener('click', function() {
+                var self = this;
+                navigator.clipboard.writeText(shareText).then(function() {
+                    self.textContent = 'Copied!';
+                    setTimeout(function() { self.textContent = 'Copy Result'; }, 2000);
+                }).catch(function() {
+                    self.textContent = 'Failed';
+                    setTimeout(function() { self.textContent = 'Copy Result'; }, 2000);
+                });
+            });
+
+            /* Twitter/X share */
+            var twitterUrl = 'https://x.com/intent/tweet?text=' + encodeURIComponent(shareText);
+            document.getElementById('twitter-share').href = twitterUrl;
+
+            /* Detail link */
+            document.getElementById('detail-link').href = '/' + code;
+
+            /* Retake */
+            document.getElementById('retake-btn').addEventListener('click', function() {
+                init();
+            });
+
+            /* XP award */
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(25, 'personality_quiz');
+
+            /* Confetti burst */
+            spawnConfetti();
+        }
+
+        function spawnConfetti() {
+            var cx = window.innerWidth / 2;
+            var cy = window.innerHeight / 3;
+            for (var i = 0; i < 30; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 60 + Math.random() * 140;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 40 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        init();
+    })();
+    </script>
+{% endblock %}

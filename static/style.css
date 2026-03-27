@@ -3898,6 +3898,75 @@ body > main, body > .container-fluid { flex: 1; }
 .quiz-results-grid { font-size: var(--text-2xl); letter-spacing: 0.2em; margin-bottom: 1.5rem; }
 .quiz-results-copy, .quiz-results-again { display: block; width: 100%; margin-top: 0.5rem; }
 
+/* --- Personality Quiz --- */
+.personality-container { max-width: 640px; }
+.personality-title {
+  font-size: var(--text-2xl); font-weight: 800; text-align: center;
+  background: linear-gradient(135deg, var(--color-lavender), var(--color-teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-bottom: 0.25rem;
+}
+.personality-subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem; font-size: var(--text-md); }
+.personality-progress {
+  position: relative; height: 8px; background: var(--surface-2); border-radius: 4px;
+  margin-bottom: 1.5rem; overflow: hidden;
+}
+.personality-progress-bar {
+  height: 100%; background: linear-gradient(90deg, var(--color-teal), var(--color-lavender));
+  border-radius: 4px; transition: width 0.4s ease;
+}
+.personality-progress-text {
+  display: block; text-align: center; font-size: var(--text-sm); color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+.personality-question-text {
+  font-size: var(--text-lg); font-weight: 600; margin-bottom: 1rem; text-align: center;
+  color: var(--text-primary);
+}
+.personality-choices { display: flex; flex-direction: column; gap: 0.6rem; }
+.personality-choice-btn { text-align: left; }
+.personality-result { animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.personality-result-card {
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  border-radius: 16px; padding: 2rem; text-align: center;
+  box-shadow: var(--shadow-md);
+}
+.personality-result-badge {
+  display: inline-block; font-size: var(--text-3xl); font-weight: 800;
+  background: linear-gradient(135deg, var(--color-lavender), var(--color-teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-bottom: 1rem; letter-spacing: 0.05em;
+}
+.personality-result-img {
+  max-width: 100%; height: auto; border-radius: 12px; margin-bottom: 1rem;
+  box-shadow: var(--shadow-md);
+}
+.personality-result-name {
+  font-size: var(--text-lg); font-weight: 700; color: var(--text-primary);
+  margin-bottom: 0.75rem; line-height: 1.4;
+}
+.personality-result-desc { color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem; }
+.personality-traits {
+  list-style: none; padding: 0; margin: 0 0 1.5rem; text-align: left;
+}
+.personality-traits li {
+  padding: 0.5rem 0.75rem; border-left: 3px solid var(--color-teal);
+  margin-bottom: 0.5rem; color: var(--text-secondary); font-size: var(--text-sm);
+  background: var(--surface-1); border-radius: 0 8px 8px 0;
+}
+.personality-share-section { margin-top: 1.5rem; }
+.personality-share-buttons { display: flex; gap: 0.75rem; margin-bottom: 0.75rem; }
+.personality-share-btn { flex: 1; text-align: center; text-decoration: none; }
+.personality-detail-link { display: block; margin-bottom: 0.75rem; text-align: center; text-decoration: none; }
+.personality-retake { width: 100%; }
+
+@media (max-width: 600px) {
+  .personality-title { font-size: var(--text-xl); }
+  .personality-result-card { padding: 1.25rem; }
+  .personality-share-buttons { flex-direction: column; }
+}
+
 /* --- Parrot of the Day section --- */
 .potd-section {
   padding: 1.5rem 0 1rem;
@@ -5526,6 +5595,9 @@ body {
 .learn-index-intro { text-align: center; margin-bottom: 2.5rem; }
 .learn-index-headline { font-size: var(--text-3xl); font-weight: 800; margin-bottom: 0.5rem; }
 .learn-index-subtext { font-size: var(--text-md); color: rgba(255,255,255,0.6); max-width: 600px; margin: 0 auto; line-height: 1.5; }
+.learn-index-count { font-size: 0.85rem; color: rgba(255,255,255,0.4); margin-top: 0.5rem; }
+.learn-index-category { margin-bottom: 2rem; }
+.learn-index-category-heading { font-size: var(--text-lg); font-weight: 700; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); letter-spacing: 0.02em; }
 .learn-index-grid { display: flex; flex-direction: column; gap: 1rem; }
 .learn-index-card {
   display: flex; align-items: center; gap: 1.25rem;
@@ -5657,6 +5729,8 @@ body {
 /* Light theme overrides */
 @media (prefers-color-scheme: light) {
   .learn-index-subtext { color: rgba(26,26,31,0.55); }
+  .learn-index-count { color: rgba(26,26,31,0.4); }
+  .learn-index-category-heading { color: rgba(26,26,31,0.8); border-bottom-color: rgba(0,0,0,0.08); }
   .learn-index-card { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.08); }
   .learn-index-card:hover { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); }
   .learn-index-card-tldr { color: rgba(26,26,31,0.55); }
@@ -6259,6 +6333,243 @@ body {
   .bento-tools-grid { grid-template-columns: repeat(2, 1fr); }
   .bento-tile { min-height: 120px; }
   .bento-tool-link { min-height: 56px; }
+}
+
+/* --- Weekly Challenge --- */
+.weekly-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.weekly-theme-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(123, 97, 255, 0.15), rgba(0, 180, 216, 0.15));
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  margin-bottom: 1rem;
+}
+.weekly-theme-icon {
+  font-size: 2.5rem;
+}
+.weekly-theme-info {
+  text-align: left;
+}
+.weekly-theme-name {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  margin: 0 0 0.25rem;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.weekly-theme-desc {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  line-height: 1.4;
+}
+.weekly-meta {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+.weekly-streak-label {
+  color: var(--accent-coral);
+  font-weight: 600;
+}
+.weekly-progress {
+  position: relative;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 0;
+}
+.weekly-progress-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+.weekly-step {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid var(--border-subtle);
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+.weekly-step.step-correct {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #fff;
+}
+.weekly-step.step-wrong {
+  background: var(--accent-coral);
+  border-color: var(--accent-coral);
+  color: #fff;
+}
+.weekly-progress-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  width: 0;
+  transform: translateY(-50%);
+}
+.weekly-timer {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+.weekly-timer-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+.weekly-scenario {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.weekly-scenario-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.75rem;
+}
+.weekly-scenario-text {
+  font-size: 1.05rem;
+  color: #e0e0f0;
+  line-height: 1.6;
+}
+.weekly-next-btn {
+  display: block;
+  margin: 1rem auto 0;
+  min-width: 180px;
+}
+.weekly-results {
+  text-align: center;
+}
+.weekly-results-title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1.5rem;
+}
+.weekly-results-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+.weekly-results-theme {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+.weekly-results-score {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+.weekly-results-grid {
+  font-size: 2rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 1rem;
+}
+.weekly-results-badge {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-gold, #ffd93d);
+  margin-bottom: 0.75rem;
+  animation: badge-glow 1.5s ease-in-out infinite alternate;
+}
+@keyframes badge-glow {
+  0% { text-shadow: 0 0 8px rgba(255, 217, 61, 0.3); }
+  100% { text-shadow: 0 0 20px rgba(255, 217, 61, 0.6); }
+}
+.weekly-results-streak {
+  font-size: 0.95rem;
+  color: var(--accent-coral);
+  font-weight: 600;
+}
+.weekly-share-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.weekly-share-copy, .weekly-share-twitter {
+  min-width: 140px;
+  text-decoration: none;
+  text-align: center;
+}
+.weekly-already {
+  text-align: center;
+  padding: 1rem;
+  margin-top: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+}
+
+/* Weekly responsive */
+@media (max-width: 600px) {
+  .weekly-theme-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+  .weekly-theme-info {
+    text-align: center;
+  }
+  .weekly-theme-name {
+    font-size: var(--text-xl);
+  }
+  .weekly-results-score {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Weekly reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .weekly-results-badge { animation: none !important; }
+  .weekly-progress-fill { transition: none !important; }
+  .weekly-step { transition: none !important; }
+}
+
+/* Weekly light mode */
+@media (prefers-color-scheme: light) {
+  .weekly-theme-banner { background: linear-gradient(135deg, rgba(123, 97, 255, 0.08), rgba(0, 180, 216, 0.08)); }
+  .weekly-theme-desc { color: rgba(26, 26, 31, 0.6); }
+  .weekly-meta { color: rgba(26, 26, 31, 0.4); }
+  .weekly-scenario { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.06); }
+  .weekly-scenario-label { color: rgba(26, 26, 31, 0.45); }
+  .weekly-scenario-text { color: rgba(26, 26, 31, 0.8); }
+  .weekly-results-card { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.06); }
+  .weekly-results-theme { color: rgba(26, 26, 31, 0.85); }
+  .weekly-already { color: rgba(26, 26, 31, 0.4); }
 }
 
 /* --- Seasonal Reduced Motion --- */

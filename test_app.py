@@ -8,6 +8,7 @@ import pytest
 import requests
 
 from index import (app, _rate_limit, _run_security_checks, _score_to_grade,
+                   _webhook_bins, _WEBHOOK_BIN_TTL, _WEBHOOK_BIN_MAX_REQUESTS,
                    is_rate_limited, linkify_rfcs, resolve_and_validate)
 
 
@@ -21,6 +22,7 @@ def client():
 @pytest.fixture(autouse=True)
 def clear_rate_limit():
     _rate_limit.clear()
+    _webhook_bins.clear()
 
 
 # --- Page routes ---
@@ -3343,7 +3345,7 @@ class TestSitemapCompleteness:
     """Verify sitemap.xml includes all expected public pages."""
 
     EXPECTED_PAGES = [
-        '/', '/quiz', '/daily', '/practice', '/debug', '/flowchart',
+        '/', '/quiz', '/personality', '/daily', '/practice', '/debug', '/flowchart',
         '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
         '/security-audit', '/collection', '/playground', '/api-docs', '/profile',
     ]
@@ -3797,6 +3799,9 @@ class TestCSPOnAllRoutes:
     def test_csp_on_profile(self, client):
         self._check_csp(client.get('/profile'))
 
+    def test_csp_on_personality(self, client):
+        self._check_csp(client.get('/personality'))
+
     def test_csp_on_404(self, client):
         self._check_csp(client.get('/nonexistent'))
 
@@ -3816,7 +3821,7 @@ class TestCSPOnAllRoutes:
 class TestSecurityHeadersOnAllRoutes:
     """Verify all security headers are present on every route."""
 
-    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/debug',
+    ROUTES = ['/', '/200', '/quiz', '/personality', '/daily', '/practice', '/debug',
               '/flowchart', '/compare', '/tester', '/cheatsheet', '/headers',
               '/cors-checker', '/security-audit', '/collection', '/playground',
               '/api-docs', '/profile', '/echo', '/return/200', '/redirect/0',
@@ -5591,11 +5596,11 @@ class TestConfusionPairsData:
 
     def test_pairs_not_empty(self):
         from confusion_pairs import CONFUSION_PAIRS
-        assert len(CONFUSION_PAIRS) >= 8
+        assert len(CONFUSION_PAIRS) >= 15
 
     def test_each_pair_has_required_keys(self):
         from confusion_pairs import CONFUSION_PAIRS
-        required = {'slug', 'codes', 'title', 'tldr', 'decision_tree', 'examples', 'quiz'}
+        required = {'slug', 'codes', 'title', 'tldr', 'decision_tree', 'examples', 'quiz', 'category'}
         for pair in CONFUSION_PAIRS:
             missing = required - set(pair.keys())
             assert not missing, f"Pair {pair.get('slug', '?')} missing keys: {missing}"
@@ -5670,9 +5675,34 @@ class TestConfusionPairsData:
             '401-vs-403', '301-vs-302', '307-vs-308', '400-vs-422',
             '404-vs-410', '500-vs-502', '500-vs-503', '200-vs-204',
             '302-vs-307',
+            # New pairs added in expansion
+            '502-vs-504', '401-vs-407', '204-vs-205', '409-vs-412',
+            '301-vs-308', '503-vs-504',
         ]
         for slug in required:
             assert slug in CONFUSION_PAIRS_BY_SLUG, f"Missing required pair: {slug}"
+
+    def test_each_pair_has_category(self):
+        """Every pair must belong to a category."""
+        from confusion_pairs import CONFUSION_PAIRS, CONFUSION_PAIR_CATEGORY_ORDER
+        for pair in CONFUSION_PAIRS:
+            assert 'category' in pair, f"Pair {pair['slug']} missing category"
+            assert pair['category'] in CONFUSION_PAIR_CATEGORY_ORDER, \
+                f"Pair {pair['slug']} has unknown category '{pair['category']}'"
+
+    def test_pairs_by_category_covers_all(self):
+        """PAIRS_BY_CATEGORY should contain every pair exactly once."""
+        from confusion_pairs import CONFUSION_PAIRS, PAIRS_BY_CATEGORY
+        slugs_from_cats = []
+        for pairs in PAIRS_BY_CATEGORY.values():
+            slugs_from_cats.extend(p['slug'] for p in pairs)
+        assert sorted(slugs_from_cats) == sorted(p['slug'] for p in CONFUSION_PAIRS)
+
+    def test_unique_slugs(self):
+        """No duplicate slugs allowed."""
+        from confusion_pairs import CONFUSION_PAIRS
+        slugs = [p['slug'] for p in CONFUSION_PAIRS]
+        assert len(slugs) == len(set(slugs)), "Duplicate slugs found"
 
 
 class TestLearnIndexRoute:
@@ -5699,6 +5729,30 @@ class TestLearnIndexRoute:
         html = resp.data.decode()
         # TL;DR text should be present from at least one pair
         assert "doesn&#39;t know who you are" in html or "doesn't know who you are" in html or '401' in html
+
+    def test_learn_index_has_category_headings(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'learn-index-category-heading' in html
+        assert 'Auth pairs' in html
+        assert 'Redirect pairs' in html
+        assert 'Error pairs' in html
+
+    def test_learn_index_has_pair_count(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '15 pairs' in html
+        assert '5 categories' in html
+
+    def test_learn_index_lists_new_pairs(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '502-vs-504' in html
+        assert '401-vs-407' in html
+        assert '204-vs-205' in html
+        assert '409-vs-412' in html
+        assert '301-vs-308' in html
+        assert '503-vs-504' in html
 
 
 class TestLearnPairRoute:
@@ -7962,3 +8016,662 @@ class TestProfileReviewIntegration:
         html = resp.data.decode()
         assert 'Spaced repetition review correct' in html
         assert '+15 XP' in html
+
+
+# --- Webhook Inspector / Request Bin ---
+
+class TestWebhookInspectorPage:
+    def test_webhook_inspector_page(self, client):
+        """Webhook inspector page renders successfully."""
+        resp = client.get('/webhook-inspector')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Webhook Inspector' in html
+        assert 'Create New Bin' in html
+
+    def test_webhook_inspector_nav_link(self, client):
+        """Nav should include a Webhooks link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/webhook-inspector"' in html
+        assert 'Webhooks' in html
+
+
+class TestWebhookBinCreate:
+    def test_create_bin(self, client):
+        """POST /api/bin/create returns bin_id and url."""
+        resp = client.post('/api/bin/create')
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert 'bin_id' in data
+        assert 'url' in data
+        assert len(data['bin_id']) == 8
+        assert '/bin/' in data['url']
+        assert data['url'].endswith('/hook')
+
+    def test_create_bin_stores_in_memory(self, client):
+        """Created bin exists in the in-memory store."""
+        resp = client.post('/api/bin/create')
+        data = resp.get_json()
+        assert data['bin_id'] in _webhook_bins
+        assert 'created' in _webhook_bins[data['bin_id']]
+        assert 'requests' in _webhook_bins[data['bin_id']]
+
+    def test_create_bin_rate_limited(self, client):
+        """Bin creation is rate-limited."""
+        for _ in range(10):
+            client.post('/api/bin/create')
+        resp = client.post('/api/bin/create')
+        assert resp.status_code == 429
+        data = resp.get_json()
+        assert 'Rate limit' in data['error']
+
+
+class TestWebhookBinCapture:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_capture_get_request(self, client):
+        """GET to hook endpoint captures the request."""
+        data = self._create_bin(client)
+        resp = client.get(f'/bin/{data["bin_id"]}/hook?foo=bar')
+        assert resp.status_code == 200
+        assert resp.get_json()['status'] == 'captured'
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert len(reqs) == 1
+        assert reqs[0]['method'] == 'GET'
+        assert reqs[0]['query']['foo'] == 'bar'
+
+    def test_capture_post_request_with_body(self, client):
+        """POST with body is captured."""
+        data = self._create_bin(client)
+        resp = client.post(f'/bin/{data["bin_id"]}/hook',
+                           data='hello world',
+                           content_type='text/plain')
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'POST'
+        assert reqs[0]['body'] == 'hello world'
+
+    def test_capture_put_request(self, client):
+        """PUT request is captured."""
+        data = self._create_bin(client)
+        resp = client.put(f'/bin/{data["bin_id"]}/hook',
+                          json={'key': 'value'})
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'PUT'
+
+    def test_capture_delete_request(self, client):
+        """DELETE request is captured."""
+        data = self._create_bin(client)
+        resp = client.delete(f'/bin/{data["bin_id"]}/hook')
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'DELETE'
+
+    def test_capture_strips_sensitive_headers(self, client):
+        """Sensitive headers are stripped from captured requests."""
+        data = self._create_bin(client)
+        client.post(f'/bin/{data["bin_id"]}/hook', headers={
+            'Authorization': 'Bearer secret',
+            'Cookie': 'session=abc',
+            'X-Custom': 'safe',
+        })
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        header_keys = {k.lower() for k in reqs[0]['headers']}
+        assert 'authorization' not in header_keys
+        assert 'cookie' not in header_keys
+        assert 'x-custom' in header_keys
+
+    def test_capture_has_timestamp(self, client):
+        """Captured request includes an ISO timestamp."""
+        data = self._create_bin(client)
+        client.get(f'/bin/{data["bin_id"]}/hook')
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert 'timestamp' in reqs[0]
+        # Should be parseable ISO format
+        assert 'T' in reqs[0]['timestamp']
+
+    def test_capture_nonexistent_bin_404(self, client):
+        """Hook to a nonexistent bin returns 404."""
+        resp = client.get('/bin/nonexist/hook')
+        assert resp.status_code == 404
+
+    def test_capture_max_requests(self, client):
+        """Bin keeps only the most recent 50 requests."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        for i in range(55):
+            client.get(f'/bin/{bin_id}/hook?i={i}')
+        reqs = _webhook_bins[bin_id]['requests']
+        assert len(reqs) == _WEBHOOK_BIN_MAX_REQUESTS
+        # The oldest 5 should have been dropped; first remaining should be i=5
+        assert reqs[0]['query']['i'] == '5'
+
+
+class TestWebhookBinRetrieve:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_get_empty_bin(self, client):
+        """GET /api/bin/<id> returns empty array for new bin."""
+        data = self._create_bin(client)
+        resp = client.get(f'/api/bin/{data["bin_id"]}')
+        assert resp.status_code == 200
+        assert resp.get_json() == []
+
+    def test_get_bin_with_requests(self, client):
+        """GET /api/bin/<id> returns captured requests."""
+        data = self._create_bin(client)
+        client.post(f'/bin/{data["bin_id"]}/hook', data='test body',
+                    content_type='text/plain')
+        resp = client.get(f'/api/bin/{data["bin_id"]}')
+        assert resp.status_code == 200
+        reqs = resp.get_json()
+        assert len(reqs) == 1
+        assert reqs[0]['method'] == 'POST'
+        assert reqs[0]['body'] == 'test body'
+
+    def test_get_nonexistent_bin_404(self, client):
+        """GET /api/bin/<id> returns 404 for unknown bin."""
+        resp = client.get('/api/bin/nonexist')
+        assert resp.status_code == 404
+
+
+class TestWebhookBinExpiry:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_expired_bin_hook_returns_404(self, client):
+        """Hook to an expired bin returns 404."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        # Manually set created time to the past
+        _webhook_bins[bin_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        resp = client.get(f'/bin/{bin_id}/hook')
+        assert resp.status_code == 404
+        assert bin_id not in _webhook_bins
+
+    def test_expired_bin_get_returns_404(self, client):
+        """GET on an expired bin returns 404."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        _webhook_bins[bin_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        resp = client.get(f'/api/bin/{bin_id}')
+        assert resp.status_code == 404
+        assert bin_id not in _webhook_bins
+
+    def test_expired_bins_pruned_on_create(self, client):
+        """Creating a new bin prunes expired bins."""
+        data = self._create_bin(client)
+        old_id = data['bin_id']
+        _webhook_bins[old_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        # Create a new bin, which should prune the old one
+        client.post('/api/bin/create')
+        assert old_id not in _webhook_bins
+
+
+class TestWebhookSitemapRobots:
+    def test_sitemap_includes_webhook_inspector(self, client):
+        """Sitemap should include the webhook-inspector page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/webhook-inspector' in resp.data
+
+    def test_robots_disallows_bin_api(self, client):
+        """robots.txt should disallow /api/bin/ and /bin/."""
+        resp = client.get('/robots.txt')
+        text = resp.data.decode()
+        assert 'Disallow: /api/bin/' in text
+        assert 'Disallow: /bin/' in text
+
+
+# --- Personality Quiz ---
+
+class TestPersonalityQuizPage:
+    """Tests for the /personality route and template."""
+
+    def test_personality_page_loads(self, client):
+        resp = client.get('/personality')
+        assert resp.status_code == 200
+
+    def test_personality_page_has_title(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'Which HTTP Status Code Are You?' in html
+
+    def test_personality_page_has_progress_bar(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'personality-progress' in html
+        assert 'progress-bar' in html
+        assert 'progressbar' in html
+
+    def test_personality_page_has_quiz_area(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'quiz-area' in html
+        assert 'question-text' in html
+        assert 'choices' in html
+
+    def test_personality_page_has_result_area(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'result-area' in html
+        assert 'result-card' in html
+        assert 'result-img' in html
+        assert 'result-name' in html
+        assert 'result-desc' in html
+
+    def test_personality_page_has_share_buttons(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'copy-result' in html
+        assert 'twitter-share' in html
+        assert 'Copy Result' in html
+        assert 'Share on X' in html
+
+    def test_personality_page_has_retake_button(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'retake-btn' in html
+        assert 'Retake Quiz' in html
+
+    def test_personality_page_has_detail_link(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'detail-link' in html
+        assert 'Learn more about this status code' in html
+
+    def test_personality_page_has_og_meta(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'og:title' in html
+        assert 'og:description' in html
+
+    def test_personality_page_has_meta_description(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'HTTP Personality Quiz' in html
+
+
+class TestPersonalityQuizScript:
+    """Tests verifying the personality quiz JavaScript data is present."""
+
+    def test_personality_has_questions(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'QUESTIONS' in html
+
+    def test_personality_has_8_questions(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'Question 1 of 8' in html
+
+    def test_personality_has_personalities_data(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'PERSONALITIES' in html
+
+    def test_personality_has_common_codes(self, client):
+        """All 15 required personality codes must be defined."""
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        required_codes = [
+            '200', '201', '204', '301', '302', '307',
+            '400', '401', '403', '404', '418', '429',
+            '500', '502', '503',
+        ]
+        for code in required_codes:
+            assert f'"{code}"' in html, f"Missing personality for code {code}"
+
+    def test_personality_has_traits(self, client):
+        """Each personality should have traits defined."""
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'traits' in html
+
+    def test_personality_has_confetti(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'spawnConfetti' in html
+        assert 'confetti-particle' in html
+
+    def test_personality_has_xp_award(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'personality_quiz' in html
+
+
+class TestPersonalityNavAndSitemap:
+    """Tests for personality quiz navigation and sitemap integration."""
+
+    def test_personality_in_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/personality"' in html
+        assert 'Personality' in html
+
+    def test_personality_in_mobile_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/personality"') >= 2
+
+    def test_personality_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/personality' in body
+
+    def test_personality_nav_active_state(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestPersonalityCSS:
+    """Tests for personality quiz CSS classes."""
+
+    def test_personality_css_classes_in_stylesheet(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-container' in css
+        assert '.personality-title' in css
+        assert '.personality-progress' in css
+        assert '.personality-result-card' in css
+        assert '.personality-traits' in css
+
+    def test_personality_has_responsive_styles(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-share-buttons' in css
+
+    def test_personality_result_badge_gradient(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-result-badge' in css
+
+
+class TestPersonalityAccessibility:
+    """Tests for personality quiz accessibility."""
+
+    def test_personality_has_main_landmark(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'role="main"' in html
+        assert 'id="main-content"' in html
+
+    def test_personality_has_aria_progressbar(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_personality_has_aria_live_region(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+    def test_personality_has_csp_nonce(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp)
+        assert nonce is not None
+        assert f'nonce="{nonce.group(1)}"' in html
+
+
+# --- Weekly Themed Challenge ---
+
+class TestWeeklyRoute:
+    """Tests for the /weekly route returning 200 and containing expected content."""
+
+    def test_weekly_returns_200(self, client):
+        """Weekly challenge page should return 200."""
+        resp = client.get('/weekly')
+        assert resp.status_code == 200
+
+    def test_weekly_contains_theme_name(self, client):
+        """Weekly page should display a theme name."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        theme_names = [
+            'Redirect Week', 'Auth Week', 'Error Week', 'Success Week',
+            'Caching Week', 'API Design Week', 'Debug Week', 'Speed Round',
+        ]
+        assert any(name in html for name in theme_names), \
+            "No theme name found in weekly page"
+
+    def test_weekly_contains_theme_description(self, client):
+        """Weekly page should display a theme description."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-theme-desc' in html
+
+    def test_weekly_contains_week_number(self, client):
+        """Weekly page should display the current week number."""
+        from datetime import date
+        week_num = date.today().isocalendar()[1]
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert f'Week {week_num}' in html
+
+    def test_weekly_has_five_questions(self, client):
+        """Weekly challenge should have exactly 5 questions in the QUESTIONS array."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'var QUESTIONS = [' in html
+        question_ids = re.findall(r'"id":\s*\d+', html)
+        assert len(question_ids) == 5, f"Expected 5 questions, found {len(question_ids)}"
+
+    def test_weekly_has_progress_steps(self, client):
+        """Weekly page should have 5 progress step indicators."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        for i in range(5):
+            assert f'id="step-{i}"' in html
+
+    def test_weekly_has_timer(self, client):
+        """Weekly page should have a per-question timer."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-timer' in html
+        assert 'weekly-timer-value' in html
+        assert 'role="timer"' in html
+
+    def test_weekly_has_results_card(self, client):
+        """Weekly page should have a results card section."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-results-card' in html
+        assert 'weekly-final-score' in html
+        assert 'weekly-final-time' in html
+        assert 'weekly-final-xp' in html
+
+    def test_weekly_has_share_buttons(self, client):
+        """Weekly page should have copy and Twitter share buttons."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-share-copy' in html
+        assert 'weekly-share-twitter' in html
+        assert 'Share on Twitter' in html
+        assert 'Copy Result' in html
+
+    def test_weekly_has_champion_badge(self, client):
+        """Weekly page should have a Weekly Champion badge for perfect scores."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-results-badge' in html
+        assert 'Weekly Champion' in html
+
+    def test_weekly_has_answer_choices(self, client):
+        """Weekly page should have an answer choices group with ARIA."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'id="weekly-choices"' in html
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_weekly_has_feedback_area(self, client):
+        """Weekly page should have a feedback area with aria-live."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'id="weekly-feedback"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_weekly_has_next_button(self, client):
+        """Weekly page should have a Next Question button."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-next-btn' in html
+        assert 'Next Question' in html
+
+
+class TestWeeklyDeterministic:
+    """Tests that weekly challenge questions are deterministic within the same week."""
+
+    def test_weekly_same_questions_same_week(self, client):
+        """Two requests in the same week should produce identical questions."""
+        resp1 = client.get('/weekly')
+        resp2 = client.get('/weekly')
+        html1 = resp1.data.decode()
+        html2 = resp2.data.decode()
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
+
+    def test_weekly_theme_deterministic_from_week_number(self):
+        """Theme selection should be deterministic based on week number."""
+        from datetime import date
+        week_number = date.today().isocalendar()[1]
+        themes = [
+            'Redirect Week', 'Auth Week', 'Error Week', 'Success Week',
+            'Caching Week', 'API Design Week', 'Debug Week', 'Speed Round',
+        ]
+        expected_theme = themes[week_number % len(themes)]
+        with app.test_client() as client:
+            resp = client.get('/weekly')
+            html = resp.data.decode()
+            assert expected_theme in html
+
+
+class TestWeeklyXPAndBadges:
+    """Tests for XP awards and badge elements in the weekly challenge."""
+
+    def test_weekly_awards_25_xp_per_correct(self, client):
+        """Weekly challenge should award 25 XP per correct answer."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert "ParrotXP.award(25, 'weekly_correct')" in html
+
+    def test_weekly_awards_100_bonus_for_perfect(self, client):
+        """Weekly challenge should award 100 bonus XP for 5/5."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'weekly_perfect')" in html
+
+    def test_weekly_sets_champion_flag(self, client):
+        """Perfect score should set httpparrot_weekly_champion flag."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'httpparrot_weekly_champion' in html
+
+    def test_weekly_uses_localstorage(self, client):
+        """Weekly challenge should use httpparrot_weekly localStorage key."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'httpparrot_weekly' in html
+
+    def test_weekly_tracks_streak(self, client):
+        """Weekly challenge should track weekly streaks."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'streak' in html
+        assert 'weekly-streak-label' in html
+        assert 'weekly-results-streak' in html
+
+
+class TestWeeklyNav:
+    """Tests for weekly challenge presence in navigation."""
+
+    def test_weekly_nav_link_in_homepage(self, client):
+        """Homepage should have a nav link to /weekly."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/weekly"' in html
+
+    def test_weekly_nav_link_text(self, client):
+        """Nav should have Weekly text for the link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '>Weekly<' in html
+
+    def test_weekly_nav_active_on_weekly_page(self, client):
+        """Weekly page nav link should have active class."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestWeeklySitemap:
+    """Tests for weekly challenge in sitemap."""
+
+    def test_sitemap_contains_weekly(self, client):
+        """Sitemap should include /weekly."""
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/weekly' in xml
+
+
+class TestWeeklySoundEffects:
+    """Tests for sound effects in the weekly challenge."""
+
+    def test_weekly_correct_sound(self, client):
+        """Weekly should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_weekly_wrong_sound(self, client):
+        """Weekly should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+
+class TestWeeklyCSS:
+    """Tests for weekly challenge CSS styles."""
+
+    def test_weekly_theme_banner_style(self, client):
+        """CSS should have weekly theme banner styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-theme-banner' in css
+        assert '.weekly-theme-name' in css
+
+    def test_weekly_progress_style(self, client):
+        """CSS should have weekly progress step styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-progress' in css
+        assert '.weekly-step' in css
+        assert '.step-correct' in css
+        assert '.step-wrong' in css
+
+    def test_weekly_results_style(self, client):
+        """CSS should have weekly results card styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-results-card' in css
+        assert '.weekly-results-badge' in css
+
+    def test_weekly_reduced_motion(self, client):
+        """CSS should have reduced motion rules for weekly elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-results-badge' in css
+        assert '.weekly-progress-fill' in css
