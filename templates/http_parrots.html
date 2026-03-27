@@ -844,7 +844,9 @@
         const konamiCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
         let pos = 0;
 
+        /* Use capture phase so Konami runs before grid nav calls preventDefault */
         document.addEventListener('keydown', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
             if (e.key === konamiCode[pos]) {
                 pos++;
                 if (pos === konamiCode.length) {
@@ -853,10 +855,11 @@
                     var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
                     if (eggs.indexOf('konami') === -1) { eggs.push('konami'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
                 }
-            } else {
+            } else if (konamiCode.indexOf(e.key) === -1) {
+                /* Only reset on non-Konami keys — arrow keys are part of the sequence */
                 pos = 0;
             }
-        });
+        }, true);
 
         function activatePartyParrot() {
             const overlay = document.getElementById('party-parrot-overlay');
