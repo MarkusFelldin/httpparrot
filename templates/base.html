@@ -176,6 +176,40 @@
         </nav>
     </header>
 
+    <!-- Keyboard Shortcuts Overlay -->
+    <div class="kbd-shortcuts-overlay" id="kbd-shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
+        <div class="kbd-shortcuts-backdrop" id="kbd-shortcuts-backdrop"></div>
+        <div class="kbd-shortcuts-panel">
+            <div class="kbd-shortcuts-header">
+                <h2 class="kbd-shortcuts-title">Keyboard Shortcuts</h2>
+                <button class="kbd-shortcuts-close" id="kbd-shortcuts-close" type="button" aria-label="Close shortcuts overlay">&times;</button>
+            </div>
+            <div class="kbd-shortcuts-body">
+                <div class="kbd-shortcuts-group">
+                    <h3 class="kbd-shortcuts-group-title">General</h3>
+                    <div class="kbd-shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
+                    <div class="kbd-shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Esc</kbd><span>Close overlay / unfocus</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="home">
+                    <h3 class="kbd-shortcuts-group-title">Homepage</h3>
+                    <div class="kbd-shortcut-row"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd><span>Navigate grid</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Enter</kbd><span>Open selected card</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="quiz">
+                    <h3 class="kbd-shortcuts-group-title">Quiz / Daily / Weekly</h3>
+                    <div class="kbd-shortcut-row"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd><span>Select answer</span></div>
+                    <div class="kbd-shortcut-row"><kbd>Enter</kbd><span>Next question</span></div>
+                </div>
+                <div class="kbd-shortcuts-group" data-context="detail">
+                    <h3 class="kbd-shortcuts-group-title">Detail Page</h3>
+                    <div class="kbd-shortcut-row"><kbd>&larr;</kbd><span>Previous code</span></div>
+                    <div class="kbd-shortcut-row"><kbd>&rarr;</kbd><span>Next code</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% block content %}{% endblock %}
 
     <footer class="site-footer" role="contentinfo">
@@ -1387,6 +1421,68 @@
             wordPrefixMatch: wordPrefixMatch,
             fuzzyMatch: fuzzyMatch
         };
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Keyboard Shortcuts Overlay — press ? to open */
+    (function() {
+        var overlay = document.getElementById('kbd-shortcuts-overlay');
+        var backdrop = document.getElementById('kbd-shortcuts-backdrop');
+        var closeBtn = document.getElementById('kbd-shortcuts-close');
+        if (!overlay) return;
+
+        function openShortcuts() {
+            overlay.removeAttribute('hidden');
+            /* Force reflow then add visible class for transition */
+            void overlay.offsetWidth;
+            overlay.classList.add('kbd-shortcuts-visible');
+            closeBtn.focus();
+        }
+
+        function closeShortcuts() {
+            overlay.classList.remove('kbd-shortcuts-visible');
+            overlay.addEventListener('transitionend', function handler() {
+                overlay.setAttribute('hidden', '');
+                overlay.removeEventListener('transitionend', handler);
+            });
+        }
+
+        function isShortcutsOpen() {
+            return overlay.classList.contains('kbd-shortcuts-visible');
+        }
+
+        /* Show context-relevant groups based on current page */
+        var path = window.location.pathname;
+        var groups = overlay.querySelectorAll('[data-context]');
+        for (var i = 0; i < groups.length; i++) {
+            var ctx = groups[i].getAttribute('data-context');
+            if (ctx === 'home' && path !== '/') groups[i].style.display = 'none';
+            if (ctx === 'quiz' && !/^\/(quiz|daily|weekly)/.test(path)) groups[i].style.display = 'none';
+            if (ctx === 'detail' && !/^\/\d{3}$/.test(path)) groups[i].style.display = 'none';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            /* Ignore when typing in inputs/textareas */
+            var tag = document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (document.activeElement.isContentEditable) return;
+
+            if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                if (isShortcutsOpen()) {
+                    closeShortcuts();
+                } else {
+                    openShortcuts();
+                }
+            }
+            if (e.key === 'Escape' && isShortcutsOpen()) {
+                e.preventDefault();
+                closeShortcuts();
+            }
+        });
+
+        if (backdrop) backdrop.addEventListener('click', closeShortcuts);
+        if (closeBtn) closeBtn.addEventListener('click', closeShortcuts);
     })();
     </script>
     {% block scripts %}{% endblock %}

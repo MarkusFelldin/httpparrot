@@ -613,10 +613,13 @@
             var streakEl = document.getElementById('bento-streak-count');
             if (streakEl && dailyState.streak) {
                 streakEl.textContent = dailyState.streak;
+                if (dailyState.streak > 0) {
+                    streakEl.classList.add('has-streak');
+                }
             }
         } catch(e) {}
 
-        /* XP Progress */
+        /* XP Progress — animated bar fill on load */
         try {
             if (typeof ParrotXP !== 'undefined') {
                 var total = ParrotXP.getTotal();
@@ -630,11 +633,19 @@
                     var progressInLevel = total - info.currentThreshold;
                     var levelRange = info.nextXp - info.currentThreshold;
                     var pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
-                    if (fillEl) fillEl.style.width = pct + '%';
+                    if (fillEl) {
+                        fillEl.style.width = '0%';
+                        fillEl.classList.add('animate-fill');
+                        setTimeout(function() { fillEl.style.width = pct + '%'; }, 100);
+                    }
                     if (textEl) textEl.textContent = progressInLevel + ' / ' + levelRange + ' XP';
                     if (barEl) barEl.setAttribute('aria-valuenow', pct);
                 } else {
-                    if (fillEl) fillEl.style.width = '100%';
+                    if (fillEl) {
+                        fillEl.style.width = '0%';
+                        fillEl.classList.add('animate-fill');
+                        setTimeout(function() { fillEl.style.width = '100%'; }, 100);
+                    }
                     if (textEl) textEl.textContent = 'MAX RANK';
                     if (barEl) barEl.setAttribute('aria-valuenow', 100);
                 }
@@ -708,7 +719,48 @@
                         }
                     } catch(e) {}
 
-                    /* Priority 5: Default — start a learning path */
+                    /* Priority 5: Least-visited category suggestion */
+                    try {
+                        var catVisits = JSON.parse(localStorage.getItem('httpparrot_cat_visits') || '{}');
+                        var categories = ['1xx', '2xx', '3xx', '4xx', '5xx'];
+                        var catNames = {'1xx': '1xx Informational', '2xx': '2xx Success', '3xx': '3xx Redirection', '4xx': '4xx Client Error', '5xx': '5xx Server Error'};
+                        var least = null;
+                        var leastCount = Infinity;
+                        for (var ci = 0; ci < categories.length; ci++) {
+                            var cv = catVisits[categories[ci]] || 0;
+                            if (cv < leastCount) { leastCount = cv; least = categories[ci]; }
+                        }
+                        if (least && leastCount < 3) {
+                            msgEl.textContent = 'Explore ' + catNames[least];
+                            subEl.textContent = 'You haven\'t visited many ' + least + ' codes yet';
+                            actionEl.href = '/?cat=' + least[0];
+                            actionEl.textContent = 'Explore';
+                            return;
+                        }
+                    } catch(e) {}
+
+                    /* Priority 6: Confusion pair suggestion */
+                    try {
+                        var pairsViewed = JSON.parse(localStorage.getItem('httpparrot_pairs_viewed') || '[]');
+                        var suggestedPairs = [
+                            {slug: '401-vs-403', label: '401 vs 403'},
+                            {slug: '301-vs-302', label: '301 vs 302'},
+                            {slug: '200-vs-204', label: '200 vs 204'},
+                            {slug: '500-vs-502', label: '500 vs 502'},
+                            {slug: '400-vs-422', label: '400 vs 422'}
+                        ];
+                        for (var pi = 0; pi < suggestedPairs.length; pi++) {
+                            if (pairsViewed.indexOf(suggestedPairs[pi].slug) === -1) {
+                                msgEl.textContent = 'Learn: ' + suggestedPairs[pi].label;
+                                subEl.textContent = 'A commonly confused pair of status codes';
+                                actionEl.href = '/learn/' + suggestedPairs[pi].slug;
+                                actionEl.textContent = 'Study Pair';
+                                return;
+                            }
+                        }
+                    } catch(e) {}
+
+                    /* Priority 7: Default — start a learning path */
                     msgEl.textContent = 'Start a learning path';
                     subEl.textContent = 'Pick a topic and begin your journey';
                     actionEl.href = '/paths';

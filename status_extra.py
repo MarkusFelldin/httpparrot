@@ -122,6 +122,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusAccepted)",
         },
         "eli5": "You drop off your clothes at the dry cleaner and they say 'Got it, we'll work on it!' They accepted your stuff, but it's not done yet. Come back later to pick it up.",
+        "case_studies": [
+            {"api": "Twilio", "scenario": "Sending an SMS returns 202 with a message SID — the message is queued, not yet delivered", "lesson": "Always return a job/resource ID with 202 so clients can poll for completion status"},
+            {"api": "AWS S3 Glacier", "scenario": "Initiating a vault retrieval returns 202 — the data takes hours to restore", "lesson": "For long-running operations, 202 with a status URL is far better than blocking the client with a slow 200"},
+        ],
     },
     "203": {
         "examples": [
@@ -191,6 +195,10 @@ STATUS_EXTRA = {
             "go": "http.ServeContent(w, r, name, modtime, content) // handles ranges automatically",
         },
         "eli5": "Like downloading a big file but only getting half now and the rest later. You asked for a piece of the puzzle, and that's exactly what you got — a partial delivery!",
+        "case_studies": [
+            {"api": "YouTube / Netflix", "scenario": "Video streaming uses Range requests to fetch chunks, allowing seek without downloading the full file", "lesson": "Always return Content-Range and Accept-Ranges headers so clients know how to request subsequent chunks"},
+            {"api": "AWS S3", "scenario": "Multipart downloads use Range headers to fetch large objects in parallel chunks", "lesson": "Splitting large downloads into ranges enables parallel fetching and seamless resume after network failures"},
+        ],
     },
     "207": {
         "examples": [
@@ -205,6 +213,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(207) // http.StatusMultiStatus",
         },
         "eli5": "You gave your teacher five homework assignments at once. She hands them back with different grades on each one — some got A's and some got F's. One response, multiple results!",
+        "case_studies": [
+            {"api": "Microsoft Graph API", "scenario": "Batch endpoint returns 207 with individual status codes for each sub-request in a $batch call", "lesson": "Clients must inspect each sub-response individually — a 207 top-level status does not mean all operations succeeded"},
+            {"api": "CalDAV / CardDAV", "scenario": "Syncing multiple calendar events returns 207 with per-item status", "lesson": "Batch APIs should always include per-item error details so clients can retry only the failed items"},
+        ],
     },
     "208": {
         "examples": [
@@ -218,6 +230,9 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(208) // http.StatusAlreadyReported",
         },
         "eli5": "You're taking attendance and you already called someone's name. No need to call it again — 'Already counted!' It avoids repeating information you've already shared.",
+        "case_studies": [
+            {"api": "WebDAV servers (Apache, Nginx)", "scenario": "Recursive PROPFIND on a collection with DAV bindings returns 208 for already-enumerated members", "lesson": "208 prevents infinite loops when collections reference each other — critical for any recursive directory traversal"},
+        ],
     },
     "226": {
         "examples": [
@@ -231,6 +246,9 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(226) // http.StatusIMUsed",
         },
         "eli5": "Instead of sending you the whole newspaper again, they just send you the corrections and new articles since yesterday. Only the changes, not the whole thing!",
+        "case_studies": [
+            {"api": "RSS / Atom feed readers", "scenario": "Feed aggregators use A-IM headers to request only new entries since last fetch, server responds 226", "lesson": "Delta encoding dramatically reduces bandwidth for frequently polled resources like feeds and API lists"},
+        ],
     },
     "300": {
         "examples": [
@@ -314,6 +332,10 @@ STATUS_EXTRA = {
             "go": 'http.Redirect(w, r, "/order/123/confirmation", http.StatusSeeOther)',
         },
         "eli5": "You filled out a form and hit submit. The server says 'Thanks! Now go look at this other page to see your results.' It's like being told to check the bulletin board after handing in your test.",
+        "case_studies": [
+            {"api": "Stripe Checkout", "scenario": "After completing payment via POST, Stripe redirects to success_url with 303 to prevent double charges on refresh", "lesson": "Post/Redirect/Get (PRG) with 303 prevents duplicate form submissions — always redirect after a state-changing POST"},
+            {"api": "OAuth 2.0 flows", "scenario": "Authorization server redirects back to the client callback with 303 after user consent", "lesson": "303 explicitly converts POST to GET, making it the correct choice for PRG patterns unlike the ambiguous 302"},
+        ],
     },
     "304": {
         "examples": [
@@ -382,6 +404,10 @@ STATUS_EXTRA = {
             "go": 'http.Redirect(w, r, "/new-endpoint", http.StatusTemporaryRedirect)',
         },
         "eli5": "The toy store is closed for painting today and there's a note saying 'Go to our other store for now!' But unlike 302, you have to go there doing exactly the same thing you were doing — if you were carrying a package, keep carrying it!",
+        "case_studies": [
+            {"api": "HSTS (all major browsers)", "scenario": "Browsers internally redirect HTTP to HTTPS with 307 via HSTS, preserving the original request method and body", "lesson": "HSTS 307 redirects happen inside the browser before the request leaves — no round trip to the server needed"},
+            {"api": "Stripe API", "scenario": "Temporary endpoint migration uses 307 to preserve POST body during payment processing", "lesson": "Use 307 instead of 302 when redirecting POST/PUT/PATCH requests — 302 may silently convert to GET and drop the body"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 307 when the move is permanent",
@@ -406,6 +432,10 @@ STATUS_EXTRA = {
             "go": 'http.Redirect(w, r, "/v2/resource", http.StatusPermanentRedirect)',
         },
         "eli5": "The store you used to go to moved permanently to a new address — and whatever you were doing when you walked in, keep doing it the same way at the new place. Update your bookmark!",
+        "case_studies": [
+            {"api": "Google APIs", "scenario": "Resumable uploads use 308 to redirect to the upload URI while preserving the PUT method and partial body", "lesson": "308 is the permanent equivalent of 307 — the client should update its bookmarks AND preserve the method"},
+            {"api": "YouTube Data API", "scenario": "Resumable video uploads return 308 with Range header indicating bytes received so far", "lesson": "308 in Google's upload protocol means 'resume incomplete' — always check the Range header to know where to continue"},
+        ],
     },
     "400": {
         "examples": [
@@ -572,6 +602,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Not Acceptable", http.StatusNotAcceptable)',
         },
         "eli5": "You go to an Italian restaurant and ask for sushi. They say 'Sorry, we only have pasta and pizza!' You asked for something they just can't serve you in that format.",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Requesting an unsupported media type via Accept header returns 406", "lesson": "Document your supported media types clearly — most APIs support application/json but may also offer XML, CSV, or protocol buffers"},
+            {"api": "Content negotiation (RFC 7231)", "scenario": "A client sends Accept: application/xml to a JSON-only endpoint", "lesson": "Return a 406 with a body listing supported types so the client knows what formats are available"},
+        ],
     },
     "407": {
         "examples": [
@@ -599,6 +633,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Request Timeout", http.StatusRequestTimeout)',
         },
         "eli5": "You called your friend on the phone, they picked up, but then you just sat there saying nothing for a really long time. Eventually they said 'Hello?? I'm hanging up!' and hung up.",
+        "case_studies": [
+            {"api": "AWS ELB", "scenario": "Load balancer closes idle connections after 60 seconds of inactivity with 408", "lesson": "Configure client-side keep-alive intervals shorter than the server/LB idle timeout to prevent surprise 408s"},
+            {"api": "Cloudflare", "scenario": "Cloudflare returns 408 when the client takes too long to send the complete request headers or body", "lesson": "Slow clients on mobile networks often trigger 408s — consider increasing timeouts for upload-heavy endpoints"},
+        ],
     },
     "409": {
         "examples": [
@@ -641,6 +679,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Gone", http.StatusGone)',
         },
         "eli5": "The toy you wanted isn't just out of stock — the store stopped making it forever. It's gone and it's never coming back. Time to find a different toy!",
+        "case_studies": [
+            {"api": "Twitter/X API", "scenario": "Deleted tweets return 410 Gone instead of 404 to signal permanent removal", "lesson": "Use 410 instead of 404 when a resource was deliberately deleted — search engines and clients will stop requesting it"},
+            {"api": "Google APIs (deprecated endpoints)", "scenario": "Sunset API versions return 410 with a Sunset header pointing to the migration guide", "lesson": "Pair 410 with a response body explaining the replacement — clients need to know where to go next"},
+        ],
     },
     "411": {
         "examples": [
@@ -668,6 +710,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Precondition Failed", http.StatusPreconditionFailed)',
         },
         "eli5": "You said 'I'll only trade my card if you still have the same one from last week.' But they already traded it away, so the deal's off. Your condition wasn't met!",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Conditional update with If-Match fails because the resource was modified since last read — returns 412", "lesson": "412 is the backbone of optimistic concurrency — always return the current ETag so the client can retry with fresh data"},
+            {"api": "AWS S3", "scenario": "PUT with If-None-Match: * returns 412 if the object already exists, preventing overwrites", "lesson": "Use If-None-Match: * with PUT to implement create-if-not-exists semantics without race conditions"},
+        ],
     },
     "413": {
         "examples": [
@@ -710,6 +756,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Unsupported Media Type", http.StatusUnsupportedMediaType)',
         },
         "eli5": "You handed in your homework written in crayon on a napkin, but the teacher only accepts typed papers. 'I can't grade this — wrong format!'",
+        "case_studies": [
+            {"api": "Slack API", "scenario": "Sending form-urlencoded data to an endpoint expecting application/json returns 415", "lesson": "Always set the Content-Type header explicitly — many HTTP clients default to form encoding, not JSON"},
+            {"api": "AWS API Gateway", "scenario": "Uploading a binary file without the correct Content-Type mapping returns 415", "lesson": "Configure binary media types in API Gateway when accepting file uploads — the default only allows text-based content types"},
+        ],
     },
     "416": {
         "examples": [
@@ -751,6 +801,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "I\'m a teapot", 418)',
         },
         "eli5": "You ask a teapot to make you some coffee. The teapot says 'Excuse me, I'm a TEAPOT! I make TEA, not coffee!' It's a silly joke that programmers put in the rules of the internet.",
+        "case_studies": [
+            {"api": "Google (google.com/teapot)", "scenario": "Google once hosted an interactive teapot page at /teapot as a playful Easter egg implementing RFC 2324", "lesson": "RFC 2324 was an April Fools' joke, but 418 is now preserved in HTTP specs because removing it would break the internet's sense of humor"},
+            {"api": "Node.js core", "scenario": "The Node.js HTTP module includes 418 in its STATUS_CODES map after a heated debate about removing it", "lesson": "Developer experience matters — sometimes keeping a harmless joke is better for community morale than strict spec compliance"},
+        ],
     },
     "419": {
         "examples": [
@@ -806,6 +860,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusUnprocessableEntity)",
         },
         "eli5": "Your homework has all the right words and good handwriting, but the answers are wrong. The teacher says 'I can read it just fine, but the content doesn't make sense!'",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Creating a pull request with invalid branch references returns 422 with a validation errors array", "lesson": "Return structured field-level errors with 422 so clients can highlight exactly which input needs fixing"},
+            {"api": "Stripe API", "scenario": "Creating a charge with an invalid currency code returns 422 with a clear error message", "lesson": "Distinguish 400 (malformed JSON syntax) from 422 (valid JSON but semantically invalid) to help clients handle errors differently"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 400 instead of 422 for semantic validation errors",
@@ -884,6 +942,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Precondition Required", 428)',
         },
         "eli5": "You want to change something, but first you need to prove you're working with the latest version. It's like a teacher saying 'Show me you've read the latest instructions before you edit anything!'",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Certain update operations require If-Match header — omitting it returns 428", "lesson": "Require conditional headers (If-Match, If-Unmodified-Since) on write endpoints to prevent accidental overwrites in concurrent environments"},
+            {"api": "Kubernetes API", "scenario": "Updates to resources without a resourceVersion field are rejected with 428", "lesson": "428 forces clients into an optimistic concurrency pattern — read the latest version, then update with the version token"},
+        ],
     },
     "429": {
         "examples": [
@@ -927,6 +989,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Request Header Fields Too Large", 431)',
         },
         "eli5": "You're writing a letter but the envelope has so many stickers and notes on the outside that the mailman can't even read the address. Too much stuff in the header!",
+        "case_studies": [
+            {"api": "Cloudflare / Nginx", "scenario": "Accumulated cookies from third-party trackers cause headers to exceed 8KB, triggering 431", "lesson": "Monitor total cookie size across your domains — cookie bloat from analytics and A/B testing is the most common cause of 431"},
+            {"api": "AWS ALB", "scenario": "JWT tokens stored in cookies grow too large with embedded claims, exceeding the default 16KB header limit", "lesson": "Store large tokens server-side and use a session ID cookie instead — JWTs with many claims can easily exceed header limits"},
+        ],
     },
     "444": {
         "examples": [
@@ -968,6 +1034,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Unavailable For Legal Reasons", 451)',
         },
         "eli5": "That book you wanted has been banned by the authorities. The library isn't allowed to give it to you because of the law. Named after the book Fahrenheit 451 about burning books!",
+        "case_studies": [
+            {"api": "GitHub (DMCA takedowns)", "scenario": "Repositories removed due to DMCA notices return 451 with a link to the takedown request", "lesson": "Always include a Link header with rel=blocked-by pointing to the legal authority or notice — transparency matters"},
+            {"api": "Reddit / Twitter", "scenario": "Content geo-blocked due to local laws returns 451 in regions where the content is restricted", "lesson": "451 was specifically designed to distinguish legal censorship from access control (403) — use it to promote transparency about government-mandated blocks"},
+        ],
     },
     "494": {
         "examples": [
@@ -1050,6 +1120,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Not Implemented", http.StatusNotImplemented)',
         },
         "eli5": "You asked the robot to do a backflip, but it was only programmed to walk and wave. 'Sorry, I don't know how to do that yet! Nobody taught me!'",
+        "case_studies": [
+            {"api": "Nginx (minimal config)", "scenario": "A server that only handles GET and POST returns 501 for PATCH, PUT, or DELETE requests", "lesson": "501 means the server doesn't recognize the method at all — unlike 405, which means the method is known but not allowed for this resource"},
+            {"api": "Legacy proxy servers", "scenario": "Older HTTP proxies return 501 when they encounter HTTP/2 or WebSocket upgrade requests they cannot process", "lesson": "Use 501 sparingly — in modern APIs, if you receive a valid HTTP method, return 405 with an Allow header instead"},
+        ],
     },
     "502": {
         "examples": [
@@ -1147,6 +1221,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "HTTP Version Not Supported", http.StatusHTTPVersionNotSupported)',
         },
         "eli5": "You tried to play a Blu-ray disc in an old DVD player. The player says 'I don't understand this format — I'm not new enough!' You're speaking a language version it doesn't know.",
+        "case_studies": [
+            {"api": "Legacy corporate proxies", "scenario": "Enterprise proxy appliances that only support HTTP/1.0 return 505 when clients send HTTP/1.1 or HTTP/2 requests", "lesson": "505 is rare in modern systems — most servers support HTTP/1.1 and HTTP/2, but legacy infrastructure can still surprise you"},
+            {"api": "Embedded IoT devices", "scenario": "Minimal HTTP servers on microcontrollers only implement HTTP/1.0 and reject newer protocol versions with 505", "lesson": "When building clients for constrained devices, always fall back gracefully to HTTP/1.0 if the server rejects your protocol version"},
+        ],
     },
     "506": {
         "examples": [
@@ -1174,6 +1252,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Insufficient Storage", http.StatusInsufficientStorage)',
         },
         "eli5": "Your closet is completely stuffed and you're trying to cram in one more toy. The closet door won't close — there's just no room left! Time to clean up or get a bigger closet.",
+        "case_studies": [
+            {"api": "Google Drive / Dropbox", "scenario": "Uploading a file when the user's storage quota is full returns 507", "lesson": "Include the current usage and quota limit in the error response so the user knows exactly how much space they need to free up"},
+            {"api": "Exchange / SharePoint (WebDAV)", "scenario": "Mailbox or document library exceeds its storage quota, returning 507 on write operations", "lesson": "Set up monitoring and alerts for storage quotas well before they fill up — a 507 means writes are already failing"},
+        ],
     },
     "508": {
         "examples": [
@@ -1187,6 +1269,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Loop Detected", http.StatusLoopDetected)',
         },
         "eli5": "You follow a sign that says 'This way!' but it leads to another sign pointing back to where you started. And then another, and another. You're going in circles forever!",
+        "case_studies": [
+            {"api": "WebDAV (Apache mod_dav)", "scenario": "A COPY or MOVE operation encounters a bind loop in a collection, returning 508 to break the cycle", "lesson": "Always implement loop detection in recursive operations — without it, a single circular reference can consume infinite resources"},
+            {"api": "Symlink-heavy file systems", "scenario": "A file server following symlinks encounters a circular reference chain and returns 508", "lesson": "Set a maximum recursion depth for any operation that follows references — 508 should be the safety net, not the first line of defense"},
+        ],
     },
     "509": {
         "examples": [
@@ -1214,6 +1300,9 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Not Extended", http.StatusNotExtended)',
         },
         "eli5": "You tried to use a special feature on a walkie-talkie, but you need an extra antenna attachment first. The server says 'I need more extensions to handle your request!'",
+        "case_studies": [
+            {"api": "HTTP Extension Framework (RFC 2774)", "scenario": "A request requires mandatory extensions (via Man or Opt headers) that the server cannot fulfill", "lesson": "510 is extremely rare in practice — most modern APIs handle capability negotiation through API versioning or feature flags instead"},
+        ],
     },
     "511": {
         "examples": [
@@ -1228,6 +1317,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Network Authentication Required", http.StatusNetworkAuthenticationRequired)',
         },
         "eli5": "You open your laptop at a coffee shop and try to browse the internet, but first a page pops up saying 'Agree to our Wi-Fi terms and log in before you can go anywhere!'",
+        "case_studies": [
+            {"api": "Hotel / Airport Wi-Fi", "scenario": "Captive portals intercept HTTP requests and return 511 to trigger the browser's captive portal detection flow", "lesson": "511 should only be generated by the network, not by origin servers — it tells the client to authenticate with the network layer, not the application"},
+            {"api": "Apple / Google captive portal detection", "scenario": "iOS and Android make background requests to known URLs — a 511 triggers the captive portal login UI automatically", "lesson": "Use 511 with a simple HTML login form in the body — avoid JavaScript-heavy pages that may not render in captive portal browsers"},
+        ],
     },
     "530": {
         "examples": [
@@ -1241,5 +1334,9 @@ STATUS_EXTRA = {
             "go": "// Non-standard; check Cloudflare's error documentation for details",
         },
         "eli5": "The website is frozen solid like a popsicle. The hosting company put it on ice, maybe because of a problem or unpaid bills. Nobody can visit until it thaws out!",
+        "case_studies": [
+            {"api": "Cloudflare", "scenario": "Origin server returns an error and Cloudflare presents a 530 error page alongside a 1XXX error code", "lesson": "530 is Cloudflare-specific — check the accompanying 1XXX error code and Cloudflare's error docs to diagnose the actual origin issue"},
+            {"api": "Shared hosting providers", "scenario": "A site suspended for TOS violation or unpaid billing returns 530 from the hosting platform", "lesson": "If you see 530 in production, check your hosting provider's control panel first — it usually means an account-level issue, not a code bug"},
+        ],
     },
 }

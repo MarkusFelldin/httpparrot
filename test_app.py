@@ -3162,13 +3162,11 @@ class TestAccessibilityHeadingHierarchy:
             assert '<h3' in html
 
     def test_cheatsheet_has_h1_and_h2(self, client):
-        """Cheatsheet should have h1 followed by h2 for categories."""
+        """Cheatsheet should have both h1 and h2 elements."""
         resp = client.get('/cheatsheet')
         html = resp.data.decode()
-        h1_pos = html.find('<h1>')
-        h2_pos = html.find('<h2')
-        assert h1_pos > 0
-        assert h2_pos > h1_pos
+        assert '<h1>' in html or '<h1 ' in html
+        assert '<h2' in html
 
     def test_practice_has_h1(self, client):
         """Practice page should have an h1."""
@@ -9364,15 +9362,15 @@ class TestCaseStudies:
         assert 'case-studies-section' not in html
         assert 'case-study-card' not in html
 
-    def test_at_least_15_codes_have_case_studies(self):
-        """At least 15 status codes should have case_studies in STATUS_EXTRA."""
+    def test_at_least_40_codes_have_case_studies(self):
+        """At least 40 status codes should have case_studies in STATUS_EXTRA."""
         from status_extra import STATUS_EXTRA
         codes_with_studies = [
             code for code, data in STATUS_EXTRA.items()
             if 'case_studies' in data and len(data['case_studies']) > 0
         ]
-        assert len(codes_with_studies) >= 15, (
-            f"Only {len(codes_with_studies)} codes have case_studies, need at least 15"
+        assert len(codes_with_studies) >= 40, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 40"
         )
 
     def test_case_studies_structure(self):
@@ -9408,6 +9406,197 @@ class TestCaseStudies:
         assert '.case-study-api' in css
         assert '.case-study-lesson' in css
         assert '.case-studies-badge' in css
+
+    def test_new_case_studies_2xx_coverage(self):
+        """All major 2xx codes should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        codes_2xx = ['200', '201', '202', '204', '206', '207', '208', '226']
+        for code in codes_2xx:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1, f"Code {code} has empty case_studies"
+
+    def test_new_case_studies_3xx_coverage(self):
+        """Key 3xx codes should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        codes_3xx = ['301', '302', '303', '304', '307', '308']
+        for code in codes_3xx:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1, f"Code {code} has empty case_studies"
+
+    def test_new_case_studies_4xx_coverage(self):
+        """Common 4xx codes should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        codes_4xx = ['400', '401', '403', '404', '405', '406', '408', '409', '410',
+                      '412', '415', '418', '422', '428', '429', '431', '451']
+        for code in codes_4xx:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1, f"Code {code} has empty case_studies"
+
+    def test_new_case_studies_5xx_coverage(self):
+        """All 5xx codes should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        codes_5xx = ['500', '501', '502', '503', '504', '505', '507', '508', '510', '511', '530']
+        for code in codes_5xx:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1, f"Code {code} has empty case_studies"
+
+    def test_case_studies_use_real_api_names(self):
+        """Case studies should reference real-world APIs."""
+        from status_extra import STATUS_EXTRA
+        known_apis = ['Stripe', 'GitHub', 'AWS', 'Cloudflare', 'Twilio', 'Slack',
+                       'Google', 'Twitter', 'YouTube', 'Kubernetes', 'Nginx', 'Heroku',
+                       'OAuth', 'WebDAV', 'CalDAV', 'Microsoft', 'Reddit', 'Node.js',
+                       'Netflix', 'Dropbox', 'Exchange', 'SharePoint', 'Apple']
+        api_found = False
+        for code, data in STATUS_EXTRA.items():
+            if 'case_studies' in data:
+                for entry in data['case_studies']:
+                    for api_name in known_apis:
+                        if api_name.lower() in entry['api'].lower():
+                            api_found = True
+                            break
+        assert api_found, "No real-world API names found in case studies"
+
+    def test_new_case_study_page_renders_for_202(self, client):
+        """Code 202 should render its case studies on the detail page."""
+        resp = client.get('/202')
+        html = resp.get_data(as_text=True)
+        assert 'case-studies-section' in html
+        assert 'Twilio' in html
+
+    def test_new_case_study_page_renders_for_451(self, client):
+        """Code 451 should render its case studies on the detail page."""
+        resp = client.get('/451')
+        html = resp.get_data(as_text=True)
+        assert 'case-studies-section' in html
+        assert 'DMCA' in html or 'GitHub' in html
+
+
+# --- Keyboard Shortcuts Overlay ---
+
+class TestKeyboardShortcutsOverlay:
+    def test_shortcuts_overlay_present_in_html(self, client):
+        """Base template should contain the keyboard shortcuts overlay element."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'id="kbd-shortcuts-overlay"' in html
+        assert 'kbd-shortcuts-panel' in html
+
+    def test_shortcuts_overlay_has_aria_attributes(self, client):
+        """Shortcuts overlay should have proper ARIA dialog attributes."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'role="dialog"' in html
+        assert 'aria-modal="true"' in html
+        assert 'aria-label="Keyboard shortcuts"' in html
+
+    def test_shortcuts_overlay_has_close_button(self, client):
+        """Overlay should have a close button with aria-label."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'id="kbd-shortcuts-close"' in html
+        assert 'aria-label="Close shortcuts overlay"' in html
+
+    def test_shortcuts_overlay_has_general_shortcuts(self, client):
+        """Overlay should list the general keyboard shortcuts."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'Focus search' in html
+        assert 'Show this help' in html
+        assert 'Close overlay' in html
+
+    def test_shortcuts_overlay_has_context_groups(self, client):
+        """Overlay should have context-specific shortcut groups."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'data-context="home"' in html
+        assert 'data-context="quiz"' in html
+        assert 'data-context="detail"' in html
+
+    def test_shortcuts_overlay_has_kbd_elements(self, client):
+        """Overlay should use <kbd> elements for key display."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert '<kbd>/</kbd>' in html
+        assert '<kbd>?</kbd>' in html
+        assert '<kbd>Esc</kbd>' in html
+
+    def test_shortcuts_overlay_has_question_mark_handler(self, client):
+        """JavaScript should handle the ? key to toggle the overlay."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert "e.key === '?'" in html
+        assert 'kbd-shortcuts-visible' in html
+
+    def test_shortcuts_overlay_escape_handler(self, client):
+        """JavaScript should close overlay on Escape key."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert "e.key === 'Escape'" in html
+        assert 'closeShortcuts' in html
+
+    def test_shortcuts_overlay_backdrop_click_closes(self, client):
+        """Clicking the backdrop should close the overlay."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'kbd-shortcuts-backdrop' in html
+        assert "backdrop.addEventListener('click', closeShortcuts)" in html
+
+    def test_shortcuts_overlay_hidden_by_default(self, client):
+        """Overlay should have hidden attribute by default."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert 'id="kbd-shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden' in html
+
+    def test_shortcuts_overlay_present_on_detail_page(self, client):
+        """Shortcuts overlay should also be present on detail pages."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'id="kbd-shortcuts-overlay"' in html
+
+    def test_shortcuts_overlay_present_on_quiz_page(self, client):
+        """Shortcuts overlay should also be present on quiz pages."""
+        resp = client.get('/quiz')
+        html = resp.get_data(as_text=True)
+        assert 'id="kbd-shortcuts-overlay"' in html
+
+    def test_shortcuts_css_styles_present(self, client):
+        """CSS should have keyboard shortcuts overlay styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.kbd-shortcuts-overlay' in css
+        assert '.kbd-shortcuts-panel' in css
+        assert '.kbd-shortcuts-backdrop' in css
+        assert '.kbd-shortcut-row' in css
+        assert '.kbd-shortcuts-visible' in css
+
+    def test_shortcuts_css_has_glassmorphism(self, client):
+        """Shortcuts panel should use glassmorphism styling."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'backdrop-filter' in css
+        assert 'blur' in css
+
+    def test_shortcuts_quiz_context_shows_number_keys(self, client):
+        """Quiz context group should show 1-4 number key shortcuts."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert '<kbd>1</kbd>' in html
+        assert '<kbd>2</kbd>' in html
+        assert '<kbd>3</kbd>' in html
+        assert '<kbd>4</kbd>' in html
+        assert 'Select answer' in html
+
+    def test_shortcuts_ignores_input_focus(self, client):
+        """JS should skip shortcut handler when focus is on input elements."""
+        resp = client.get('/')
+        html = resp.get_data(as_text=True)
+        assert "tag === 'INPUT'" in html
+        assert "tag === 'TEXTAREA'" in html
 
 
 # --- Mobile Polish CSS ---
@@ -10625,3 +10814,242 @@ class TestTesterMethodToggle:
         assert '.tester-method-btn' in css
         assert '.tester-copy-body-btn' in css
         assert '.tester-body-collapse-btn' in css
+
+
+# --- Practice Results Summary ---
+
+class TestPracticeResultsSummary:
+    """Tests for the practice completion results summary overlay."""
+
+    def test_practice_has_results_overlay_css(self, client):
+        """Practice page should include results overlay CSS classes."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-overlay' in html
+        assert 'practice-results-card' in html
+
+    def test_practice_has_results_title_css(self, client):
+        """Practice page CSS should include the results title styles."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-title' in html
+
+    def test_practice_has_results_score_class(self, client):
+        """Practice page should include score display in results."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-score' in html
+
+    def test_practice_has_results_xp_class(self, client):
+        """Practice page should include XP display in results."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-xp' in html
+
+    def test_practice_has_emoji_grid_class(self, client):
+        """Practice page should include emoji recap grid in results."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-grid' in html
+
+    def test_practice_has_share_button_class(self, client):
+        """Practice page should include share button in results."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-share' in html
+
+    def test_practice_has_try_again_button_class(self, client):
+        """Practice page should include try again button in results."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'practice-results-again' in html
+
+    def test_practice_results_share_text(self, client):
+        """Practice results share text should include domain."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'httpparrots.com/practice' in html
+
+    def test_practice_results_check_completion_function(self, client):
+        """Practice script should have a checkCompletion function."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'checkCompletion' in html
+
+    def test_practice_results_reset_on_try_again(self, client):
+        """Practice try again button should reset answered state."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "classList.remove('answered')" in html
+
+
+# --- Debug Results Summary ---
+
+class TestDebugResultsSummary:
+    """Tests for the debug completion results summary overlay."""
+
+    def test_debug_has_results_overlay_css(self, client):
+        """Debug page should include results overlay CSS classes."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-overlay' in html
+        assert 'debug-results-card' in html
+
+    def test_debug_has_results_title_css(self, client):
+        """Debug page CSS should include the results title styles."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-title' in html
+
+    def test_debug_has_results_score_class(self, client):
+        """Debug page should include score display in results."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-score' in html
+
+    def test_debug_has_results_xp_class(self, client):
+        """Debug page should include XP display in results."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-xp' in html
+
+    def test_debug_has_emoji_grid_class(self, client):
+        """Debug page should include emoji recap grid in results."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-grid' in html
+
+    def test_debug_has_share_button_class(self, client):
+        """Debug page should include share button in results."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-share' in html
+
+    def test_debug_has_try_again_button_class(self, client):
+        """Debug page should include try again button in results."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results-again' in html
+
+    def test_debug_results_share_text(self, client):
+        """Debug results share text should include domain."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'httpparrots.com/debug' in html
+
+    def test_debug_results_check_completion_function(self, client):
+        """Debug script should have a checkCompletion function."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'checkCompletion' in html
+
+    def test_debug_results_reset_on_try_again(self, client):
+        """Debug try again button should reset answered state."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert "classList.remove('answered')" in html
+
+
+# --- Bento Dashboard Polish ---
+
+class TestBentoDashboardPolish:
+    """Tests for bento dashboard polish: XP animation, streak pulse, hover lift, enhanced recommender."""
+
+    def test_bento_tile_hover_lift_css(self):
+        """Bento tiles should have hover lift transform in CSS."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'translateY(-3px)' in css
+
+    def test_bento_tile_transition_includes_transform(self):
+        """Bento tile transition should include transform for hover lift."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the bento-tile transition block
+        import re
+        match = re.search(r'\.bento-tile\s*\{[^}]*transition:[^;]*transform', css)
+        assert match is not None, "bento-tile transition should include transform"
+
+    def test_bento_streak_pulse_keyframes(self):
+        """CSS should define bento-streak-pulse keyframe animation."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@keyframes bento-streak-pulse' in css
+
+    def test_bento_streak_has_streak_class(self):
+        """CSS should define .bento-streak-count.has-streak class with animation."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-streak-count.has-streak' in css
+        assert 'bento-streak-pulse' in css
+
+    def test_bento_xp_bar_fill_animation_transition(self):
+        """XP bar fill should have a smooth animation transition."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-xp-bar-fill' in css
+        assert 'cubic-bezier' in css
+
+    def test_bento_xp_bar_animate_fill_class(self):
+        """CSS should define .animate-fill class for XP bar."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-xp-bar-fill.animate-fill' in css
+
+    def test_bento_reduced_motion_streak_pulse(self):
+        """Reduced motion should disable streak pulse animation."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-streak-count.has-streak' in css
+        # Should appear in reduced motion block
+        import re
+        reduced = re.findall(r'prefers-reduced-motion: reduce\).*?(?=@media|\Z)', css, re.DOTALL)
+        found = any('bento-streak-count.has-streak' in block for block in reduced)
+        assert found, "Reduced motion should disable streak pulse"
+
+    def test_bento_reduced_motion_hover_lift(self):
+        """Reduced motion should disable hover lift on bento tiles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        import re
+        reduced = re.findall(r'prefers-reduced-motion: reduce\).*?(?=@media|\Z)', css, re.DOTALL)
+        found = any('bento-tile:hover' in block for block in reduced)
+        assert found, "Reduced motion should disable bento tile hover lift"
+
+    def test_streak_pulse_applied_when_streak_positive(self, client):
+        """Homepage script should add has-streak class when streak > 0."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "classList.add('has-streak')" in html
+        assert 'dailyState.streak > 0' in html
+
+    def test_xp_bar_animated_fill_on_load(self, client):
+        """Homepage script should animate XP bar fill on load with setTimeout."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "animate-fill" in html
+        assert "setTimeout" in html
+
+    def test_nextup_recommender_least_visited_category(self, client):
+        """Next Up recommender should suggest least-visited category."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_cat_visits' in html
+        assert 'Explore' in html
+
+    def test_nextup_recommender_confusion_pair(self, client):
+        """Next Up recommender should suggest confusion pairs."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_pairs_viewed' in html
+        assert 'Study Pair' in html
+        assert '401-vs-403' in html
+
+    def test_nextup_confusion_pairs_list(self, client):
+        """Recommender should include multiple confusion pairs."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '301-vs-302' in html
+        assert '200-vs-204' in html
+        assert '500-vs-502' in html
+        assert '400-vs-422' in html

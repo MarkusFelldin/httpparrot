@@ -297,6 +297,46 @@
         padding: 1rem 0.75rem;
     }
 }
+/* Results summary overlay (mirrors quiz-results pattern) */
+.practice-results-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.practice-results-card {
+    background: rgba(26,26,31,0.95); border: 1px solid var(--border-default);
+    border-radius: 20px; padding: 2.5rem; text-align: center; max-width: 400px; width: 90%;
+}
+.practice-results-title {
+    font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--color-teal), var(--color-blue));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.practice-results-score {
+    font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 0.25rem;
+}
+.practice-results-xp {
+    font-size: 0.95rem; color: #a78bfa; font-weight: 600; margin-bottom: 1rem;
+}
+.practice-results-grid {
+    font-size: 1.5rem; letter-spacing: 0.2em; margin-bottom: 1.5rem; line-height: 1.6;
+    word-break: break-all;
+}
+.practice-results-share, .practice-results-again {
+    display: block; width: 100%; margin-top: 0.5rem;
+    padding: 0.65rem 1.2rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06); color: #c0c0d0; cursor: pointer;
+    font-size: 0.95rem; font-weight: 600; transition: all 0.2s;
+}
+.practice-results-share:hover, .practice-results-again:hover {
+    background: rgba(255,255,255,0.12); color: var(--text-primary);
+}
+.practice-results-again {
+    background: rgba(0, 201, 167, 0.15); border-color: rgba(0, 201, 167, 0.3); color: #2dd4a8;
+}
+.practice-results-again:hover {
+    background: rgba(0, 201, 167, 0.25); border-color: rgba(0, 201, 167, 0.5);
+}
 </style>
 {% endblock %}
 
@@ -499,8 +539,120 @@
 
             updateRemaining();
             updateProgress();
+            checkCompletion();
         });
     });
+
+    function getVisibleCards() {
+        var cards = document.querySelectorAll('.practice-card');
+        var visible = [];
+        cards.forEach(function(card) {
+            if (isCardVisible(card)) visible.push(card);
+        });
+        return visible;
+    }
+
+    function checkCompletion() {
+        var visible = getVisibleCards();
+        if (visible.length === 0) return;
+        var allAnswered = visible.every(function(card) { return card.classList.contains('answered'); });
+        if (!allAnswered) return;
+
+        var visibleCorrect = 0;
+        var visibleTotal = visible.length;
+        var emojiParts = [];
+        visible.forEach(function(card) {
+            var opts = card.querySelectorAll('.practice-option-btn');
+            var gotCorrect = false;
+            opts.forEach(function(opt) {
+                if (opt.classList.contains('correct') && opt.getAttribute('data-code') === opt.getAttribute('data-correct')) {
+                    /* This was the selected correct answer */
+                }
+            });
+            /* Check if correct answer was the one clicked */
+            var hasWrong = false;
+            opts.forEach(function(opt) {
+                if (opt.classList.contains('wrong')) hasWrong = true;
+            });
+            if (!hasWrong) {
+                visibleCorrect++;
+                emojiParts.push('\uD83D\uDFE2');
+            } else {
+                emojiParts.push('\uD83D\uDD34');
+            }
+        });
+
+        var xpEarned = visibleCorrect * 15;
+        var emojis = emojiParts.join('');
+        var resultText = 'HTTP Parrots Practice: ' + visibleCorrect + '/' + visibleTotal + '\n' + emojis + '\nhttpparrots.com/practice';
+
+        setTimeout(function() {
+            var overlay = document.createElement('div');
+            overlay.className = 'practice-results-overlay';
+            overlay.setAttribute('data-testid', 'practice-results-overlay');
+            var card = document.createElement('div');
+            card.className = 'practice-results-card';
+
+            var title = document.createElement('div');
+            title.className = 'practice-results-title';
+            title.textContent = visibleCorrect === visibleTotal ? 'Perfect Score!' : 'Session Complete!';
+            card.appendChild(title);
+
+            var score = document.createElement('div');
+            score.className = 'practice-results-score';
+            score.textContent = visibleCorrect + ' / ' + visibleTotal + ' correct';
+            card.appendChild(score);
+
+            var xp = document.createElement('div');
+            xp.className = 'practice-results-xp';
+            xp.textContent = '+' + xpEarned + ' XP earned';
+            card.appendChild(xp);
+
+            var grid = document.createElement('div');
+            grid.className = 'practice-results-grid';
+            grid.textContent = emojis;
+            card.appendChild(grid);
+
+            var shareBtn = document.createElement('button');
+            shareBtn.className = 'practice-results-share';
+            shareBtn.textContent = 'Share Results';
+            shareBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(resultText).then(function() {
+                    shareBtn.textContent = 'Copied!';
+                    setTimeout(function() { shareBtn.textContent = 'Share Results'; }, 2000);
+                }).catch(function() {
+                    shareBtn.textContent = 'Failed';
+                    setTimeout(function() { shareBtn.textContent = 'Share Results'; }, 2000);
+                });
+            });
+            card.appendChild(shareBtn);
+
+            var againBtn = document.createElement('button');
+            againBtn.className = 'practice-results-again';
+            againBtn.textContent = 'Try Again';
+            againBtn.addEventListener('click', function() {
+                overlay.remove();
+                correct = 0; wrong = 0; answered = 0;
+                document.getElementById('practice-correct').textContent = '0';
+                document.getElementById('practice-wrong').textContent = '0';
+                document.querySelectorAll('.practice-card').forEach(function(c) {
+                    c.classList.remove('answered');
+                    c.querySelectorAll('.practice-option-btn').forEach(function(b) {
+                        b.disabled = false;
+                        b.classList.remove('correct', 'wrong', 'dimmed');
+                    });
+                    var exp = c.querySelector('.practice-explanation');
+                    if (exp) exp.classList.remove('visible');
+                });
+                updateRemaining();
+                updateProgress();
+            });
+            card.appendChild(againBtn);
+
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+        }, 600);
+    }
 
     updateRemaining();
 })();
