@@ -14,9 +14,25 @@
             <p>All status codes at a glance</p>
         </div>
 
+        <!-- Toolbar: search, category filter pills, compact toggle -->
+        <div class="cheat-toolbar" id="cheat-toolbar">
+            <input type="text" class="cheat-search-input" id="cheat-search" placeholder="Search by code or name..." autocomplete="off" aria-label="Search status codes">
+            <div class="cheat-filter-pills" id="cheat-filter-pills">
+                <button class="cat-pill active" data-cat="all">All</button>
+                <button class="cat-pill cat-1xx" data-cat="1xx">1xx</button>
+                <button class="cat-pill cat-2xx" data-cat="2xx">2xx</button>
+                <button class="cat-pill cat-3xx" data-cat="3xx">3xx</button>
+                <button class="cat-pill cat-4xx" data-cat="4xx">4xx</button>
+                <button class="cat-pill cat-5xx" data-cat="5xx">5xx</button>
+            </div>
+            <button class="cheat-compact-btn" id="cheat-compact-toggle" aria-label="Toggle compact view">Compact View</button>
+        </div>
+
+        <!-- Normal table view -->
+        <div id="cheat-table-view">
         {% for cat_code, cat_name, codes in categories %}
         {% if codes %}
-        <div class="cheat-category">
+        <div class="cheat-category" data-category="{{ cat_code }}">
             <h2 class="cheat-cat-header">
                 <span class="cheat-cat-badge cat-badge-{{ cat_code }}">{{ cat_code }}</span>
                 <span class="cheat-cat-name">{{ cat_name }}</span>
@@ -27,7 +43,7 @@
                 </thead>
                 <tbody>
                 {% for code in codes %}
-                <tr>
+                <tr data-code="{{ code[0] }}" data-name="{{ code[1]|lower }}">
                     <td class="cheat-thumb"><a href="/{{ code[0] }}"><img src="/static/{{ code[2] }}" alt="{{ code[0] }} parrot" width="60" height="50" loading="lazy"></a></td>
                     <td class="cheat-code category-{{ code[0][0] }}xx"><a href="/{{ code[0] }}">{{ code[0] }}</a></td>
                     <td class="cheat-name"><a href="/{{ code[0] }}" class="cheat-link">{{ code[1] }}</a></td>
@@ -38,6 +54,12 @@
         </div>
         {% endif %}
         {% endfor %}
+        </div>
+
+        <!-- Compact grid view (hidden by default, populated by JS) -->
+        <div class="cheat-compact-grid" id="cheat-compact-view" style="display:none;"></div>
+
+        <div id="cheat-no-results" class="cheat-no-results" role="status" aria-live="polite">No status codes match your search.</div>
 
         <div class="cheat-print-btn">
             <button class="btn-back" id="print-btn">Print this page</button>
@@ -48,5 +70,109 @@
 {% block scripts %}
     <script nonce="{{ csp_nonce }}">
     document.getElementById('print-btn').addEventListener('click', function() { window.print(); });
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var searchEl = document.getElementById('cheat-search');
+        var pills = document.querySelectorAll('#cheat-filter-pills .cat-pill');
+        var compactBtn = document.getElementById('cheat-compact-toggle');
+        var tableView = document.getElementById('cheat-table-view');
+        var compactView = document.getElementById('cheat-compact-view');
+        var noResults = document.getElementById('cheat-no-results');
+
+        var activeCat = 'all';
+        var isCompact = false;
+
+        /* Collect all row data once from the table view */
+        var allRows = [];
+        tableView.querySelectorAll('tr[data-code]').forEach(function(tr) {
+            allRows.push({
+                code: tr.dataset.code,
+                name: tr.dataset.name,
+                el: tr
+            });
+        });
+
+        /* Build compact grid items once */
+        allRows.forEach(function(row) {
+            var a = document.createElement('a');
+            a.href = '/' + row.code;
+            a.className = 'cheat-compact-item';
+            a.dataset.code = row.code;
+            a.dataset.name = row.name;
+            var codeSpan = document.createElement('span');
+            codeSpan.className = 'cheat-compact-code category-' + row.code[0] + 'xx';
+            codeSpan.textContent = row.code;
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'cheat-compact-name';
+            /* Capitalize the stored lowercase name */
+            nameSpan.textContent = row.name.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+            a.appendChild(codeSpan);
+            a.appendChild(nameSpan);
+            compactView.appendChild(a);
+        });
+
+        function filterAll() {
+            var q = searchEl.value.toLowerCase().trim();
+            var visibleCount = 0;
+
+            if (isCompact) {
+                /* Filter compact items */
+                compactView.querySelectorAll('.cheat-compact-item').forEach(function(item) {
+                    var code = item.dataset.code;
+                    var name = item.dataset.name;
+                    var catMatch = activeCat === 'all' || code.startsWith(activeCat[0]);
+                    var searchMatch = !q || code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                    var show = catMatch && searchMatch;
+                    item.style.display = show ? '' : 'none';
+                    if (show) visibleCount++;
+                });
+            } else {
+                /* Filter table rows and categories */
+                var categories = tableView.querySelectorAll('.cheat-category');
+                categories.forEach(function(cat) {
+                    var catCode = cat.dataset.category;
+                    var catMatch = activeCat === 'all' || catCode === activeCat;
+                    if (!catMatch) {
+                        cat.style.display = 'none';
+                        return;
+                    }
+                    cat.style.display = '';
+                    var rows = cat.querySelectorAll('tr[data-code]');
+                    var catVisible = 0;
+                    rows.forEach(function(tr) {
+                        var code = tr.dataset.code;
+                        var name = tr.dataset.name;
+                        var searchMatch = !q || code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                        tr.style.display = searchMatch ? '' : 'none';
+                        if (searchMatch) { catVisible++; visibleCount++; }
+                    });
+                    if (catVisible === 0) cat.style.display = 'none';
+                });
+            }
+
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        searchEl.addEventListener('input', filterAll);
+
+        pills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                pills.forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                activeCat = pill.dataset.cat;
+                filterAll();
+            });
+        });
+
+        compactBtn.addEventListener('click', function() {
+            isCompact = !isCompact;
+            compactBtn.classList.toggle('active', isCompact);
+            compactBtn.textContent = isCompact ? 'Table View' : 'Compact View';
+            tableView.style.display = isCompact ? 'none' : '';
+            compactView.style.display = isCompact ? '' : 'none';
+            filterAll();
+        });
+    })();
     </script>
 {% endblock %}

@@ -1559,12 +1559,16 @@ class TestELI5Toggle:
         assert 'eli5-simple' in html
         assert 'librarian' in html
 
-    def test_eli5_toggle_absent_on_page_without_eli5(self, client):
-        """Pages without ELI5 content should not have the toggle."""
-        resp = client.get('/100')
-        html = resp.get_data(as_text=True)
-        assert 'eli5-switch' not in html
-        assert 'eli5-toggle' not in html
+    def test_eli5_toggle_present_on_all_codes(self, client):
+        """All status code pages (except 204) should have the ELI5 toggle."""
+        from status_extra import STATUS_EXTRA
+        for code in STATUS_EXTRA:
+            if code == '204':
+                continue  # HTTP 204 returns empty body by protocol
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'eli5-switch' in html, f"Missing eli5-switch for {code}"
+            assert 'eli5-toggle' in html, f"Missing eli5-toggle for {code}"
 
     def test_eli5_technical_text_also_present(self, client):
         """Both technical and ELI5 text should be in the source."""
@@ -1580,26 +1584,22 @@ class TestELI5Toggle:
         assert "localStorage.getItem('eli5')" in html
         assert "localStorage.setItem('eli5'" in html
 
-    def test_eli5_present_for_common_codes(self, client):
-        """Common status codes should have ELI5 content in rendered HTML."""
+    def test_eli5_present_for_all_codes(self, client):
+        """All status codes should have ELI5 content in rendered HTML."""
+        from status_extra import STATUS_EXTRA
         # 204 excluded: HTTP 204 returns empty body by protocol
-        codes_with_eli5 = [
-            '200', '201', '301', '302', '304', '400', '401', '403',
-            '404', '405', '408', '418', '429', '500', '502', '503', '504',
-        ]
-        for code in codes_with_eli5:
+        for code in STATUS_EXTRA:
+            if code == '204':
+                continue
             resp = client.get(f'/{code}')
             html = resp.get_data(as_text=True)
             assert 'eli5-simple' in html, f"Missing ELI5 for status code {code}"
 
-    def test_eli5_data_in_status_extra(self):
-        """STATUS_EXTRA should have eli5 keys for common codes."""
+    def test_eli5_data_in_all_status_extra(self):
+        """STATUS_EXTRA should have eli5 keys for ALL 72 codes."""
         from status_extra import STATUS_EXTRA
-        codes_with_eli5 = [
-            '200', '201', '204', '301', '302', '304', '400', '401', '403',
-            '404', '405', '408', '418', '429', '500', '502', '503', '504',
-        ]
-        for code in codes_with_eli5:
+        assert len(STATUS_EXTRA) == 72, f"Expected 72 codes, got {len(STATUS_EXTRA)}"
+        for code in STATUS_EXTRA:
             assert 'eli5' in STATUS_EXTRA[code], f"Missing eli5 key for {code}"
             assert len(STATUS_EXTRA[code]['eli5']) > 20, f"ELI5 for {code} seems too short"
 
@@ -5552,12 +5552,109 @@ class TestTypographyTokens:
             css = f.read()
         assert '--text-xs: 0.65rem' in css
         assert '--text-sm: 0.8rem' in css
-        assert '--text-base: 0.95rem' in css
-        assert '--text-md: 1rem' in css
+        assert '--text-base: 1rem' in css
         assert '--text-lg: 1.25rem' in css
         assert '--text-xl: 1.5rem' in css
         assert '--text-2xl: 2.2rem' in css
         assert '--text-3xl: 3rem' in css
+
+
+class TestDesignSystemTokens:
+    """Tests for CSS design system token consistency."""
+
+    def test_text_base_equals_text_md(self):
+        """--text-base and --text-md should both be 1rem."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '--text-base: 1rem' in css
+        assert '--text-md: 1rem' in css
+
+    def test_radius_tokens_defined(self):
+        """All radius tokens should be defined in :root."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '--radius-xs: 4px' in css
+        assert '--radius-sm: 8px' in css
+        assert '--radius-md: 12px' in css
+        assert '--radius-lg: 16px' in css
+        assert '--radius-full: 9999px' in css
+
+    def test_no_hardcoded_border_radius_4px(self, client):
+        """border-radius: 4px should use var(--radius-xs)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        matches = re.findall(r'border-radius:\s*4px\s*[;!]', css)
+        assert len(matches) == 0, f"Found hardcoded border-radius: 4px at: {matches}"
+
+    def test_no_hardcoded_border_radius_8px(self, client):
+        """border-radius: 8px should use var(--radius-sm)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        matches = re.findall(r'border-radius:\s*8px\s*[;!]', css)
+        assert len(matches) == 0, f"Found hardcoded border-radius: 8px at: {matches}"
+
+    def test_no_hardcoded_border_radius_16px(self, client):
+        """border-radius: 16px should use var(--radius-lg)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        matches = re.findall(r'border-radius:\s*16px\s*[;!]', css)
+        assert len(matches) == 0, f"Found hardcoded border-radius: 16px at: {matches}"
+
+    def test_no_hardcoded_border_radius_50pct(self, client):
+        """border-radius: 50% should use var(--radius-full)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        matches = re.findall(r'border-radius:\s*50%\s*[;!]', css)
+        assert len(matches) == 0, f"Found hardcoded border-radius: 50% at: {matches}"
+
+    def test_no_hardcoded_transition_durations(self, client):
+        """Transitions should use duration tokens, not raw values like 0.2s ease."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        # Match transition declarations using raw durations with ease keywords
+        matches = re.findall(r'transition:[^;]*\d+\.\d+s\s+ease(?:-in|-out|-in-out)?', css)
+        assert len(matches) == 0, f"Found hardcoded transitions: {matches[:5]}"
+
+    def test_no_hardcoded_font_family_inter(self, client):
+        """font-family should use var(--font-sans), not raw 'Inter', sans-serif."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        import re
+        # Exclude the :root definition itself
+        root_end = css.index('}')
+        after_root = css[root_end:]
+        matches = re.findall(r"font-family:\s*'Inter',\s*sans-serif", after_root)
+        assert len(matches) == 0, f"Found hardcoded font-family: {matches}"
+
+    def test_no_low_contrast_055_text(self, client):
+        """rgba(255,255,255,0.55) should be raised to 0.7 for WCAG AA compliance."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'rgba(255, 255, 255, 0.55)' not in css
+        assert 'rgba(255,255,255,0.55)' not in css
+
+    def test_duration_tokens_used(self, client):
+        """Duration tokens should be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--duration-fast)' in css
+        assert 'var(--duration-normal)' in css
+        assert 'var(--duration-slow)' in css
+
+    def test_radius_tokens_used(self, client):
+        """Radius tokens should be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--radius-xs)' in css
+        assert 'var(--radius-sm)' in css
+        assert 'var(--radius-md)' in css
+        assert 'var(--radius-lg)' in css
+        assert 'var(--radius-full)' in css
 
 
 # --- Confusion Pair Lessons ---
@@ -7622,19 +7719,37 @@ class TestBentoDashboard:
         html = resp.data.decode()
         assert 'href="/playground"' in html
 
-    def test_learning_paths_tile_present(self, client):
-        """Dashboard should have a learning paths tile."""
+    def test_nextup_tile_present(self, client):
+        """Dashboard should have a Next Up recommender tile."""
         resp = client.get('/')
         html = resp.data.decode()
         assert 'bento-tile--paths' in html
-        assert 'Learning Paths' in html
-        assert 'Continue Learning' in html
+        assert 'Next Up' in html
+        assert 'bento-nextup' in html
 
-    def test_learning_paths_links_to_paths(self, client):
-        """Learning paths tile should link to /paths."""
+    def test_nextup_tile_has_message_and_action(self, client):
+        """Next Up tile should have a message, subtitle, and action link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="bento-nextup-message"' in html
+        assert 'id="bento-nextup-sub"' in html
+        assert 'id="bento-nextup-action"' in html
+
+    def test_nextup_default_links_to_paths(self, client):
+        """Next Up tile should default to linking to /paths."""
         resp = client.get('/')
         html = resp.data.decode()
         assert 'href="/paths"' in html
+        assert 'Get Started' in html
+
+    def test_nextup_recommender_script_present(self, client):
+        """Homepage should contain the Next Up recommender script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_review' in html
+        assert 'httpparrot_daily' in html
+        assert 'httpparrot_path_' in html
+        assert 'httpparrot_weekly' in html
 
     def test_potd_shown_as_tag_in_grid(self, client):
         """Parrot of the Day should be shown as a tag on the featured card in the grid."""
@@ -8645,3 +8760,154 @@ class TestWeeklyCSS:
         css = resp.data.decode()
         assert '.weekly-results-badge' in css
         assert '.weekly-progress-fill' in css
+
+
+# --- Cheat Sheet Filter / Search / Compact ---
+
+class TestCheatsheetToolbar:
+    """Tests for the cheatsheet filter, search, and compact toggle."""
+
+    def test_cheatsheet_has_search_input(self, client):
+        """Cheatsheet should have a search input for filtering codes."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-search"' in html
+        assert 'cheat-search-input' in html
+
+    def test_cheatsheet_has_filter_pills(self, client):
+        """Cheatsheet should have category filter pills."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-filter-pills"' in html
+        assert 'data-cat="all"' in html
+        assert 'data-cat="1xx"' in html
+        assert 'data-cat="2xx"' in html
+        assert 'data-cat="3xx"' in html
+        assert 'data-cat="4xx"' in html
+        assert 'data-cat="5xx"' in html
+
+    def test_cheatsheet_has_compact_toggle(self, client):
+        """Cheatsheet should have a compact view toggle button."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-compact-toggle"' in html
+        assert 'cheat-compact-btn' in html
+        assert 'Compact View' in html
+
+    def test_cheatsheet_has_compact_grid_container(self, client):
+        """Cheatsheet should have a hidden compact grid view container."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-compact-view"' in html
+        assert 'cheat-compact-grid' in html
+
+    def test_cheatsheet_has_no_results_indicator(self, client):
+        """Cheatsheet should have a no-results message for filtering."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-no-results"' in html
+        assert 'cheat-no-results' in html
+
+    def test_cheatsheet_table_rows_have_data_attributes(self, client):
+        """Cheatsheet table rows should have data-code and data-name for JS filtering."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'data-code="200"' in html
+        assert 'data-name=' in html
+
+    def test_cheatsheet_categories_have_data_category(self, client):
+        """Cheatsheet category divs should have data-category attribute."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'data-category="1xx"' in html
+        assert 'data-category="2xx"' in html
+        assert 'data-category="5xx"' in html
+
+    def test_cheatsheet_toolbar_present(self, client):
+        """Cheatsheet should have a toolbar element."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'id="cheat-toolbar"' in html
+        assert 'cheat-toolbar' in html
+
+    def test_cheatsheet_filter_script_present(self, client):
+        """Cheatsheet should contain the filter/search JavaScript."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'cheat-search' in html
+        assert 'cheat-filter-pills' in html
+        assert 'filterAll' in html
+
+    def test_cheatsheet_filter_pills_reuse_cat_pill_pattern(self, client):
+        """Cheatsheet filter pills should use the cat-pill CSS class from homepage."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'class="cat-pill' in html
+
+    def test_cheatsheet_css_toolbar_styles(self, client):
+        """CSS should have cheatsheet toolbar styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.cheat-toolbar' in css
+        assert '.cheat-search-input' in css
+        assert '.cheat-compact-btn' in css
+        assert '.cheat-compact-grid' in css
+        assert '.cheat-no-results' in css
+
+
+# --- Next Up Recommender ---
+
+class TestNextUpRecommender:
+    """Tests for the Next Up smart recommender on the homepage."""
+
+    def test_nextup_tile_replaces_learning_paths(self, client):
+        """The Next Up tile should be present instead of the old paths list."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-nextup' in html
+        assert 'bento-nextup-message' in html
+        assert 'bento-nextup-sub' in html
+
+    def test_nextup_default_message(self, client):
+        """Default Next Up message should suggest starting a learning path."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Start a learning path' in html
+
+    def test_nextup_script_checks_review(self, client):
+        """Recommender script should check httpparrot_review localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "httpparrot_review" in html
+        assert "Review Now" in html
+
+    def test_nextup_script_checks_daily(self, client):
+        """Recommender script should check httpparrot_daily localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "httpparrot_daily" in html
+        assert "Play Daily" in html
+
+    def test_nextup_script_checks_paths(self, client):
+        """Recommender script should check httpparrot_path_* localStorage keys."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "httpparrot_path_" in html
+        assert "http-foundations" in html
+        assert "error-whisperer" in html
+        assert "redirect-master" in html
+
+    def test_nextup_script_checks_weekly(self, client):
+        """Recommender script should check httpparrot_weekly localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "httpparrot_weekly" in html
+        assert "Start Challenge" in html
+
+    def test_nextup_css_styles_present(self, client):
+        """CSS should have Next Up recommender styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.bento-nextup' in css
+        assert '.bento-nextup-message' in css
+        assert '.bento-nextup-sub' in css

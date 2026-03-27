@@ -12,6 +12,7 @@ STATUS_EXTRA = {
             "node": "res.writeContinue();",
             "go": "http.StatusContinue // 100",
         },
+        "eli5": "Imagine texting someone a long message and they reply 'keep going, I'm listening' before you finish. The server is saying 'Yep, send me the rest!'",
     },
     "101": {
         "examples": [
@@ -24,6 +25,7 @@ STATUS_EXTRA = {
             "node": 'server.on("upgrade", (req, socket, head) => { ... });',
             "go": "// Use gorilla/websocket or nhooyr.io/websocket",
         },
+        "eli5": "You're talking to your friend through a walkie-talkie, but you both agree to switch to a video call instead. The server is saying 'Sure, let's change how we're talking!'",
     },
     "102": {
         "examples": [
@@ -36,6 +38,7 @@ STATUS_EXTRA = {
             "node": "res.writeProcessing();",
             "go": "http.StatusProcessing // 102",
         },
+        "eli5": "You asked your mom to bake a big cake. She pokes her head out of the kitchen and says 'Still working on it, don't go anywhere!' so you don't think she forgot.",
     },
     "103": {
         "examples": [
@@ -48,6 +51,7 @@ STATUS_EXTRA = {
             "node": "res.writeEarlyHints({ link: '</style.css>; rel=preload; as=style' });",
             "go": "// Requires HTTP/2 server push support",
         },
+        "eli5": "While a chef is still cooking your main course, the waiter brings you bread and water first so you're not just sitting there waiting. Early hints to get you started!",
     },
     "200": {
         "examples": [
@@ -109,6 +113,7 @@ STATUS_EXTRA = {
             "node": "res.status(202).json({ jobId: '456' });",
             "go": "w.WriteHeader(http.StatusAccepted)",
         },
+        "eli5": "You drop off your clothes at the dry cleaner and they say 'Got it, we'll work on it!' They accepted your stuff, but it's not done yet. Come back later to pick it up.",
     },
     "203": {
         "examples": [
@@ -122,6 +127,7 @@ STATUS_EXTRA = {
             "node": "res.status(203).json(transformedData);",
             "go": "w.WriteHeader(http.StatusNonAuthoritativeInfo)",
         },
+        "eli5": "You asked your friend about yesterday's homework, but they heard it from someone else, not the teacher. The answer is probably right, but it's secondhand information!",
     },
     "204": {
         "examples": [
@@ -159,6 +165,7 @@ STATUS_EXTRA = {
             "node": "res.status(205).end();",
             "go": "w.WriteHeader(http.StatusResetContent)",
         },
+        "eli5": "You turn in your test and the teacher says 'Great, now erase everything on your desk and start fresh.' Time to clear the slate and reset!",
     },
     "206": {
         "examples": [
@@ -172,6 +179,7 @@ STATUS_EXTRA = {
             "node": "res.status(206).set('Content-Range', 'bytes 0-999/8000').send(chunk);",
             "go": "http.ServeContent(w, r, name, modtime, content) // handles ranges automatically",
         },
+        "eli5": "Like downloading a big file but only getting half now and the rest later. You asked for a piece of the puzzle, and that's exactly what you got — a partial delivery!",
     },
     "207": {
         "examples": [
@@ -185,6 +193,7 @@ STATUS_EXTRA = {
             "node": "res.status(207).type('application/xml').send(multiStatusXml);",
             "go": "w.WriteHeader(207) // http.StatusMultiStatus",
         },
+        "eli5": "You gave your teacher five homework assignments at once. She hands them back with different grades on each one — some got A's and some got F's. One response, multiple results!",
     },
     "208": {
         "examples": [
@@ -197,6 +206,7 @@ STATUS_EXTRA = {
             "node": "res.status(208).type('application/xml').send(alreadyReportedXml);",
             "go": "w.WriteHeader(208) // http.StatusAlreadyReported",
         },
+        "eli5": "You're taking attendance and you already called someone's name. No need to call it again — 'Already counted!' It avoids repeating information you've already shared.",
     },
     "226": {
         "examples": [
@@ -209,6 +219,7 @@ STATUS_EXTRA = {
             "node": "res.status(226).set('IM', 'feed').send(delta);",
             "go": "w.WriteHeader(226) // http.StatusIMUsed",
         },
+        "eli5": "Instead of sending you the whole newspaper again, they just send you the corrections and new articles since yesterday. Only the changes, not the whole thing!",
     },
     "300": {
         "examples": [
@@ -222,6 +233,7 @@ STATUS_EXTRA = {
             "node": "res.status(300).json({ choices: ['/resource.en', '/resource.fr'] });",
             "go": 'w.WriteHeader(http.StatusMultipleChoices)',
         },
+        "eli5": "You ask for a drink and the waiter says 'We have lemonade, orange juice, AND apple juice — which one do you want?' Multiple options, your pick!",
     },
     "301": {
         "examples": [
@@ -283,6 +295,7 @@ STATUS_EXTRA = {
             "node": "res.redirect(303, '/order/123/confirmation');",
             "go": 'http.Redirect(w, r, "/order/123/confirmation", http.StatusSeeOther)',
         },
+        "eli5": "You filled out a form and hit submit. The server says 'Thanks! Now go look at this other page to see your results.' It's like being told to check the bulletin board after handing in your test.",
     },
     "304": {
         "examples": [
@@ -319,6 +332,7 @@ STATUS_EXTRA = {
             "node": "res.status(305).set('Location', 'http://proxy.example.com:8080').end();",
             "go": '// Deprecated — most clients ignore 305 for security reasons',
         },
+        "eli5": "You want to talk to the principal, but the secretary says 'You can't go directly — you have to go through your teacher first.' You need a middleman to get there.",
     },
     "306": {
         "examples": [
@@ -331,6 +345,7 @@ STATUS_EXTRA = {
             "node": "// 306 is reserved and no longer used",
             "go": "// 306 Switch Proxy is deprecated and unused",
         },
+        "eli5": "This is like an old phone number that's been disconnected and nobody uses anymore. It was reserved for something once, but now it just sits there collecting dust.",
     },
     "307": {
         "examples": [
@@ -344,6 +359,7 @@ STATUS_EXTRA = {
             "node": "res.redirect(307, '/new-endpoint');",
             "go": 'http.Redirect(w, r, "/new-endpoint", http.StatusTemporaryRedirect)',
         },
+        "eli5": "The toy store is closed for painting today and there's a note saying 'Go to our other store for now!' But unlike 302, you have to go there doing exactly the same thing you were doing — if you were carrying a package, keep carrying it!",
         "common_mistakes": [
             {
                 "mistake": "Using 307 when the move is permanent",
@@ -367,6 +383,7 @@ STATUS_EXTRA = {
             "node": "res.redirect(308, '/v2/resource');",
             "go": 'http.Redirect(w, r, "/v2/resource", http.StatusPermanentRedirect)',
         },
+        "eli5": "The store you used to go to moved permanently to a new address — and whatever you were doing when you walked in, keep doing it the same way at the new place. Update your bookmark!",
     },
     "400": {
         "examples": [
@@ -428,6 +445,7 @@ STATUS_EXTRA = {
             "node": "res.status(402).json({ error: 'Payment required' });",
             "go": 'http.Error(w, "Payment Required", http.StatusPaymentRequired)',
         },
+        "eli5": "You walk into an arcade and try to play a game, but the machine says 'INSERT COIN.' You gotta pay first before you can play!",
     },
     "403": {
         "examples": [
@@ -512,6 +530,7 @@ STATUS_EXTRA = {
             "node": "res.status(406).json({ error: 'Not Acceptable' });",
             "go": 'http.Error(w, "Not Acceptable", http.StatusNotAcceptable)',
         },
+        "eli5": "You go to an Italian restaurant and ask for sushi. They say 'Sorry, we only have pasta and pizza!' You asked for something they just can't serve you in that format.",
     },
     "407": {
         "examples": [
@@ -524,6 +543,7 @@ STATUS_EXTRA = {
             "node": "res.status(407).set('Proxy-Authenticate', 'Basic').end();",
             "go": 'w.Header().Set("Proxy-Authenticate", "Basic")\nhttp.Error(w, "Proxy Auth Required", 407)',
         },
+        "eli5": "There's a security guard at the gate between you and the building. Even before you get to the front door, the guard says 'Show me YOUR ID first!' The middleman needs to know who you are.",
     },
     "408": {
         "examples": [
@@ -551,6 +571,7 @@ STATUS_EXTRA = {
             "node": "res.status(409).json({ error: 'Username already exists' });",
             "go": 'http.Error(w, "Conflict", http.StatusConflict)',
         },
+        "eli5": "Two people tried to edit the same document at the same time and now there's a conflict about whose changes to keep. It's like two kids grabbing the last toy at the same time!",
         "common_mistakes": [
             {
                 "mistake": "Using 400 instead of 409 for duplicate resource conflicts",
@@ -574,6 +595,7 @@ STATUS_EXTRA = {
             "node": "res.status(410).json({ error: 'Gone' });",
             "go": 'http.Error(w, "Gone", http.StatusGone)',
         },
+        "eli5": "The toy you wanted isn't just out of stock — the store stopped making it forever. It's gone and it's never coming back. Time to find a different toy!",
     },
     "411": {
         "examples": [
@@ -586,6 +608,7 @@ STATUS_EXTRA = {
             "node": "res.status(411).json({ error: 'Length Required' });",
             "go": 'http.Error(w, "Length Required", http.StatusLengthRequired)',
         },
+        "eli5": "You're sending a package but you forgot to write how heavy it is on the label. The post office says 'We need to know the size before we accept it!'",
     },
     "412": {
         "examples": [
@@ -599,6 +622,7 @@ STATUS_EXTRA = {
             "node": "res.status(412).json({ error: 'Precondition Failed' });",
             "go": 'http.Error(w, "Precondition Failed", http.StatusPreconditionFailed)',
         },
+        "eli5": "You said 'I'll only trade my card if you still have the same one from last week.' But they already traded it away, so the deal's off. Your condition wasn't met!",
     },
     "413": {
         "examples": [
@@ -612,6 +636,7 @@ STATUS_EXTRA = {
             "node": "// Express: app.use(express.json({ limit: '10mb' }))",
             "go": 'http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)',
         },
+        "eli5": "You tried to stuff a giant teddy bear into a tiny mailbox. The mailbox says 'That's way too big! Bring something smaller!'",
     },
     "414": {
         "examples": [
@@ -625,6 +650,7 @@ STATUS_EXTRA = {
             "node": "res.status(414).json({ error: 'URI Too Long' });",
             "go": 'http.Error(w, "URI Too Long", http.StatusRequestURITooLong)',
         },
+        "eli5": "You wrote an address on an envelope that's so long it wraps around the whole package three times. The postal worker says 'This address is way too long, I can't read this!'",
     },
     "415": {
         "examples": [
@@ -638,6 +664,7 @@ STATUS_EXTRA = {
             "node": "res.status(415).json({ error: 'Unsupported Media Type' });",
             "go": 'http.Error(w, "Unsupported Media Type", http.StatusUnsupportedMediaType)',
         },
+        "eli5": "You handed in your homework written in crayon on a napkin, but the teacher only accepts typed papers. 'I can't grade this — wrong format!'",
     },
     "416": {
         "examples": [
@@ -651,6 +678,7 @@ STATUS_EXTRA = {
             "node": "res.status(416).set('Content-Range', 'bytes */5000').end();",
             "go": 'http.Error(w, "Range Not Satisfiable", http.StatusRequestedRangeNotSatisfiable)',
         },
+        "eli5": "You asked for pages 500 through 600 of a book that only has 200 pages. The librarian says 'Those pages don't exist!'",
     },
     "417": {
         "examples": [
@@ -663,6 +691,7 @@ STATUS_EXTRA = {
             "node": "res.status(417).json({ error: 'Expectation Failed' });",
             "go": 'http.Error(w, "Expectation Failed", http.StatusExpectationFailed)',
         },
+        "eli5": "You told the bouncer 'I expect VIP treatment when I walk in.' The bouncer says 'Nope, can't promise that.' Your expectations didn't match what they can deliver!",
     },
     "418": {
         "examples": [
@@ -689,6 +718,7 @@ STATUS_EXTRA = {
             "node": "// Non-standard; Laravel uses 419 for CSRF/session expiry",
             "go": '// Non-standard; consider using 403 or 440 instead',
         },
+        "eli5": "You were playing a video game and walked away for too long. When you came back, the game kicked you out and said 'Your session expired — start over!' Your hall pass timed out.",
     },
     "420": {
         "examples": [
@@ -702,6 +732,7 @@ STATUS_EXTRA = {
             "node": "// Non-standard; Twitter's old 'Enhance Your Calm' code",
             "go": '// Non-standard; prefer 429 Too Many Requests',
         },
+        "eli5": "You're bouncing off the walls with too much energy and someone tells you to chill out. 'Enhance your calm!' Take a deep breath and slow down a little.",
     },
     "421": {
         "examples": [
@@ -715,6 +746,7 @@ STATUS_EXTRA = {
             "node": "res.status(421).json({ error: 'Misdirected Request' });",
             "go": 'http.Error(w, "Misdirected Request", http.StatusMisdirectedRequest)',
         },
+        "eli5": "You wrote a letter to Grandma but accidentally mailed it to Grandpa's house. Grandpa says 'This isn't for me — you sent it to the wrong place!'",
     },
     "422": {
         "examples": [
@@ -728,6 +760,7 @@ STATUS_EXTRA = {
             "node": "res.status(422).json({ errors: { email: 'invalid' } });",
             "go": "w.WriteHeader(http.StatusUnprocessableEntity)",
         },
+        "eli5": "Your homework has all the right words and good handwriting, but the answers are wrong. The teacher says 'I can read it just fine, but the content doesn't make sense!'",
         "common_mistakes": [
             {
                 "mistake": "Using 400 instead of 422 for semantic validation errors",
@@ -751,6 +784,7 @@ STATUS_EXTRA = {
             "node": "res.status(423).json({ error: 'Locked' });",
             "go": 'http.Error(w, "Locked", 423)',
         },
+        "eli5": "Someone else is already using the bathroom and the door is locked. You'll have to wait until they're done before you can go in!",
     },
     "424": {
         "examples": [
@@ -763,6 +797,7 @@ STATUS_EXTRA = {
             "node": "res.status(424).json({ error: 'Failed Dependency' });",
             "go": 'http.Error(w, "Failed Dependency", 424)',
         },
+        "eli5": "You can't ice the cake because the oven broke and the cake never got baked. Step two failed because step one didn't work out. One domino knocked the other one down!",
     },
     "425": {
         "examples": [
@@ -775,6 +810,7 @@ STATUS_EXTRA = {
             "node": "res.status(425).json({ error: 'Too Early' });",
             "go": 'http.Error(w, "Too Early", 425)',
         },
+        "eli5": "You tried to run into the classroom before the teacher even unlocked the door. 'Whoa, slow down! It's too early — wait until everything is properly set up!'",
     },
     "426": {
         "examples": [
@@ -788,6 +824,7 @@ STATUS_EXTRA = {
             "node": "res.status(426).set('Upgrade', 'TLS/1.2').json({ error: 'Upgrade Required' });",
             "go": 'w.Header().Set("Upgrade", "TLS/1.2")\nhttp.Error(w, "Upgrade Required", 426)',
         },
+        "eli5": "You're trying to talk through a tin-can telephone, but the other person says 'Get a real phone first, then call me!' You need to upgrade your equipment before they'll talk to you.",
     },
     "428": {
         "examples": [
@@ -801,6 +838,7 @@ STATUS_EXTRA = {
             "node": "res.status(428).json({ error: 'Precondition Required' });",
             "go": 'http.Error(w, "Precondition Required", 428)',
         },
+        "eli5": "You want to change something, but first you need to prove you're working with the latest version. It's like a teacher saying 'Show me you've read the latest instructions before you edit anything!'",
     },
     "429": {
         "examples": [
@@ -838,6 +876,7 @@ STATUS_EXTRA = {
             "node": "res.status(431).json({ error: 'Request Header Fields Too Large' });",
             "go": 'http.Error(w, "Request Header Fields Too Large", 431)',
         },
+        "eli5": "You're writing a letter but the envelope has so many stickers and notes on the outside that the mailman can't even read the address. Too much stuff in the header!",
     },
     "444": {
         "examples": [
@@ -851,6 +890,7 @@ STATUS_EXTRA = {
             "node": "// Nginx-only; req.socket.destroy() is the closest equivalent",
             "go": "// Nginx-specific; in Go you'd use conn.Close() or hijack the connection",
         },
+        "eli5": "Someone knocks on your door, but when you open it, nobody's there — they already ran away. So you just close the door without saying anything. Conversation over!",
     },
     "450": {
         "examples": [
@@ -863,6 +903,7 @@ STATUS_EXTRA = {
             "node": "// Microsoft-specific; 450 Blocked by Parental Controls",
             "go": "// Non-standard; only relevant to Microsoft/Windows environments",
         },
+        "eli5": "Your parents set up parental controls on the computer, and when you try to visit a website, the screen says 'Nope, your parents blocked this!' Grounded from the internet.",
     },
     "451": {
         "examples": [
@@ -876,6 +917,7 @@ STATUS_EXTRA = {
             "node": "res.status(451).json({ error: 'Unavailable For Legal Reasons' });",
             "go": 'http.Error(w, "Unavailable For Legal Reasons", 451)',
         },
+        "eli5": "That book you wanted has been banned by the authorities. The library isn't allowed to give it to you because of the law. Named after the book Fahrenheit 451 about burning books!",
     },
     "494": {
         "examples": [
@@ -888,6 +930,7 @@ STATUS_EXTRA = {
             "node": "// Nginx-only code; Node has --max-http-header-size for similar limits",
             "go": "// Nginx-specific; Go's default MaxHeaderBytes is 1MB",
         },
+        "eli5": "One of the labels on your package is so huge it's bigger than the box itself. The post office says 'This single label is way too big — trim it down!'",
     },
     "498": {
         "examples": [
@@ -900,6 +943,7 @@ STATUS_EXTRA = {
             "node": "// Esri-specific; prefer 401 for token issues in standard APIs",
             "go": "// Non-standard; specific to ArcGIS Server",
         },
+        "eli5": "Your movie ticket expired — the showing was an hour ago! You need to get a fresh, valid ticket before they'll let you in. The old one is no good anymore.",
     },
     "499": {
         "examples": [
@@ -913,6 +957,7 @@ STATUS_EXTRA = {
             "node": "// Nginx logs 499 when client disconnects; handle 'close' event on req",
             "go": "// Check r.Context().Done() to detect client disconnection",
         },
+        "eli5": "You ordered food at a restaurant, but you got impatient and left before it was ready. The waiter comes back with your plate and says 'They already left!' Nobody to serve it to.",
     },
     "500": {
         "examples": [
@@ -950,6 +995,7 @@ STATUS_EXTRA = {
             "node": "res.status(501).json({ error: 'Not Implemented' });",
             "go": 'http.Error(w, "Not Implemented", http.StatusNotImplemented)',
         },
+        "eli5": "You asked the robot to do a backflip, but it was only programmed to walk and wave. 'Sorry, I don't know how to do that yet! Nobody taught me!'",
     },
     "502": {
         "examples": [
@@ -1034,6 +1080,7 @@ STATUS_EXTRA = {
             "node": "res.status(505).json({ error: 'HTTP Version Not Supported' });",
             "go": 'http.Error(w, "HTTP Version Not Supported", http.StatusHTTPVersionNotSupported)',
         },
+        "eli5": "You tried to play a Blu-ray disc in an old DVD player. The player says 'I don't understand this format — I'm not new enough!' You're speaking a language version it doesn't know.",
     },
     "506": {
         "examples": [
@@ -1046,6 +1093,7 @@ STATUS_EXTRA = {
             "node": "res.status(506).json({ error: 'Variant Also Negotiates' });",
             "go": 'http.Error(w, "Variant Also Negotiates", 506)',
         },
+        "eli5": "You asked your friend to pick a restaurant, and they said 'Ask my other friend,' who said 'Ask the first friend.' Now nobody can decide and everyone's going in circles!",
     },
     "507": {
         "examples": [
@@ -1059,6 +1107,7 @@ STATUS_EXTRA = {
             "node": "res.status(507).json({ error: 'Insufficient Storage' });",
             "go": 'http.Error(w, "Insufficient Storage", http.StatusInsufficientStorage)',
         },
+        "eli5": "Your closet is completely stuffed and you're trying to cram in one more toy. The closet door won't close — there's just no room left! Time to clean up or get a bigger closet.",
     },
     "508": {
         "examples": [
@@ -1071,6 +1120,7 @@ STATUS_EXTRA = {
             "node": "res.status(508).json({ error: 'Loop Detected' });",
             "go": 'http.Error(w, "Loop Detected", http.StatusLoopDetected)',
         },
+        "eli5": "You follow a sign that says 'This way!' but it leads to another sign pointing back to where you started. And then another, and another. You're going in circles forever!",
     },
     "509": {
         "examples": [
@@ -1084,6 +1134,7 @@ STATUS_EXTRA = {
             "node": "// Non-standard; Apache/cPanel use 509 for bandwidth exceeded",
             "go": "// Non-standard; prefer 429 or 503 with Retry-After in standard APIs",
         },
+        "eli5": "You used up all your monthly data on your phone plan. Your carrier says 'You've used too much bandwidth this month — come back next month or upgrade your plan!'",
     },
     "510": {
         "examples": [
@@ -1096,6 +1147,7 @@ STATUS_EXTRA = {
             "node": "res.status(510).json({ error: 'Not Extended' });",
             "go": 'http.Error(w, "Not Extended", http.StatusNotExtended)',
         },
+        "eli5": "You tried to use a special feature on a walkie-talkie, but you need an extra antenna attachment first. The server says 'I need more extensions to handle your request!'",
     },
     "511": {
         "examples": [
@@ -1109,6 +1161,7 @@ STATUS_EXTRA = {
             "node": "res.status(511).send('<html>Please log in to the network</html>');",
             "go": 'http.Error(w, "Network Authentication Required", http.StatusNetworkAuthenticationRequired)',
         },
+        "eli5": "You open your laptop at a coffee shop and try to browse the internet, but first a page pops up saying 'Agree to our Wi-Fi terms and log in before you can go anywhere!'",
     },
     "530": {
         "examples": [
@@ -1121,5 +1174,6 @@ STATUS_EXTRA = {
             "node": "// Non-standard; Cloudflare uses 530 alongside a 1XXX error code",
             "go": "// Non-standard; check Cloudflare's error documentation for details",
         },
+        "eli5": "The website is frozen solid like a popsicle. The hosting company put it on ice, maybe because of a problem or unpaid bills. Nobody can visit until it thaws out!",
     },
 }
