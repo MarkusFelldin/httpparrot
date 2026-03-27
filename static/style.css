@@ -5879,6 +5879,58 @@ body {
   .xp-badge:hover { background: rgba(0, 0, 0, 0.08); border-color: rgba(0, 0, 0, 0.18); }
   .xp-badge-rank { color: rgba(26, 26, 31, 0.8); }
   .xp-badge-xp { color: #009d82; }
+
+  /* Tester results & timing bar — light theme */
+  .tester-result-actions { border-top-color: rgba(0, 0, 0, 0.06); }
+  .tester-timing-bar-wrap { background: rgba(0, 0, 0, 0.02); }
+  .tester-timing-category { color: rgba(26, 26, 31, 0.55); }
+  .tester-loading { color: rgba(26, 26, 31, 0.5); }
+
+  /* Fault simulator try panels — light theme */
+  .fault-sim-try { background: rgba(0, 0, 0, 0.02); border-color: rgba(0, 0, 0, 0.08); }
+  .fault-sim-try label { color: rgba(26, 26, 31, 0.65); }
+  .fault-sim-try input { background: #ffffff; border-color: rgba(0, 0, 0, 0.1); color: #1a1a1f; }
+  .fault-sim-result { background: #eeeef0; color: rgba(26, 26, 31, 0.75); }
+  .fault-sim-progress { background: rgba(0, 0, 0, 0.06); }
+
+  /* Webhook inspector request cards — light theme */
+  .trace-hop pre { background: rgba(0, 0, 0, 0.03); color: rgba(26, 26, 31, 0.75); }
+  .trace-hop-loc-value { color: #009d82; }
+  .trace-hop-error-msg { color: #c83050; }
+
+  /* cURL import parsed breakdown & code export — light theme */
+  .curl-method-head { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+  .curl-method-options { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+  .curl-tab-bar { border-bottom-color: rgba(0, 0, 0, 0.08); }
+  .curl-tab { color: rgba(26, 26, 31, 0.45); }
+  .curl-tab:hover { color: rgba(26, 26, 31, 0.75); }
+  .curl-tab-active { color: #1565c0; border-bottom-color: #1565c0; }
+  .curl-copy-btn { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.1); color: rgba(26, 26, 31, 0.6); }
+
+  /* Security audit grade & check cards — light theme */
+  .audit-result-card { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 0, 0, 0.08); }
+  .audit-grade-badge { background: rgba(0, 0, 0, 0.03); }
+  .audit-grade-score { color: rgba(26, 26, 31, 0.5); }
+  .audit-check-card { background: #ffffff; border-color: rgba(0, 0, 0, 0.08); }
+  .audit-check-label { color: #1a1a1f; }
+  .audit-check-points { color: rgba(26, 26, 31, 0.5); }
+  .audit-check-desc { color: rgba(26, 26, 31, 0.65); }
+  .audit-fix-wrap { background: rgba(255, 107, 107, 0.06); border-color: rgba(255, 107, 107, 0.15); }
+  .audit-fix-code { color: rgba(26, 26, 31, 0.8); }
+
+  /* Review page — light theme */
+  .review-card { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 0, 0, 0.08); }
+  .review-card:hover { border-color: rgba(0, 0, 0, 0.15); }
+  .review-question { color: rgba(26, 26, 31, 0.85); }
+  .review-option-btn { border-color: rgba(0, 0, 0, 0.1); background: rgba(0, 0, 0, 0.02); color: rgba(26, 26, 31, 0.7); }
+  .review-option-btn:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); color: #1a1a1f; border-color: rgba(0, 0, 0, 0.2); }
+  .review-explanation { background: rgba(0, 0, 0, 0.03); }
+  .review-explanation p { color: rgba(26, 26, 31, 0.7); }
+  .review-box-indicator { color: rgba(26, 26, 31, 0.4); }
+  .leitner-dist-bar { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.08); }
+  .leitner-dist-label { color: rgba(26, 26, 31, 0.55); }
+  .leitner-mastered-count { color: #009d82; }
+  .review-caught-up { color: rgba(26, 26, 31, 0.55); }
 }
 
 /* === Easter egg: Barrel Roll === */
@@ -7798,4 +7850,80 @@ body {
   .parrot-anim-4xx .img { box-shadow: inset 0 0 30px rgba(233, 69, 96, 0.3) !important; }
   .parrot-anim-5xx .img { box-shadow: inset 0 0 30px rgba(123, 97, 255, 0.2) !important; }
   .parrot-speech-bubble { transition: none !important; }
+}
+
+/* === Touch Feedback: Detail Page Parrot === */
+.parrot-clickable {
+  -webkit-tap-highlight-color: transparent;
+}
+.parrot-clickable:active .img img {
+  transform: scale(0.96);
+  transition: transform var(--duration-fast) var(--ease-in-out);
+}
+
+/* === Mobile Edge Cases (320-375px) === */
+@media (max-width: 375px) {
+  /* Share button row: flex-wrap with consistent gap */
+  .share-actions {
+    gap: 0.4rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-share {
+    flex: 0 1 auto;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  /* Cheatsheet compact view: prevent card overflow */
+  .cheat-compact-grid {
+    grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+    gap: 0.35rem;
+  }
+  .cheat-compact-item {
+    padding: 0.35rem;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .cheat-compact-name {
+    font-size: 0.65rem;
+  }
+
+  /* Playground raw response: scrollable overflow */
+  .playground-raw {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  /* Bento dashboard: proper spacing at 320px */
+  .bento-dashboard {
+    gap: 0.75rem;
+    padding: 1rem 0;
+  }
+  .bento-tile {
+    padding: 1rem;
+    min-height: 110px;
+  }
+  .bento-tile--potd .potd-share-btn {
+    width: calc(100% - 2rem);
+    margin: 0 1rem 1rem;
+  }
+}
+
+/* Compare selector stacking at tablet */
+@media (max-width: 768px) {
+  .compare-selectors {
+    gap: 0.75rem;
+  }
+  .compare-select-wrap {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.75rem;
+  }
+  .compare-select-wrap:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .compare-vs {
+    margin: -0.25rem 0;
+  }
 }

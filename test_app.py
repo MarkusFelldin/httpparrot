@@ -11053,3 +11053,343 @@ class TestBentoDashboardPolish:
         assert '200-vs-204' in html
         assert '500-vs-502' in html
         assert '400-vs-422' in html
+
+
+class TestLightThemeCompleteness:
+    """Tests for light theme overrides on pages that were missing them."""
+
+    def _get_light_css(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        return css[idx:]
+
+    def test_light_theme_fault_sim_try(self, client):
+        """Fault simulator try panels should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.fault-sim-try' in block
+        assert '.fault-sim-result' in block
+
+    def test_light_theme_fault_sim_input(self, client):
+        """Fault simulator inputs should use light backgrounds."""
+        block = self._get_light_css(client)
+        assert '.fault-sim-try input' in block
+        assert '.fault-sim-try label' in block
+
+    def test_light_theme_fault_sim_progress(self, client):
+        """Fault simulator progress bar should have light override."""
+        block = self._get_light_css(client)
+        assert '.fault-sim-progress' in block
+
+    def test_light_theme_tester_timing(self, client):
+        """Tester timing bar should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.tester-timing-bar-wrap' in block
+        assert '.tester-timing-category' in block
+
+    def test_light_theme_tester_result_actions(self, client):
+        """Tester result actions should have light border."""
+        block = self._get_light_css(client)
+        assert '.tester-result-actions' in block
+
+    def test_light_theme_tester_loading(self, client):
+        """Tester loading text should be dark in light mode."""
+        block = self._get_light_css(client)
+        assert '.tester-loading' in block
+
+    def test_light_theme_trace_hop_pre(self, client):
+        """Webhook inspector body pre should have light background."""
+        block = self._get_light_css(client)
+        assert '.trace-hop pre' in block
+
+    def test_light_theme_trace_hop_loc_value(self, client):
+        """Trace hop location value should use teal in light mode."""
+        block = self._get_light_css(client)
+        assert '.trace-hop-loc-value' in block
+
+    def test_light_theme_trace_hop_error(self, client):
+        """Trace hop error message should use dark coral in light mode."""
+        block = self._get_light_css(client)
+        assert '.trace-hop-error-msg' in block
+
+    def test_light_theme_curl_tabs(self, client):
+        """cURL import tab bar should have light theme overrides."""
+        block = self._get_light_css(client)
+        assert '.curl-tab-bar' in block
+        assert '.curl-tab ' in block
+        assert '.curl-tab-active' in block
+
+    def test_light_theme_curl_method_badges(self, client):
+        """cURL method badges for HEAD/OPTIONS should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.curl-method-head' in block
+        assert '.curl-method-options' in block
+
+    def test_light_theme_curl_copy_btn(self, client):
+        """cURL copy button should have light override."""
+        block = self._get_light_css(client)
+        assert '.curl-copy-btn' in block
+
+    def test_light_theme_audit_result_card(self, client):
+        """Security audit result card should have light background."""
+        block = self._get_light_css(client)
+        assert '.audit-result-card' in block
+
+    def test_light_theme_audit_grade(self, client):
+        """Security audit grade badge should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.audit-grade-badge' in block
+        assert '.audit-grade-score' in block
+
+    def test_light_theme_audit_check_card(self, client):
+        """Security audit check cards should have light backgrounds."""
+        block = self._get_light_css(client)
+        assert '.audit-check-card' in block
+        assert '.audit-check-label' in block
+        assert '.audit-check-points' in block
+        assert '.audit-check-desc' in block
+
+    def test_light_theme_audit_fix(self, client):
+        """Security audit fix section should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.audit-fix-wrap' in block
+        assert '.audit-fix-code' in block
+
+    def test_light_theme_review_card(self, client):
+        """Review page cards should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.review-card' in block
+        assert '.review-question' in block
+        assert '.review-option-btn' in block
+
+    def test_light_theme_review_explanation(self, client):
+        """Review explanation area should have light background."""
+        block = self._get_light_css(client)
+        assert '.review-explanation' in block
+        assert '.review-explanation p' in block
+
+    def test_light_theme_leitner_bar(self, client):
+        """Leitner distribution bar should have light overrides."""
+        block = self._get_light_css(client)
+        assert '.leitner-dist-bar' in block
+        assert '.leitner-dist-label' in block
+        assert '.leitner-mastered-count' in block
+
+
+class TestReviewProgressVisualization:
+    """Tests for the Leitner box distribution bar on the review page."""
+
+    def test_review_has_leitner_dist_bar(self, client):
+        """Review page should contain the Leitner distribution bar."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'leitner-dist' in html
+        assert 'leitner-dist-bar' in html
+
+    def test_review_has_five_box_columns(self, client):
+        """Distribution bar should have columns for boxes 1-5."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        for b in range(1, 6):
+            assert 'leitner-count-' + str(b) in html
+            assert 'leitner-fill-' + str(b) in html
+            assert 'Box ' + str(b) in html
+
+    def test_review_has_mastered_count(self, client):
+        """Review page should display a mastered count (box 5 items)."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'leitner-mastered' in html
+        assert 'Mastered:' in html
+
+    def test_review_has_caught_up_message(self, client):
+        """Review page should contain a caught-up message for empty queue."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-caught-up' in html
+        assert 'All caught up! Come back tomorrow.' in html
+
+    def test_review_has_box_distribution_title(self, client):
+        """Distribution bar should have a title."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Box Distribution' in html
+
+    def test_review_leitner_dist_css_classes(self, client):
+        """Leitner distribution bar CSS classes should exist in the page."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'leitner-dist-boxes' in html
+        assert 'leitner-dist-box' in html
+        assert 'leitner-dist-fill' in html
+        assert 'leitner-dist-label' in html
+        assert 'leitner-dist-count' in html
+
+    def test_review_update_leitner_dist_function(self, client):
+        """Review JS should contain the updateLeitnerDist function."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'updateLeitnerDist' in html
+
+    def test_review_leitner_reads_review_data(self, client):
+        """Leitner dist should read from existing review data."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'box_level' in html
+        assert 'httpparrot_review' in html
+
+    def test_review_caught_up_initially_hidden(self, client):
+        """Caught-up message should be hidden by default."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'display:none' in html or "display:none" in html
+
+    def test_review_leitner_bar_has_aria_label(self, client):
+        """Leitner distribution bar should have an aria-label for accessibility."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'aria-label="Leitner box distribution"' in html
+
+    def test_review_mastered_has_aria_live(self, client):
+        """Mastered count should have aria-live for screen readers."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'id="leitner-mastered"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_review_caught_up_has_aria_live(self, client):
+        """Caught-up message should have aria-live for screen readers."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'id="review-caught-up"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_review_leitner_dist_color_coding(self, client):
+        """Each box should have a distinct color fill class."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        for b in range(1, 6):
+            assert 'leitner-dist-box-' + str(b) in html
+
+
+# --- Mobile UX Polish ---
+
+class TestBackToTopOnLongPages:
+    """Back-to-top button should be present on practice, debug, and review pages."""
+
+    def test_practice_has_back_to_top_button(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'id="back-to-top"' in html
+        assert 'back-to-top' in html
+        assert 'Back to top' in html
+
+    def test_practice_has_back_to_top_script(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "getElementById('back-to-top')" in html
+        assert "classList.add('visible')" in html
+
+    def test_debug_has_back_to_top_button(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'id="back-to-top"' in html
+        assert 'back-to-top' in html
+        assert 'Back to top' in html
+
+    def test_debug_has_back_to_top_script(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert "getElementById('back-to-top')" in html
+        assert "classList.add('visible')" in html
+
+    def test_review_has_back_to_top_button(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'id="back-to-top"' in html
+        assert 'back-to-top' in html
+        assert 'Back to top' in html
+
+    def test_review_has_back_to_top_script(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert "getElementById('back-to-top')" in html
+        assert "classList.add('visible')" in html
+
+    def test_back_to_top_has_aria_label_on_practice(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'aria-label="Back to top"' in html
+
+    def test_back_to_top_has_aria_label_on_debug(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'aria-label="Back to top"' in html
+
+    def test_back_to_top_has_aria_label_on_review(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'aria-label="Back to top"' in html
+
+
+class TestMobileEdgeCaseCSS:
+    """CSS should have mobile edge case fixes for 320-375px screens."""
+
+    def test_share_actions_375px_flex_wrap(self):
+        """Share button row should have flex-wrap at 375px."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.share-actions' in css
+        assert 'flex-wrap: wrap' in css
+
+    def test_cheatsheet_compact_grid_375px(self):
+        """Cheatsheet compact grid should have smaller minmax at 375px."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'minmax(85px, 1fr)' in css
+
+    def test_playground_raw_overflow(self):
+        """Playground raw response should have overflow-x auto at 375px."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the 375px media query section
+        idx = css.rfind('@media (max-width: 375px)')
+        assert idx != -1
+        section = css[idx:idx + 2000]
+        assert 'overflow-x: auto' in section
+        assert '.playground-raw' in section
+
+    def test_bento_dashboard_320_spacing(self):
+        """Bento dashboard should have proper spacing at 375px breakpoint."""
+        with open('static/style.css') as f:
+            css = f.read()
+        idx = css.rfind('@media (max-width: 375px)')
+        assert idx != -1
+        section = css[idx:idx + 2000]
+        assert '.bento-dashboard' in section
+        assert '.bento-tile' in section
+
+    def test_compare_selector_stacking_tablet(self):
+        """Compare selectors should have visual separation at tablet width."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'border-bottom' in css
+        assert '.compare-select-wrap' in css
+
+
+class TestTouchFeedbackDetailParrot:
+    """Detail page parrot should have touch feedback styles."""
+
+    def test_tap_highlight_color(self):
+        """Parrot-clickable should disable default tap highlight."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '-webkit-tap-highlight-color' in css
+        assert '.parrot-clickable' in css
+
+    def test_active_feedback(self):
+        """Parrot-clickable should have :active scale transform."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot-clickable:active' in css
+        assert 'scale(0.96)' in css
