@@ -190,6 +190,80 @@
     font-size: 0.95rem;
     margin: 0;
 }
+/* Certificate of Completion */
+.path-certificate {
+    display: none;
+    margin-top: 1.5rem;
+    padding: 2.5rem 2rem;
+    background: linear-gradient(135deg, rgba(45,212,168,0.06), rgba(72,202,228,0.06));
+    border: 2px solid rgba(45,212,168,0.3);
+    border-radius: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.path-certificate.visible { display: block; }
+.path-certificate::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2dd4a8, #48cae4, #a78bfa);
+}
+.path-certificate-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2dd4a8, #48cae4);
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+.path-certificate-heading {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #2dd4a8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 0.5rem;
+}
+.path-certificate-path-name {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 0.4rem;
+}
+.path-certificate-detail {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin: 0.2rem 0;
+}
+.path-certificate-xp {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #f9c74f;
+    background: rgba(249,199,79,0.12);
+    padding: 0.2rem 0.7rem;
+    border-radius: 6px;
+    margin-top: 0.6rem;
+}
+.path-certificate-share {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.55rem 1.4rem;
+    background: linear-gradient(90deg, #2dd4a8, #48cae4);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.path-certificate-share:hover { opacity: 0.85; }
 </style>
 {% endblock %}
 
@@ -247,7 +321,18 @@
         <div class="path-complete-banner" id="complete-banner" role="status" aria-live="polite">
             <span class="path-complete-banner-icon" aria-hidden="true">&#x1FAB6;</span>
             <h2 class="path-complete-banner-title">Path Complete!</h2>
-            <p class="path-complete-banner-sub">You finished <strong>{{ path.title }}</strong>. +200 XP bonus awarded.</p>
+            <p class="path-complete-banner-sub">You finished <strong>{{ path.title }}</strong>. +500 XP bonus awarded.</p>
+        </div>
+
+        <div class="path-certificate" id="path-certificate" role="region" aria-label="Certificate of Completion">
+            <div class="path-certificate-badge" aria-hidden="true">&#x1F3C6;</div>
+            <h2 class="path-certificate-heading">Certificate of Completion</h2>
+            <p class="path-certificate-path-name">{{ path.title }}</p>
+            <p class="path-certificate-detail">Completed <span id="cert-date"></span></p>
+            <p class="path-certificate-detail">{{ path.steps|length }} steps completed</p>
+            <span class="path-certificate-xp">+500 XP Bonus</span>
+            <br>
+            <button class="path-certificate-share" id="cert-share-btn" aria-label="Share Certificate">Share Certificate</button>
         </div>
     </main>
 
@@ -292,14 +377,25 @@
             if (bar) bar.setAttribute('aria-valuenow', String(count));
 
             var banner = document.getElementById('complete-banner');
+            var certificate = document.getElementById('path-certificate');
+            var certDate = document.getElementById('cert-date');
             if (count === TOTAL && TOTAL > 0) {
                 banner.classList.add('visible');
+                certificate.classList.add('visible');
+                /* Set completion date */
+                var dateKey = 'httpparrot_path_date_' + PATH_ID;
+                var storedDate = localStorage.getItem(dateKey);
+                if (!storedDate) {
+                    storedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    localStorage.setItem(dateKey, storedDate);
+                }
+                if (certDate) certDate.textContent = storedDate;
                 /* Award XP bonus once */
                 var bonusKey = 'httpparrot_path_bonus_' + PATH_ID;
                 if (!localStorage.getItem(bonusKey)) {
                     localStorage.setItem(bonusKey, '1');
                     if (typeof ParrotXP !== 'undefined' && ParrotXP.award) {
-                        ParrotXP.award(200, 'path_complete_' + PATH_ID);
+                        ParrotXP.award(500, 'path_complete_' + PATH_ID);
                     }
                     /* Award feather badge */
                     if (typeof ParrotXP !== 'undefined' && ParrotXP.awardFeather) {
@@ -308,6 +404,7 @@
                 }
             } else {
                 banner.classList.remove('visible');
+                certificate.classList.remove('visible');
             }
         }
 
@@ -324,6 +421,25 @@
             }
             setDone(done);
             render();
+        });
+
+        /* Share Certificate button */
+        document.getElementById('cert-share-btn').addEventListener('click', function() {
+            var pathTitle = {{ path.title | tojson }};
+            var stepCount = TOTAL;
+            var dateKey = 'httpparrot_path_date_' + PATH_ID;
+            var completedDate = localStorage.getItem(dateKey) || 'today';
+            var text = 'I completed the "' + pathTitle + '" learning path (' + stepCount + ' steps) on HTTP Parrots! Completed on ' + completedDate + '. #HTTPParrots';
+            var btn = this;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Share Certificate'; }, 2000);
+                }).catch(function() {
+                    btn.textContent = 'Copy failed';
+                    setTimeout(function() { btn.textContent = 'Share Certificate'; }, 2000);
+                });
+            }
         });
 
         render();

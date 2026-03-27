@@ -130,7 +130,7 @@
             {% block header_right %}
             <div class="header-right">
                 <a href="/profile" class="xp-badge" id="xp-badge" title="View your profile" aria-label="View your XP profile">
-                    <span class="xp-badge-icon" aria-hidden="true">&#x1F99C;</span>
+                    <span class="xp-badge-icon" id="xp-badge-icon" aria-hidden="true">&#x1F99C;</span>
                     <span class="xp-badge-rank" id="xp-badge-rank">Fledgling</span>
                     <span class="xp-badge-xp" id="xp-badge-xp">0 XP</span>
                 </a>
@@ -138,8 +138,9 @@
                     <span id="sound-toggle-icon" aria-hidden="true">&#x1F507;</span>
                 </button>
                 <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
-                <div role="search">
+                <div role="search" class="global-search-wrap">
                     <input type="text" id="global-search" class="search-input search-input-sm" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
+                    <div class="global-search-dropdown" id="global-search-dropdown" role="listbox" aria-label="Search results" hidden></div>
                 </div>
             </div>
             {% endblock %}
@@ -189,6 +190,7 @@
                     <h3 class="kbd-shortcuts-group-title">General</h3>
                     <div class="kbd-shortcut-row"><kbd>/</kbd><span>Focus search</span></div>
                     <div class="kbd-shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+                    <div class="kbd-shortcut-row"><kbd>&#8984;K</kbd> / <kbd>Ctrl+K</kbd><span>Command palette</span></div>
                     <div class="kbd-shortcut-row"><kbd>Esc</kbd><span>Close overlay / unfocus</span></div>
                 </div>
                 <div class="kbd-shortcuts-group" data-context="home">
@@ -210,6 +212,24 @@
         </div>
     </div>
 
+    <!-- Command Palette (Cmd+K / Ctrl+K) -->
+    <div class="cmd-palette-overlay" id="cmd-palette-overlay" role="dialog" aria-modal="true" aria-label="Command palette" hidden>
+        <div class="cmd-palette-backdrop" id="cmd-palette-backdrop"></div>
+        <div class="cmd-palette-panel">
+            <div class="cmd-palette-search-wrap">
+                <svg class="cmd-palette-search-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                <input type="text" id="cmd-palette-input" class="cmd-palette-input" placeholder="Search pages, status codes, actions..." autocomplete="off" aria-label="Command palette search">
+                <kbd class="cmd-palette-hint" aria-hidden="true">Esc</kbd>
+            </div>
+            <div class="cmd-palette-results" id="cmd-palette-results" role="listbox" aria-label="Search results"></div>
+            <div class="cmd-palette-footer">
+                <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+                <span><kbd>Enter</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+            </div>
+        </div>
+    </div>
+
     {% block content %}{% endblock %}
 
     <footer class="site-footer" role="contentinfo">
@@ -227,14 +247,129 @@
     (function() {
         var gs = document.getElementById('global-search');
         if (!gs) return;
+        var dropdown = document.getElementById('global-search-dropdown');
+        var debounceTimer = null;
+        var activeIndex = -1;
+        var currentResults = [];
+
+        function isDesktop() {
+            return window.innerWidth >= 768;
+        }
+
+        function closeDropdown() {
+            if (dropdown) {
+                dropdown.hidden = true;
+                dropdown.innerHTML = '';
+            }
+            activeIndex = -1;
+            currentResults = [];
+        }
+
+        function renderDropdown(results) {
+            if (!dropdown) return;
+            currentResults = results;
+            activeIndex = -1;
+            dropdown.innerHTML = '';
+            if (results.length === 0) {
+                dropdown.hidden = true;
+                return;
+            }
+            var maxResults = Math.min(results.length, 8);
+            for (var i = 0; i < maxResults; i++) {
+                var item = results[i];
+                var opt = document.createElement('a');
+                opt.href = '/' + item.code;
+                opt.className = 'global-search-result';
+                opt.setAttribute('role', 'option');
+                opt.setAttribute('data-index', String(i));
+                var codeSpan = document.createElement('span');
+                codeSpan.className = 'global-search-result-code';
+                codeSpan.textContent = item.code;
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'global-search-result-name';
+                nameSpan.textContent = item.name;
+                var descSpan = document.createElement('span');
+                descSpan.className = 'global-search-result-desc';
+                var desc = item.description || '';
+                descSpan.textContent = desc.length > 80 ? desc.substring(0, 80) + '...' : desc;
+                opt.appendChild(codeSpan);
+                opt.appendChild(nameSpan);
+                opt.appendChild(descSpan);
+                dropdown.appendChild(opt);
+            }
+            dropdown.hidden = false;
+        }
+
+        function highlightItem(index) {
+            var items = dropdown.querySelectorAll('.global-search-result');
+            for (var i = 0; i < items.length; i++) {
+                items[i].classList.toggle('global-search-result-active', i === index);
+            }
+            activeIndex = index;
+        }
+
+        function fetchResults(query) {
+            fetch('/api/search?q=' + encodeURIComponent(query))
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    if (gs.value.trim().toLowerCase() === query.toLowerCase()) {
+                        renderDropdown(data);
+                    }
+                })
+                .catch(function() { closeDropdown(); });
+        }
+
+        gs.addEventListener('input', function() {
+            if (!isDesktop()) return;
+            var q = gs.value.trim();
+            if (debounceTimer) clearTimeout(debounceTimer);
+            if (q.length < 1) {
+                closeDropdown();
+                return;
+            }
+            debounceTimer = setTimeout(function() {
+                fetchResults(q);
+            }, 300);
+        });
+
         gs.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
+                if (activeIndex >= 0 && currentResults[activeIndex]) {
+                    e.preventDefault();
+                    window.location.href = '/' + currentResults[activeIndex].code;
+                    return;
+                }
                 var q = gs.value.trim();
                 if (q) window.location.href = '/?q=' + encodeURIComponent(q);
+                return;
+            }
+            if (e.key === 'Escape') {
+                closeDropdown();
+                gs.blur();
+                return;
+            }
+            if (!dropdown || dropdown.hidden) return;
+            var items = dropdown.querySelectorAll('.global-search-result');
+            if (items.length === 0) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                highlightItem(activeIndex < items.length - 1 ? activeIndex + 1 : 0);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlightItem(activeIndex > 0 ? activeIndex - 1 : items.length - 1);
             }
         });
+
+        /* Close on click outside */
+        document.addEventListener('click', function(e) {
+            if (!gs.contains(e.target) && (!dropdown || !dropdown.contains(e.target))) {
+                closeDropdown();
+            }
+        });
+
+        /* Global / shortcut */
         document.addEventListener('keydown', function(e) {
-            if (e.key === '/' && document.activeElement !== gs && document.activeElement.tagName !== 'INPUT') {
+            if (e.key === '/' && document.activeElement !== gs && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
                 e.preventDefault();
                 gs.focus();
             }
@@ -423,6 +558,10 @@
             {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
             {id: 'photo_memory', name: 'Photographic Memory', desc: 'Complete the 404 memory card game', icon: '\uD83E\uDDE0', bonus: 100},
             {id: 'loyal_parrot', name: 'Loyal Parrot', desc: 'Complete a full 7-day login cycle', icon: '\uD83D\uDC9A', bonus: 75},
+            {id: 'theme_master', name: 'Theme Master', desc: 'Score 5/5 on any weekly challenge', icon: '\uD83C\uDFA8', bonus: 100},
+            {id: 'explorer_10', name: 'Explorer 10', desc: 'Visit 10 different status codes', icon: '\uD83D\uDDFA\uFE0F', bonus: 25},
+            {id: 'explorer_25', name: 'Explorer 25', desc: 'Visit 25 different status codes', icon: '\uD83E\uDDED', bonus: 50},
+            {id: 'explorer_50', name: 'Explorer 50', desc: 'Visit 50 different status codes', icon: '\uD83C\uDF1F', bonus: 100},
             /* --- Meta-Feathers (achievements for earning other feathers) --- */
             {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
             {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
@@ -500,24 +639,62 @@
         }
 
         function showFeatherToast(feather) {
+            var isMeta = !!feather.meta;
             var toast = document.createElement('div');
-            toast.className = 'feather-toast';
+            toast.className = 'feather-toast' + (isMeta ? ' feather-toast-meta' : '');
             toast.setAttribute('role', 'status');
             toast.setAttribute('aria-live', 'polite');
-            toast.innerHTML = '<span class="feather-toast-icon">' + feather.icon + '</span>'
+            var labelHtml = isMeta ? '<span class="feather-toast-meta-label">META ACHIEVEMENT</span>' : '';
+            toast.innerHTML = labelHtml
+                + '<span class="feather-toast-icon">' + feather.icon + '</span>'
                 + '<span class="feather-toast-text"><strong>' + feather.name + '</strong><br>'
                 + feather.desc + '<br><small>+' + feather.bonus + ' bonus XP</small></span>';
             document.body.appendChild(toast);
             setTimeout(function() {
                 toast.classList.add('feather-toast-visible');
-                spawnCelebrationConfetti(toast);
-                spawnFlockFormation(false);
+                if (isMeta) {
+                    spawnGoldenConfetti(toast);
+                    triggerScreenShake();
+                    spawnFlockFormation(true);
+                } else {
+                    spawnCelebrationConfetti(toast);
+                    spawnFlockFormation(false);
+                }
                 if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
             }, 50);
+            var dismissTime = isMeta ? 5500 : 4000;
             setTimeout(function() {
                 toast.classList.remove('feather-toast-visible');
                 setTimeout(function() { toast.remove(); }, 400);
-            }, 4000);
+            }, dismissTime);
+        }
+
+        function spawnGoldenConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var count = 35 + Math.floor(Math.random() * 16); /* 35-50 particles */
+            var colors = ['#ffd700', '#ffb300', '#ffe066', '#fff3b0', '#f5c842', '#daa520'];
+            for (var i = 0; i < count; i++) {
+                var p = document.createElement('div');
+                p.className = 'celebration-confetti golden-confetti';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 80 + Math.random() * 160;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 50 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        function triggerScreenShake() {
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            document.body.classList.add('meta-screen-shake');
+            setTimeout(function() { document.body.classList.remove('meta-screen-shake'); }, 500);
         }
 
         var RANK_ICONS = {
@@ -710,6 +887,14 @@
             /* Photographic Memory — completed the 404 memory card game */
             if (!has('photo_memory') && localStorage.getItem('httpparrot_memory_game_complete') === 'true') newlyEarned.push('photo_memory');
             if (!has('loyal_parrot')) { try { var lc = JSON.parse(localStorage.getItem('httpparrot_login_calendar') || '{}'); if (lc.dayOfWeek >= 7 || lc.totalClaims >= 7) newlyEarned.push('loyal_parrot'); } catch(e) {} }
+
+            /* Theme Master — score 5/5 on any weekly challenge */
+            if (!has('theme_master') && localStorage.getItem('httpparrot_weekly_champion') === 'true') newlyEarned.push('theme_master');
+
+            /* Explorer milestones — visit N different codes */
+            if (!has('explorer_10') && parrotdex.length >= 10) newlyEarned.push('explorer_10');
+            if (!has('explorer_25') && parrotdex.length >= 25) newlyEarned.push('explorer_25');
+            if (!has('explorer_50') && parrotdex.length >= 50) newlyEarned.push('explorer_50');
 
             /* --- Meta-Feather checks --- */
             var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];
@@ -1483,6 +1668,267 @@
 
         if (backdrop) backdrop.addEventListener('click', closeShortcuts);
         if (closeBtn) closeBtn.addEventListener('click', closeShortcuts);
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Command Palette — Cmd+K / Ctrl+K */
+    (function() {
+        var overlay = document.getElementById('cmd-palette-overlay');
+        var backdrop = document.getElementById('cmd-palette-backdrop');
+        var input = document.getElementById('cmd-palette-input');
+        var resultsContainer = document.getElementById('cmd-palette-results');
+        if (!overlay || !input || !resultsContainer) return;
+
+        var activeIndex = -1;
+        var currentResults = [];
+
+        /* --- Build search index --- */
+        var STATUS_CODES = {{ status_codes_json|safe }};
+        var PAGES = [
+            {name: 'Home', path: '/', icon: '\uD83C\uDFE0', desc: 'Browse all HTTP status codes'},
+            {name: 'Quiz', path: '/quiz', icon: '\uD83E\uDDE0', desc: 'Test your HTTP knowledge'},
+            {name: 'Daily Challenge', path: '/daily', icon: '\uD83D\uDCC5', desc: 'Daily HTTP challenge'},
+            {name: 'Weekly Challenge', path: '/weekly', icon: '\uD83D\uDCCA', desc: 'Weekly themed challenge'},
+            {name: 'Practice', path: '/practice', icon: '\uD83C\uDFAF', desc: 'Practice HTTP scenarios'},
+            {name: 'Debug Exercises', path: '/debug', icon: '\uD83D\uDC1B', desc: 'Debug HTTP issues'},
+            {name: 'Spaced Review', path: '/review', icon: '\uD83D\uDD01', desc: 'Spaced repetition review'},
+            {name: 'Confusion Pairs', path: '/learn', icon: '\uD83D\uDD00', desc: 'Compare confusing status codes'},
+            {name: 'Learning Paths', path: '/paths', icon: '\uD83D\uDEE4\uFE0F', desc: 'Guided learning journeys'},
+            {name: 'Flowchart', path: '/flowchart', icon: '\uD83D\uDDFA\uFE0F', desc: 'Which status code should I use?'},
+            {name: 'URL Tester', path: '/tester', icon: '\uD83D\uDD17', desc: 'Test any URL\'s response'},
+            {name: 'Header Explainer', path: '/headers', icon: '\uD83D\uDCE8', desc: 'Explain HTTP headers'},
+            {name: 'CORS Checker', path: '/cors-checker', icon: '\uD83D\uDD12', desc: 'Check CORS configuration'},
+            {name: 'Security Audit', path: '/security-audit', icon: '\uD83D\uDEE1\uFE0F', desc: 'Audit HTTP security headers'},
+            {name: 'Redirect Tracer', path: '/trace', icon: '\u27A1\uFE0F', desc: 'Trace redirect chains'},
+            {name: 'Playground', path: '/playground', icon: '\uD83C\uDFAE', desc: 'HTTP request playground'},
+            {name: 'cURL Import', path: '/curl-import', icon: '\uD83D\uDCCB', desc: 'Import and analyze cURL commands'},
+            {name: 'Fault Simulator', path: '/fault-simulator', icon: '\u26A0\uFE0F', desc: 'Simulate HTTP faults'},
+            {name: 'Webhooks', path: '/webhook-inspector', icon: '\uD83D\uDD14', desc: 'Inspect webhook payloads'},
+            {name: 'Compare', path: '/compare', icon: '\u2696\uFE0F', desc: 'Compare two status codes'},
+            {name: 'Personality Quiz', path: '/personality', icon: '\uD83E\uDD9C', desc: 'Which HTTP status code are you?'},
+            {name: 'Parrotdex', path: '/collection', icon: '\uD83D\uDCD6', desc: 'Your parrot collection'},
+            {name: 'Cheat Sheet', path: '/cheatsheet', icon: '\uD83D\uDCC4', desc: 'Quick reference card'},
+            {name: 'API Docs', path: '/api-docs', icon: '\uD83D\uDCDA', desc: 'JSON API documentation'},
+            {name: 'Profile', path: '/profile', icon: '\uD83D\uDC64', desc: 'Your XP, rank, and stats'}
+        ];
+        var ACTIONS = [
+            {name: 'Take Quiz', path: '/quiz', icon: '\u25B6\uFE0F', desc: 'Start a quiz round'},
+            {name: 'Daily Challenge', path: '/daily', icon: '\uD83D\uDCC5', desc: 'Today\'s daily challenge'},
+            {name: 'Random Parrot', path: '/random', icon: '\uD83C\uDFB2', desc: 'Visit a random status code'},
+            {name: 'View Profile', path: '/profile', icon: '\uD83D\uDC64', desc: 'Check your XP and rank'},
+            {name: 'Keyboard Shortcuts', path: '#shortcuts', icon: '\u2328\uFE0F', desc: 'Show keyboard shortcuts'}
+        ];
+
+        function buildSearchItems() {
+            var items = [];
+            /* Status codes */
+            STATUS_CODES.forEach(function(sc) {
+                items.push({
+                    type: 'code',
+                    name: sc[0] + ' ' + sc[1],
+                    path: '/' + sc[0],
+                    icon: '\uD83E\uDD9C',
+                    desc: sc[0] + ' - ' + sc[1]
+                });
+            });
+            /* Pages */
+            PAGES.forEach(function(p) {
+                items.push({type: 'page', name: p.name, path: p.path, icon: p.icon, desc: p.desc});
+            });
+            /* Actions */
+            ACTIONS.forEach(function(a) {
+                items.push({type: 'action', name: a.name, path: a.path, icon: a.icon, desc: a.desc});
+            });
+            return items;
+        }
+
+        var allItems = buildSearchItems();
+
+        function search(query) {
+            if (!query) {
+                /* Show popular items when empty */
+                return PAGES.slice(0, 6).map(function(p) {
+                    return {type: 'page', name: p.name, path: p.path, icon: p.icon, desc: p.desc};
+                }).concat(ACTIONS.slice(0, 4).map(function(a) {
+                    return {type: 'action', name: a.name, path: a.path, icon: a.icon, desc: a.desc};
+                }));
+            }
+            var results = [];
+            for (var i = 0; i < allItems.length; i++) {
+                var item = allItems[i];
+                var searchText = item.name + ' ' + item.desc + ' ' + item.path;
+                if (ParrotSearch.fuzzyMatch(query, searchText, 2)) {
+                    results.push(item);
+                }
+                if (results.length >= 15) break;
+            }
+            return results;
+        }
+
+        function renderResults(results) {
+            resultsContainer.innerHTML = '';
+            currentResults = results;
+            activeIndex = results.length > 0 ? 0 : -1;
+            if (results.length === 0) {
+                var empty = document.createElement('div');
+                empty.className = 'cmd-palette-empty';
+                empty.textContent = 'No results found';
+                resultsContainer.appendChild(empty);
+                return;
+            }
+            results.forEach(function(item, idx) {
+                var row = document.createElement('div');
+                row.className = 'cmd-palette-result' + (idx === 0 ? ' cmd-palette-result-active' : '');
+                row.setAttribute('role', 'option');
+                row.setAttribute('id', 'cmd-result-' + idx);
+                row.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+                row.innerHTML = '<span class="cmd-palette-result-icon" aria-hidden="true">' + item.icon + '</span>'
+                    + '<span class="cmd-palette-result-info">'
+                    + '<span class="cmd-palette-result-name">' + item.name + '</span>'
+                    + '<span class="cmd-palette-result-desc">' + item.desc + '</span>'
+                    + '</span>'
+                    + '<span class="cmd-palette-result-type">' + item.type + '</span>';
+                row.addEventListener('click', function() { navigateTo(item); });
+                row.addEventListener('mouseenter', function() { setActive(idx); });
+                resultsContainer.appendChild(row);
+            });
+        }
+
+        function setActive(idx) {
+            var rows = resultsContainer.querySelectorAll('.cmd-palette-result');
+            for (var i = 0; i < rows.length; i++) {
+                rows[i].classList.remove('cmd-palette-result-active');
+                rows[i].setAttribute('aria-selected', 'false');
+            }
+            if (idx >= 0 && idx < rows.length) {
+                rows[idx].classList.add('cmd-palette-result-active');
+                rows[idx].setAttribute('aria-selected', 'true');
+                rows[idx].scrollIntoView({block: 'nearest'});
+            }
+            activeIndex = idx;
+        }
+
+        function navigateTo(item) {
+            closePalette();
+            if (item.path === '#shortcuts') {
+                /* Trigger keyboard shortcuts overlay */
+                var kbdOverlay = document.getElementById('kbd-shortcuts-overlay');
+                if (kbdOverlay) {
+                    kbdOverlay.removeAttribute('hidden');
+                    void kbdOverlay.offsetWidth;
+                    kbdOverlay.classList.add('kbd-shortcuts-visible');
+                    var kbdClose = document.getElementById('kbd-shortcuts-close');
+                    if (kbdClose) kbdClose.focus();
+                }
+                return;
+            }
+            window.location.href = item.path;
+        }
+
+        function openPalette() {
+            overlay.removeAttribute('hidden');
+            void overlay.offsetWidth;
+            overlay.classList.add('cmd-palette-visible');
+            input.value = '';
+            renderResults(search(''));
+            input.focus();
+        }
+
+        function closePalette() {
+            overlay.classList.remove('cmd-palette-visible');
+            overlay.addEventListener('transitionend', function handler() {
+                overlay.setAttribute('hidden', '');
+                overlay.removeEventListener('transitionend', handler);
+            });
+        }
+
+        function isPaletteOpen() {
+            return overlay.classList.contains('cmd-palette-visible');
+        }
+
+        /* Input handler */
+        input.addEventListener('input', function() {
+            var results = search(input.value.trim());
+            renderResults(results);
+        });
+
+        /* Keyboard navigation */
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (activeIndex < currentResults.length - 1) setActive(activeIndex + 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeIndex > 0) setActive(activeIndex - 1);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeIndex >= 0 && activeIndex < currentResults.length) {
+                    navigateTo(currentResults[activeIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closePalette();
+            }
+        });
+
+        /* Focus trap */
+        overlay.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                input.focus();
+            }
+        });
+
+        /* Global Cmd+K / Ctrl+K listener */
+        document.addEventListener('keydown', function(e) {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                if (isPaletteOpen()) {
+                    closePalette();
+                } else {
+                    openPalette();
+                }
+            }
+            if (e.key === 'Escape' && isPaletteOpen()) {
+                e.preventDefault();
+                closePalette();
+            }
+        });
+
+        /* Close on backdrop click */
+        if (backdrop) backdrop.addEventListener('click', closePalette);
+
+        /* Expose for testing */
+        window.CommandPalette = {
+            open: openPalette,
+            close: closePalette,
+            isOpen: isPaletteOpen,
+            search: search
+        };
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Avatar & Theme Accent — apply saved preferences on every page */
+    (function() {
+        /* Apply saved accent color */
+        var accent = localStorage.getItem('httpparrot_accent');
+        var ACCENT_MAP = {
+            'teal': '#00c9a7',
+            'purple': '#7b61ff',
+            'blue': '#00b4d8',
+            'gold': '#f9c74f',
+            'coral': '#ff6b6b'
+        };
+        if (accent && ACCENT_MAP[accent]) {
+            document.documentElement.style.setProperty('--color-accent', ACCENT_MAP[accent]);
+        }
+
+        /* Apply saved spirit parrot avatar to XP badge */
+        var avatar = localStorage.getItem('httpparrot_avatar');
+        if (avatar) {
+            var badgeIcon = document.getElementById('xp-badge-icon');
+            if (badgeIcon) badgeIcon.textContent = avatar;
+        }
     })();
     </script>
     {% block scripts %}{% endblock %}

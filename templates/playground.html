@@ -300,6 +300,10 @@ Content-Type: text/html</code></pre>
                     var btn = document.getElementById('pg-copy');
                     btn.textContent = 'Copied!';
                     setTimeout(function() { btn.textContent = 'Copy raw response'; }, 1500);
+                }).catch(function() {
+                    var btn = document.getElementById('pg-copy');
+                    btn.textContent = 'Copy failed';
+                    setTimeout(function() { btn.textContent = 'Copy raw response'; }, 1500);
                 });
             }
         });
@@ -364,6 +368,41 @@ Content-Type: text/html</code></pre>
                 resultEl.appendChild(el('div', 'tester-error', 'Could not send the request'));
             });
         });
+
+        /* Pre-populate from query params (e.g. from cURL Import) */
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            if (!params.has('method') && !params.has('url') && !params.has('body') && !params.has('header')) return;
+
+            /* Set status code based on method heuristic (default 200) */
+            var qMethod = (params.get('method') || 'GET').toUpperCase();
+            var qBody = params.get('body') || '';
+            var qHeaders = params.getAll('header');
+
+            /* Populate headers */
+            if (qHeaders.length > 0) {
+                var pairs = [];
+                for (var i = 0; i < qHeaders.length; i++) {
+                    var colonIdx = qHeaders[i].indexOf(':');
+                    if (colonIdx > 0) {
+                        pairs.push([qHeaders[i].substring(0, colonIdx).trim(), qHeaders[i].substring(colonIdx + 1).trim()]);
+                    }
+                }
+                if (pairs.length > 0) setHeaders(pairs);
+            }
+
+            /* Populate body */
+            if (qBody) {
+                bodyEl.value = qBody;
+            }
+
+            /* Clean URL params after populating */
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+
+            updatePreview();
+        })();
 
         updatePreview();
     })();

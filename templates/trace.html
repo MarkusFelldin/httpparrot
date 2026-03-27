@@ -16,6 +16,7 @@
                 <input type="text" class="headers-input" id="trace-url" placeholder="example.com" autocomplete="off" aria-label="URL to trace">
                 <button type="submit" class="tester-submit" id="trace-btn">Trace</button>
             </div>
+            <div class="validation-error" id="trace-validation-error" role="alert" style="display:none;">Please enter a URL</div>
         </form>
         <div id="trace-results" aria-live="polite"></div>
     </main>
@@ -110,10 +111,18 @@
             return arrow;
         }
 
+        document.getElementById('trace-url').addEventListener('input', function() {
+            document.getElementById('trace-validation-error').style.display = 'none';
+        });
+
         document.getElementById('trace-form').addEventListener('submit', function(e) {
             e.preventDefault();
             var url = document.getElementById('trace-url').value.trim();
-            if (!url) return;
+            if (!url) {
+                document.getElementById('trace-validation-error').style.display = '';
+                return;
+            }
+            document.getElementById('trace-validation-error').style.display = 'none';
 
             var results = document.getElementById('trace-results');
             var btn = document.getElementById('trace-btn');

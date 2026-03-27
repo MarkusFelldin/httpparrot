@@ -88,6 +88,11 @@
         <div class="weekly-already" id="weekly-already" style="display:none;">
             <div class="weekly-already-text">You already completed this week's challenge!</div>
         </div>
+
+        <div class="weekly-history" id="weekly-history" style="display:none;" role="region" aria-label="Past weekly scores">
+            <h2 class="weekly-history-title">Past Challenges</h2>
+            <div class="weekly-history-list" id="weekly-history-list"></div>
+        </div>
     </main>
 {% endblock %}
 
@@ -120,6 +125,57 @@
 
         function saveState(state) {
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        }
+
+        var HISTORY_KEY = 'httpparrot_weekly_history';
+
+        function getHistory() {
+            try {
+                var raw = localStorage.getItem(HISTORY_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return [];
+        }
+
+        function saveHistory(entry) {
+            var history = getHistory();
+            /* Don't duplicate the same week */
+            for (var i = 0; i < history.length; i++) {
+                if (history[i].week === entry.week) return;
+            }
+            history.push(entry);
+            /* Keep last 52 weeks */
+            if (history.length > 52) history = history.slice(history.length - 52);
+            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e) {}
+        }
+
+        function renderHistory() {
+            var history = getHistory();
+            if (history.length === 0) return;
+            var container = document.getElementById('weekly-history');
+            var list = document.getElementById('weekly-history-list');
+            container.style.display = '';
+            while (list.firstChild) list.removeChild(list.firstChild);
+            /* Show most recent first */
+            for (var i = history.length - 1; i >= 0; i--) {
+                var h = history[i];
+                var row = document.createElement('div');
+                row.className = 'weekly-history-row';
+                var weekLabel = document.createElement('span');
+                weekLabel.className = 'weekly-history-week';
+                weekLabel.textContent = 'Week ' + h.week;
+                var themeLabel = document.createElement('span');
+                themeLabel.className = 'weekly-history-theme';
+                themeLabel.textContent = h.theme || '';
+                var scoreLabel = document.createElement('span');
+                scoreLabel.className = 'weekly-history-score';
+                scoreLabel.textContent = h.score + '/' + (h.total || TOTAL);
+                if (h.score === (h.total || TOTAL)) scoreLabel.classList.add('perfect');
+                row.appendChild(weekLabel);
+                row.appendChild(themeLabel);
+                row.appendChild(scoreLabel);
+                list.appendChild(row);
+            }
         }
 
         function updateStreakLabel(streak) {
@@ -282,6 +338,10 @@
             state.results = results;
             saveState(state);
 
+            /* Save to weekly history */
+            saveHistory({week: WEEK_NUMBER, score: score, total: TOTAL, theme: THEME_NAME});
+            renderHistory();
+
             document.getElementById('weekly-results-streak').textContent =
                 state.streak > 1 ? state.streak + '-week streak!' : '';
             updateStreakLabel(state.streak);
@@ -342,6 +402,7 @@
         // Init
         var state = getState();
         updateStreakLabel(state.streak);
+        renderHistory();
 
         if (state.lastWeek === WEEK_NUMBER && state.completed) {
             score = state.score || 0;

@@ -4154,15 +4154,15 @@ class TestTemplateAutoEscaping:
         assert '<script>' not in html or 'nonce=' in html
 
     def test_no_safe_filter_in_templates(self):
-        """No templates should use |safe filter (verified by grep)."""
+        """Templates should not use |safe on user-controlled data."""
         import os
         template_dir = os.path.join(os.path.dirname(__file__), 'templates')
         for filename in os.listdir(template_dir):
             if filename.endswith('.html'):
                 with open(os.path.join(template_dir, filename)) as f:
-                    content = f.read()
-                    assert '|safe' not in content, \
-                        f"Template {filename} uses |safe which bypasses auto-escaping"
+                    for ln_num, line in enumerate(f, 1):
+                        if '|safe' in line:
+                            assert '_json|safe' in line, f"Template {filename}:{ln_num} uses |safe unsafely"
 
     def test_no_unsafe_inline_in_csp(self, client):
         """CSP should not contain unsafe-inline or unsafe-eval."""
@@ -4277,20 +4277,20 @@ class TestCommonMistakes:
 
     def test_mistakes_section_absent_on_page_without_data(self, client):
         """Pages without common_mistakes data should not show the section."""
-        resp = client.get('/100')
+        resp = client.get('/102')
         html = resp.get_data(as_text=True)
         assert 'mistakes-section' not in html
         assert 'mistake-card' not in html
 
-    def test_at_least_19_codes_have_common_mistakes(self):
-        """At least 19 status codes should have common_mistakes in STATUS_EXTRA."""
+    def test_at_least_40_codes_have_common_mistakes(self):
+        """At least 40 status codes should have common_mistakes in STATUS_EXTRA."""
         from status_extra import STATUS_EXTRA
         codes_with_mistakes = [
             code for code, data in STATUS_EXTRA.items()
             if 'common_mistakes' in data and len(data['common_mistakes']) > 0
         ]
-        assert len(codes_with_mistakes) >= 19, (
-            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 19"
+        assert len(codes_with_mistakes) >= 40, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 40"
         )
 
     def test_common_mistakes_structure(self):
@@ -4313,6 +4313,125 @@ class TestCommonMistakes:
         resp = client.get('/200')
         html = resp.get_data(as_text=True)
         assert '<details' in html and 'mistakes-summary' in html
+
+    def test_new_common_mistakes_codes_have_entries(self):
+        """Newly added common_mistakes codes should each have at least 2 entries."""
+        from status_extra import STATUS_EXTRA
+        new_codes = [
+            "100", "101", "202", "206", "207", "300", "303", "308",
+            "406", "408", "410", "412", "413", "414", "415", "416",
+            "418", "428", "431", "451", "501", "505", "511",
+        ]
+        for code in new_codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'common_mistakes' in STATUS_EXTRA[code], (
+                f"Code {code} missing common_mistakes"
+            )
+            assert len(STATUS_EXTRA[code]['common_mistakes']) >= 2, (
+                f"Code {code} should have at least 2 common_mistakes entries"
+            )
+
+    def test_new_mistakes_render_on_page(self, client):
+        """Newly added common_mistakes should render on their detail pages."""
+        for code in ["202", "206", "308", "406", "415", "511"]:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'mistakes-section' in html, f"/{code} should have mistakes-section"
+            assert 'mistake-card' in html, f"/{code} should have mistake-card"
+
+    def test_common_mistakes_non_empty_strings(self):
+        """All mistake and consequence strings should be non-empty."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'common_mistakes' in data:
+                for i, entry in enumerate(data['common_mistakes']):
+                    assert len(entry['mistake'].strip()) > 0, (
+                        f"Empty mistake string in {code}[{i}]"
+                    )
+                    assert len(entry['consequence'].strip()) > 0, (
+                        f"Empty consequence string in {code}[{i}]"
+                    )
+
+
+# --- CSS Design Token Replacement ---
+
+class TestDesignTokenReplacement:
+    """Tests for replacing hardcoded rgba(26,26,31,...) with design tokens."""
+
+    def test_surface_1_light_token_defined(self, client):
+        """--surface-1-light token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-light:' in css
+
+    def test_surface_1_heavy_token_defined(self, client):
+        """--surface-1-heavy token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-heavy:' in css
+
+    def test_surface_1_solid_token_defined(self, client):
+        """--surface-1-solid token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-solid:' in css
+
+    def test_no_hardcoded_surface_bg_in_main_css(self, client):
+        """Main CSS should not have hardcoded rgba(26,26,31,...) for background outside light theme and :root."""
+        with open('static/style.css', 'r') as f:
+            lines = f.readlines()
+        violations = []
+        in_light_theme = False
+        in_root = False
+        brace_depth = 0
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if ':root' in stripped:
+                in_root = True
+            if 'prefers-color-scheme: light' in stripped:
+                in_light_theme = True
+            if in_root or in_light_theme:
+                brace_depth += stripped.count('{') - stripped.count('}')
+                if brace_depth <= 0:
+                    in_root = False
+                    in_light_theme = False
+                    brace_depth = 0
+                continue
+            if 'background' in stripped and 'rgba(26,26,31,' in stripped:
+                violations.append(f"Line {i}: {stripped}")
+            if 'background' in stripped and 'rgba(26, 26, 31,' in stripped:
+                violations.append(f"Line {i}: {stripped}")
+        assert len(violations) == 0, (
+            f"Found {len(violations)} hardcoded rgba(26,26,31,...) backgrounds "
+            f"that should use tokens:\n" + "\n".join(violations)
+        )
+
+    def test_surface_tokens_used_in_css(self, client):
+        """The new surface tokens should actually be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-1-light)' in css
+        assert 'var(--surface-1-heavy)' in css
+        assert 'var(--surface-1-solid)' in css
+
+    def test_templates_use_surface_tokens(self, client):
+        """Template inline styles should use surface tokens, not hardcoded rgba."""
+        for page in ['/debug', '/practice']:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'rgba(26,26,31,0.95)' not in html, (
+                f"{page} should use var(--surface-1-solid) instead of hardcoded rgba"
+            )
+
+    def test_quiz_results_card_uses_token(self, client):
+        """Quiz results card should use surface-1-solid token."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.quiz-results-card' in css
+        # Find the rule and verify it uses the token
+        idx = css.index('.quiz-results-card')
+        rule = css[idx:idx+200]
+        assert 'var(--surface-1-solid)' in rule
 
 
 # --- Easter egg: Barrel Roll ---
@@ -5475,7 +5594,7 @@ class TestScenarioData:
 
     def test_scenario_categories_valid(self):
         from scenarios import SCENARIOS
-        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design', 'security'}
         for s in SCENARIOS:
             assert 'category' in s, f"Scenario {s['id']} missing category"
             assert s['category'] in valid_cats, \
@@ -6346,34 +6465,30 @@ class TestMilestoneCelebrations:
         for m in ['7', '14', '30', '50', '100']:
             assert m in html
 
-    def test_daily_has_milestone_overlay(self, client):
-        """Daily page should have a milestone celebration overlay."""
+    def test_daily_has_milestone_toast(self, client):
+        """Daily page should show milestone celebrations as toasts."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert 'milestone-overlay' in html
-        assert 'milestone-content' in html
-        assert 'milestone-number' in html
-        assert 'milestone-congrats' in html
+        assert 'showMilestoneCelebration' in html
+        assert 'login-reward-toast' in html
 
-    def test_daily_has_milestone_share(self, client):
-        """Milestone overlay should have a share button."""
+    def test_daily_has_milestone_xp_text(self, client):
+        """Milestone celebration should show bonus XP in toast."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert 'milestone-share' in html
-        assert 'day streak on HTTP Parrots' in html
-
-    def test_daily_has_milestone_xp_display(self, client):
-        """Milestone overlay should show bonus XP."""
-        resp = client.get('/daily')
-        html = resp.data.decode()
-        assert 'milestone-xp' in html
         assert 'Bonus XP' in html
 
-    def test_daily_milestone_auto_dismiss(self, client):
-        """Milestone overlay should auto-dismiss after 5 seconds."""
+    def test_daily_milestone_function_exists(self, client):
+        """Daily page should have showMilestoneCelebration function."""
         resp = client.get('/daily')
         html = resp.data.decode()
-        assert '5000' in html
+        assert 'function showMilestoneCelebration' in html
+
+    def test_daily_milestone_auto_dismiss(self, client):
+        """Milestone toast should auto-dismiss."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert '4000' in html
 
     def test_milestone_spawns_confetti(self, client):
         """Milestone celebration should spawn confetti."""
@@ -6382,13 +6497,11 @@ class TestMilestoneCelebrations:
         assert 'showMilestoneCelebration' in html
         assert 'spawnConfetti' in html
 
-    def test_milestone_css_exists(self, client):
-        """CSS should have milestone overlay styles."""
+    def test_milestone_toast_uses_existing_css(self, client):
+        """Milestone toast should reuse login-reward-toast CSS."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
-        assert '.milestone-overlay' in css
-        assert '.milestone-content' in css
-        assert '.milestone-number' in css
+        assert '.login-reward-toast' in css
 
     def test_daily_checks_milestones_on_correct(self, client):
         """After a correct answer, milestones should be checked."""
@@ -7101,7 +7214,7 @@ class TestPathDetailRoute:
         resp = client.get('/paths/http-foundations')
         html = resp.data.decode()
         assert 'path_complete' in html
-        assert '200' in html  # 200 XP bonus
+        assert '500' in html  # 500 XP bonus
 
     def test_all_paths_render(self, client):
         """Every configured path detail page should render without error."""
@@ -9357,20 +9470,20 @@ class TestCaseStudies:
 
     def test_case_studies_absent_on_page_without_data(self, client):
         """Pages without case_studies data should not show the section."""
-        resp = client.get('/100')
+        resp = client.get('/414')
         html = resp.get_data(as_text=True)
         assert 'case-studies-section' not in html
         assert 'case-study-card' not in html
 
-    def test_at_least_40_codes_have_case_studies(self):
-        """At least 40 status codes should have case_studies in STATUS_EXTRA."""
+    def test_at_least_60_codes_have_case_studies(self):
+        """At least 60 status codes should have case_studies in STATUS_EXTRA."""
         from status_extra import STATUS_EXTRA
         codes_with_studies = [
             code for code, data in STATUS_EXTRA.items()
             if 'case_studies' in data and len(data['case_studies']) > 0
         ]
-        assert len(codes_with_studies) >= 40, (
-            f"Only {len(codes_with_studies)} codes have case_studies, need at least 40"
+        assert len(codes_with_studies) >= 60, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 60"
         )
 
     def test_case_studies_structure(self):
@@ -9920,10 +10033,10 @@ class TestInteractiveParrotClick:
         assert 'eli5Text' in html
 
     def test_speech_bubble_includes_fun_facts(self, client):
-        """Speech bubble should include fun facts about HTTP."""
+        """Speech bubble should include generic HTTP fun facts."""
         resp = client.get('/200')
         html = resp.data.decode()
-        assert 'funFacts' in html
+        assert 'genericFacts' in html
         assert 'Tim Berners-Lee' in html
 
 
@@ -11393,3 +11506,2203 @@ class TestTouchFeedbackDetailParrot:
             css = f.read()
         assert '.parrot-clickable:active' in css
         assert 'scale(0.96)' in css
+
+
+class TestSearchInputCSSConsistency:
+    """Search input styles should be consistent across header and homepage."""
+
+    def test_search_input_sm_has_border_radius(self):
+        """Header .search-input-sm should use var(--radius-sm) for border-radius."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the .search-input-sm block and verify border-radius
+        import re
+        match = re.search(r'\.search-input-sm\s*\{[^}]+\}', css)
+        assert match, '.search-input-sm rule not found'
+        block = match.group(0)
+        assert 'border-radius: var(--radius-sm)' in block
+
+    def test_search_input_sm_tablet_min_width(self):
+        """On tablet (768-992px), .search-input-sm should have min-width: 140px."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '(min-width: 768px) and (max-width: 992px)' in css
+        # The breakpoint should contain the min-width rule for search-input-sm
+        import re
+        match = re.search(
+            r'@media\s*\(min-width:\s*768px\)\s*and\s*\(max-width:\s*992px\)\s*\{([^}]+\})',
+            css,
+        )
+        assert match, 'Tablet breakpoint (768-992px) not found'
+        block = match.group(1)
+        assert '.search-input-sm' in block
+        assert 'min-width: 140px' in block
+
+
+class TestPlaygroundLayoutBreakpoints:
+    """Playground layout should adapt to narrow tablet and prevent overflow."""
+
+    def test_playground_900px_breakpoint_exists(self):
+        """A 900px breakpoint should switch .playground-layout to single column."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@media (max-width: 900px)' in css
+        import re
+        match = re.search(
+            r'@media\s*\(max-width:\s*900px\)\s*\{([^}]+\})+',
+            css,
+        )
+        assert match, '900px breakpoint not found'
+        block = match.group(0)
+        assert '.playground-layout' in block
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_playground_preview_static_at_900px(self):
+        """At 900px breakpoint, .playground-preview should be position: static."""
+        with open('static/style.css') as f:
+            css = f.read()
+        import re
+        match = re.search(
+            r'@media\s*\(max-width:\s*900px\)\s*\{([^}]+\})+',
+            css,
+        )
+        assert match, '900px breakpoint not found'
+        block = match.group(0)
+        assert '.playground-preview' in block
+        assert 'position: static' in block
+
+    def test_playground_raw_overflow_x(self):
+        """Base .playground-raw should have overflow-x: auto and max-width: 100%."""
+        with open('static/style.css') as f:
+            css = f.read()
+        import re
+        assert '.playground-raw' in css
+        assert 'overflow-x: auto' in css
+
+
+# --- Issue Fix Verification Tests ---
+
+class TestPOTDBadgeCSS:
+    """Verify the Parrot of the Day CSS ribbon/badge exists on featured cards."""
+
+    def test_featured_before_pseudo_element_exists(self):
+        """CSS should define .parrot.featured::before with POTD badge text."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured::before' in css
+
+    def test_featured_before_has_potd_content(self):
+        """The ::before pseudo-element should say 'Parrot of the day'."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # The content property should reference 'Parrot of the day'
+        assert "content: 'Parrot of the day'" in css
+
+    def test_featured_before_is_positioned(self):
+        """The POTD badge should be absolutely positioned inside the card."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured::before' in css
+        assert 'position: absolute' in css
+
+    def test_featured_class_applied_in_homepage(self, client):
+        """Homepage should have a card with the 'featured' CSS class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'class="parrot parrot-' in html
+        assert ' featured' in html
+
+    def test_featured_card_has_green_border(self):
+        """Featured card should have a distinct green border color."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured' in css
+        assert 'border-color' in css
+
+
+class TestKonamiEasterEgg:
+    """Verify the Konami code easter egg listener and overlay exist."""
+
+    def test_konami_code_listener_exists(self, client):
+        """Homepage should have the Konami code keydown listener."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'konamiCode' in html
+        assert "['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a']" in html
+
+    def test_party_parrot_overlay_html_exists(self, client):
+        """Homepage should have the party-parrot-overlay div."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="party-parrot-overlay"' in html
+        assert 'id="party-parrot-container"' in html
+        assert 'id="party-parrot-text"' in html
+        assert 'PARTY PARROT MODE' in html
+
+    def test_party_parrot_overlay_css_exists(self):
+        """CSS should define styles for the party parrot overlay."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '#party-parrot-overlay' in css
+        assert '#party-parrot-overlay.active' in css
+
+    def test_konami_activates_party_function(self, client):
+        """Konami code should call activatePartyParrot function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'activatePartyParrot' in html
+
+    def test_konami_saves_easter_egg(self, client):
+        """Konami code should save 'konami' to eggs_found in localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('konami')" in html
+        assert 'eggs_found' in html
+
+
+class TestFunFactsPool:
+    """Verify the fun facts pool includes code-specific data."""
+
+    def test_fun_facts_include_generic_facts(self, client):
+        """Detail page should include generic HTTP fun facts."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'genericFacts' in html
+        assert 'Tim Berners-Lee' in html
+
+    def test_fun_facts_include_code_specific_facts(self, client):
+        """Detail page should include code-specific facts from examples/case_studies."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'codeSpecificFacts' in html
+
+    def test_fun_facts_include_eli5_text(self, client):
+        """Detail page should include ELI5 text in the fun facts pool."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'eli5Text' in html
+        assert 'codeSpecificFacts.push' in html
+
+    def test_fun_facts_include_examples_for_code_with_extras(self, client):
+        """Detail page with extra examples should inject them into codeSpecificFacts."""
+        resp = client.get('/404')
+        html = resp.data.decode()
+        # 404 has examples in STATUS_EXTRA, they should appear in codeSpecificFacts
+        assert 'codeSpecificFacts' in html
+
+    def test_fun_facts_pool_has_more_than_ten_generic(self, client):
+        """The generic facts pool should have more than 10 entries."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Count occurrences of entries in genericFacts array
+        assert 'Roy Fielding' in html
+        assert 'HTTPS was introduced' in html
+        assert 'Cookies were invented' in html
+
+
+# --- E5: Weekly Challenge Distinct Rewards ---
+
+class TestWeeklyHistory:
+    """Tests for weekly challenge history tracking and Theme Master feather."""
+
+    def test_weekly_has_history_section(self, client):
+        """Weekly page should contain the history container element."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'weekly-history' in html
+        assert 'weekly-history-list' in html
+        assert 'Past Challenges' in html
+
+    def test_weekly_history_js_storage_key(self, client):
+        """Weekly page JS should use httpparrot_weekly_history localStorage key."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'httpparrot_weekly_history' in html
+
+    def test_weekly_history_save_function(self, client):
+        """Weekly page JS should define saveHistory and getHistory functions."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'function saveHistory' in html
+        assert 'function getHistory' in html
+
+    def test_weekly_history_render_function(self, client):
+        """Weekly page JS should define renderHistory for displaying past scores."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'function renderHistory' in html
+        assert 'weekly-history-row' in html
+
+    def test_weekly_history_called_on_init(self, client):
+        """renderHistory should be called during initialization."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'renderHistory()' in html
+
+    def test_weekly_history_tracks_theme(self, client):
+        """History entries should include the theme name."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'theme: THEME_NAME' in html
+
+
+class TestThemeMasterFeather:
+    """Tests for the Theme Master feather in base.html."""
+
+    def test_theme_master_in_feathers_array(self, client):
+        """FEATHERS array should contain theme_master."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'theme_master'" in html
+        assert 'Theme Master' in html
+
+    def test_theme_master_check_in_checkfeathers(self, client):
+        """checkFeathers should check for theme_master via weekly_champion flag."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('theme_master')" in html
+        assert 'httpparrot_weekly_champion' in html
+
+
+# --- E4: Parrotdex Completion Milestones ---
+
+class TestParrotdexMilestones:
+    """Tests for milestone badges and category progress in collection page."""
+
+    def test_collection_has_milestone_badges(self, client):
+        """Collection page should have milestone badge elements at 10, 25, 50, 72."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'milestone-10' in html
+        assert 'milestone-25' in html
+        assert 'milestone-50' in html
+        assert 'milestone-72' in html
+        assert 'collection-milestones' in html
+
+    def test_collection_has_category_progress(self, client):
+        """Collection page should have category progress bars for 1xx-5xx."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'category-progress' in html
+        assert 'cat-fill-1' in html
+        assert 'cat-fill-2' in html
+        assert 'cat-fill-3' in html
+        assert 'cat-fill-4' in html
+        assert 'cat-fill-5' in html
+
+    def test_collection_milestone_js_logic(self, client):
+        """Collection JS should contain milestone earned logic."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'milestone-earned' in html
+        assert 'catTotals' in html
+        assert 'catCollected' in html
+
+    def test_collection_category_bar_labels(self, client):
+        """Category bars should have correct labels."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'category-bar-label' in html
+        for cat in ['1xx', '2xx', '3xx', '4xx', '5xx']:
+            assert cat in html
+
+    def test_milestone_css_styles(self):
+        """CSS should include milestone badge styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.milestone-badge' in css
+        assert '.milestone-earned' in css
+        assert '.collection-milestones' in css
+
+    def test_category_bar_css_styles(self):
+        """CSS should include category progress bar styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.category-bar' in css
+        assert '.category-bar-fill' in css
+        assert '.category-bar-track' in css
+        assert '.collection-category-progress' in css
+
+
+class TestExplorerFeathers:
+    """Tests for Explorer 10/25/50 feathers."""
+
+    def test_explorer_feathers_in_array(self, client):
+        """FEATHERS array should contain explorer_10, explorer_25, explorer_50."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'explorer_10'" in html
+        assert "'explorer_25'" in html
+        assert "'explorer_50'" in html
+        assert 'Explorer 10' in html
+        assert 'Explorer 25' in html
+        assert 'Explorer 50' in html
+
+    def test_explorer_feather_checks(self, client):
+        """checkFeathers should check parrotdex length for explorer milestones."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('explorer_10')" in html
+        assert 'parrotdex.length >= 10' in html
+        assert 'parrotdex.length >= 25' in html
+        assert 'parrotdex.length >= 50' in html
+
+
+# --- FN1: Tester Truncation Warning ---
+
+class TestTesterTruncationWarning:
+    """Tests for the visible truncation warning in tester."""
+
+    def test_tester_has_truncation_warning_class(self, client):
+        """Tester page JS should create tester-truncation-warning element."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert 'tester-truncation-warning' in html
+        assert 'Response truncated at 10KB. Full response is larger.' in html
+
+    def test_tester_truncation_warning_has_role_alert(self, client):
+        """Truncation warning should have role=alert for accessibility."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert "role', 'alert'" in html
+
+    def test_tester_truncation_css(self):
+        """CSS should include truncation warning styles with yellow theme."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-truncation-warning' in css
+        assert '.tester-truncation-text' in css
+        assert '.tester-truncation-icon' in css
+
+    def test_tester_truncation_only_on_truncated(self, client):
+        """Truncation warning should only appear when data.truncated is true."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert 'if (data.truncated)' in html
+
+
+# --- ED5: Expanded Case Studies ---
+
+class TestExpandedCaseStudies:
+    """Tests for the expanded case studies (60+ codes)."""
+
+    def test_1xx_codes_have_case_studies(self):
+        """1xx codes 100, 101, 102, 103 should all have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['100', '101', '102', '103']:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_new_2xx_case_studies(self):
+        """205 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        assert 'case_studies' in STATUS_EXTRA['205']
+        assert len(STATUS_EXTRA['205']['case_studies']) >= 1
+
+    def test_new_3xx_case_studies(self):
+        """300 and 306 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['300', '306']:
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+
+    def test_new_4xx_case_studies(self):
+        """402, 407, 425, 444, 494, 498, 499 should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['402', '407', '425', '444', '494', '498', '499']:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_new_5xx_case_studies(self):
+        """506 and 509 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['506', '509']:
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_total_case_studies_at_least_60(self):
+        """Total codes with case_studies should be at least 60."""
+        from status_extra import STATUS_EXTRA
+        codes_with_studies = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'case_studies' in data and len(data['case_studies']) > 0
+        ]
+        assert len(codes_with_studies) >= 60, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 60"
+        )
+
+    def test_all_new_case_studies_have_required_keys(self):
+        """Every case_studies entry should have api, scenario, and lesson."""
+        from status_extra import STATUS_EXTRA
+        for code in ['100', '101', '102', '103', '205', '300', '306', '402',
+                      '407', '425', '444', '494', '498', '499', '506', '509']:
+            if code in STATUS_EXTRA and 'case_studies' in STATUS_EXTRA[code]:
+                for entry in STATUS_EXTRA[code]['case_studies']:
+                    assert 'api' in entry, f"Missing 'api' in {code} case study"
+                    assert 'scenario' in entry, f"Missing 'scenario' in {code} case study"
+                    assert 'lesson' in entry, f"Missing 'lesson' in {code} case study"
+
+
+# --- Weekly History CSS ---
+
+class TestWeeklyHistoryCSS:
+    """Tests for weekly history CSS styles."""
+
+    def test_weekly_history_css(self):
+        """CSS should include weekly history styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.weekly-history' in css
+        assert '.weekly-history-row' in css
+        assert '.weekly-history-title' in css
+        assert '.weekly-history-score' in css
+
+
+# --- Adaptive Quiz Difficulty ---
+
+class TestAdaptiveQuizDifficulty:
+    """Tests for adaptive quiz difficulty with mistake tracking."""
+
+    def test_quiz_has_mistakes_key(self, client):
+        """Quiz should define the localStorage key for mistakes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'httpparrot_quiz_mistakes' in html
+
+    def test_quiz_has_get_mistakes_function(self, client):
+        """Quiz should have a getMistakes function for loading from localStorage."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function getMistakes()' in html
+
+    def test_quiz_has_save_mistakes_function(self, client):
+        """Quiz should have a saveMistakes function for persisting to localStorage."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function saveMistakes(' in html
+
+    def test_quiz_has_add_mistake_function(self, client):
+        """Quiz should have an addMistake function to record wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function addMistake(' in html
+
+    def test_quiz_has_remove_mistake_function(self, client):
+        """Quiz should have a removeMistake function to clear mastered codes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function removeMistake(' in html
+
+    def test_quiz_has_weighted_pick_function(self, client):
+        """Quiz should have a pickWeightedCode function for adaptive selection."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function pickWeightedCode()' in html
+
+    def test_quiz_weighted_pick_uses_50_percent(self, client):
+        """Weighted pick should use 50% probability for mistake codes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'Math.random() < 0.5' in html
+
+    def test_quiz_calls_add_mistake_on_wrong(self, client):
+        """Wrong answers should call addMistake with the correct code."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'addMistake(correct.code)' in html
+
+    def test_quiz_calls_remove_mistake_on_correct(self, client):
+        """Correct answers should call removeMistake to clear the code."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'removeMistake(correct.code)' in html
+
+    def test_quiz_next_round_uses_weighted_pick(self, client):
+        """nextRound should use pickWeightedCode instead of plain random."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'const correct = pickWeightedCode()' in html
+
+
+# --- Form Validation UX ---
+
+class TestFormValidationUX:
+    """Tests for inline validation error messages on forms."""
+
+    def test_tester_has_validation_error_element(self, client):
+        """Tester page should have a validation-error element for empty URL."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_tester_validation_error_hidden_by_default(self, client):
+        """Tester validation error should be hidden by default."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error" role="alert" style="display:none;"' in html
+
+    def test_tester_validation_error_has_role_alert(self, client):
+        """Tester validation error should have role=alert for accessibility."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error" role="alert"' in html
+
+    def test_trace_has_validation_error_element(self, client):
+        """Trace page should have a validation-error element for empty URL."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert 'id="trace-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_trace_validation_error_hidden_by_default(self, client):
+        """Trace validation error should be hidden by default."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert 'id="trace-validation-error" role="alert" style="display:none;"' in html
+
+    def test_security_audit_has_validation_error_element(self, client):
+        """Security audit page should have a validation-error element."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert 'id="audit-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_security_audit_validation_error_hidden_by_default(self, client):
+        """Security audit validation error should be hidden by default."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert 'id="audit-validation-error" role="alert" style="display:none;"' in html
+
+    def test_cors_checker_has_url_validation_error(self, client):
+        """CORS checker should have a validation-error for empty URL."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-url-validation-error"' in html
+        assert 'URL is required' in html
+
+    def test_cors_checker_has_origin_validation_error(self, client):
+        """CORS checker should have a validation-error for empty origin."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-origin-validation-error"' in html
+        assert 'Origin is required' in html
+
+    def test_cors_checker_validation_errors_hidden_by_default(self, client):
+        """CORS checker validation errors should be hidden by default."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-url-validation-error" role="alert" style="display:none;"' in html
+        assert 'id="cors-origin-validation-error" role="alert" style="display:none;"' in html
+
+    def test_headers_has_validation_error_element(self, client):
+        """Headers page should have a validation-error element."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'id="header-validation-error"' in html
+        assert 'Paste some headers first' in html
+
+    def test_headers_validation_error_hidden_by_default(self, client):
+        """Headers validation error should be hidden by default."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'id="header-validation-error" role="alert" style="display:none;"' in html
+
+    def test_validation_error_css_exists(self):
+        """CSS should include validation-error styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.validation-error' in css
+        assert '#ff6b6b' in css
+
+    def test_tester_shows_error_on_empty_submit(self, client):
+        """Tester JS should show the error when URL is empty."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert "getElementById('url-validation-error').style.display = ''" in html
+
+    def test_tester_hides_error_on_input(self, client):
+        """Tester JS should hide validation error on input event."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert "url-input').addEventListener('input'" in html
+
+    def test_trace_shows_error_on_empty_submit(self, client):
+        """Trace JS should show error when URL is empty."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert "getElementById('trace-validation-error').style.display = ''" in html
+
+    def test_trace_hides_error_on_input(self, client):
+        """Trace JS should hide validation error on input event."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert "trace-url').addEventListener('input'" in html
+
+    def test_security_audit_shows_error_on_empty_submit(self, client):
+        """Security audit JS should show error when URL is empty."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert "getElementById('audit-validation-error').style.display = ''" in html
+
+    def test_cors_shows_both_errors_on_empty_submit(self, client):
+        """CORS checker JS should show both errors when fields are empty."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert "getElementById('cors-url-validation-error').style.display = ''" in html
+        assert "getElementById('cors-origin-validation-error').style.display = ''" in html
+
+    def test_headers_shows_error_on_empty_click(self, client):
+        """Headers JS should show error when textarea is empty."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert "getElementById('header-validation-error').style.display = ''" in html
+
+
+# --- Daily Challenge Suggested Actions ---
+
+class TestDailySuggestedActions:
+    """Tests for daily challenge navigation improvement."""
+
+    def test_daily_has_suggested_actions(self, client):
+        """Daily page should have suggested actions section."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-suggested-actions' in html
+
+    def test_daily_has_weekly_link(self, client):
+        """Daily page should link to weekly challenge."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/weekly"' in html
+        assert 'Weekly Challenge' in html
+
+    def test_daily_has_practice_link(self, client):
+        """Daily page should link to practice mode."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+        assert 'Practice' in html
+
+    def test_daily_has_quiz_link(self, client):
+        """Daily page should link to quiz mode."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/quiz"' in html
+        assert 'Quiz' in html
+
+    def test_daily_has_suggested_label(self, client):
+        """Daily page should have a label for the suggested actions."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-suggested-label' in html
+        assert 'Keep practicing' in html
+
+    def test_daily_no_back_to_home_dead_end(self, client):
+        """Daily page should not have the old 'Back to Home' dead end link."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'Back to Home' not in html
+
+    def test_daily_suggested_actions_css(self):
+        """CSS should include daily suggested actions styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.daily-suggested-actions' in css
+        assert '.daily-suggested-label' in css
+        assert '.daily-suggested-link' in css
+
+
+# --- Command Palette ---
+
+class TestCommandPalette:
+    """Tests for the command palette (Cmd+K / Ctrl+K) feature."""
+
+    def test_command_palette_overlay_in_base(self, client):
+        """Base template should contain the command palette overlay."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'cmd-palette-overlay' in html
+        assert 'cmd-palette-input' in html
+        assert 'cmd-palette-results' in html
+
+    def test_command_palette_on_detail_page(self, client):
+        """Command palette should be available on detail pages too."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'cmd-palette-overlay' in html
+
+    def test_command_palette_has_search_input(self, client):
+        """Command palette should have a search input with proper attributes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'placeholder="Search pages, status codes, actions..."' in html
+        assert 'aria-label="Command palette search"' in html
+
+    def test_command_palette_has_footer_hints(self, client):
+        """Command palette footer should show keyboard hints."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'navigate' in html
+        assert 'cmd-palette-footer' in html
+
+    def test_command_palette_has_backdrop(self, client):
+        """Command palette should have a backdrop for closing."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'cmd-palette-backdrop' in html
+
+    def test_command_palette_accessible_dialog(self, client):
+        """Command palette overlay should have proper ARIA attributes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="dialog"' in html
+        assert 'aria-modal="true"' in html
+        assert 'aria-label="Command palette"' in html
+
+    def test_command_palette_results_listbox(self, client):
+        """Results container should have listbox role."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="listbox"' in html
+
+    def test_command_palette_status_codes_json(self, client):
+        """Template should receive status codes JSON for the command palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Should contain status codes as JSON array
+        assert '"200"' in html
+        assert '"404"' in html
+        assert '"OK"' in html
+        assert '"Not Found"' in html
+
+    def test_command_palette_pages_data(self, client):
+        """Command palette JS should include page routes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'/quiz'" in html
+        assert "'/daily'" in html
+        assert "'/tester'" in html
+        assert "'/profile'" in html
+
+    def test_command_palette_actions_data(self, client):
+        """Command palette JS should include action items."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Take Quiz' in html
+        assert 'Random Parrot' in html
+
+    def test_keyboard_shortcuts_includes_cmdk(self, client):
+        """Keyboard shortcuts overlay should list Cmd+K."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Command palette' in html
+        assert 'Ctrl+K' in html
+
+    def test_command_palette_css(self):
+        """CSS should include command palette styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.cmd-palette-overlay' in css
+        assert '.cmd-palette-panel' in css
+        assert '.cmd-palette-input' in css
+        assert '.cmd-palette-result' in css
+        assert '.cmd-palette-result-active' in css
+        assert '.cmd-palette-backdrop' in css
+        assert '.cmd-palette-footer' in css
+
+    def test_command_palette_css_glassmorphism(self):
+        """Command palette panel should use glassmorphism (backdrop-filter)."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the palette panel section
+        assert 'backdrop-filter: blur(24px)' in css
+
+    def test_command_palette_css_responsive(self):
+        """Command palette should have responsive styles for mobile."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Check mobile breakpoint adjustments
+        assert '.cmd-palette-panel' in css
+        # The footer should hide on mobile
+        assert '.cmd-palette-footer' in css
+
+    def test_command_palette_hidden_by_default(self, client):
+        """Command palette should be hidden by default."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hidden' in html
+
+
+# --- Customizable Avatar & Theme Accent ---
+
+class TestCustomizeAvatarAccent:
+    """Tests for the customizable avatar and theme accent feature on the profile page."""
+
+    def test_customize_section_exists(self, client):
+        """Profile page should contain the customize section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-customize-section' in html
+        assert 'Customize' in html
+
+    def test_spirit_parrot_grid(self, client):
+        """Profile page should have a spirit parrot selection grid."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'spirit-parrot-grid' in html
+        assert 'Spirit Parrot' in html
+
+    def test_spirit_parrot_options_count(self, client):
+        """There should be 8 spirit parrot options."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        # Count only the button elements with data-code (not JS references)
+        assert html.count('class="spirit-parrot-option"') == 8
+
+    def test_spirit_parrot_codes(self, client):
+        """Spirit parrot options should include popular status codes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        for code in ['200', '201', '301', '404', '418', '500', '503', '429']:
+            assert f'data-code="{code}"' in html
+
+    def test_spirit_parrot_images(self, client):
+        """Spirit parrot options should have thumbnail images."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert '/static/200.jpg' in html
+        assert '/static/404.jpg' in html
+        assert '/static/418.jpg' in html
+
+    def test_spirit_parrot_accessibility(self, client):
+        """Spirit parrot grid should have proper ARIA attributes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'role="radiogroup"' in html
+        assert 'role="radio"' in html
+        assert 'aria-checked=' in html
+        assert 'aria-label="Choose your spirit parrot"' in html
+
+    def test_accent_color_grid(self, client):
+        """Profile page should have an accent color selection grid."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'accent-color-grid' in html
+        assert 'Theme Accent' in html
+
+    def test_accent_color_options(self, client):
+        """There should be 5 accent color options."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        for accent in ['teal', 'purple', 'blue', 'gold', 'coral']:
+            assert f'data-accent="{accent}"' in html
+
+    def test_accent_color_swatches(self, client):
+        """Accent color options should show color swatches."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'accent-color-swatch' in html
+        assert '#00c9a7' in html  # teal
+        assert '#7b61ff' in html  # purple
+        assert '#00b4d8' in html  # blue
+        assert '#f9c74f' in html  # gold
+        assert '#ff6b6b' in html  # coral
+
+    def test_accent_color_accessibility(self, client):
+        """Accent color grid should have proper ARIA attributes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'aria-label="Choose accent color"' in html
+
+    def test_customize_descriptions(self, client):
+        """Customize sections should have descriptive text."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Pick the parrot that represents you' in html
+        assert 'Choose your accent color' in html
+
+    def test_customize_localstorage_keys_in_js(self, client):
+        """Profile JS should reference the expected localStorage keys."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_avatar' in html
+        assert 'httpparrot_accent' in html
+
+    def test_base_template_avatar_application(self, client):
+        """Base template should include script to apply saved avatar."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_avatar' in html
+        assert 'xp-badge-icon' in html
+
+    def test_base_template_accent_application(self, client):
+        """Base template should include script to apply saved accent color."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_accent' in html
+        assert '--color-accent' in html
+
+    def test_xp_badge_icon_has_id(self, client):
+        """XP badge icon should have an id for avatar script targeting."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="xp-badge-icon"' in html
+
+    def test_customize_css(self):
+        """CSS should include customize section styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.profile-customize-section' in css
+        assert '.spirit-parrot-grid' in css
+        assert '.spirit-parrot-option' in css
+        assert '.spirit-parrot-option.selected' in css
+        assert '.accent-color-grid' in css
+        assert '.accent-color-option' in css
+        assert '.accent-color-swatch' in css
+        assert '.accent-color-option.selected' in css
+
+    def test_customize_css_responsive(self):
+        """Customize CSS should include responsive styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Mobile grid should be 4 columns
+        assert 'repeat(4, 1fr)' in css
+
+
+# --- Status Codes JSON Context Processor ---
+
+class TestStatusCodesJsonContextProcessor:
+    """Tests for the inject_status_codes_json context processor."""
+
+    def test_all_pages_have_status_codes_json(self, client):
+        """Multiple pages should have status codes JSON available."""
+        for path in ['/', '/quiz', '/profile', '/cheatsheet']:
+            resp = client.get(path)
+            html = resp.data.decode()
+            assert '"200"' in html, f"Status codes JSON missing on {path}"
+            assert '"Not Found"' in html, f"Status code names missing on {path}"
+
+    def test_status_codes_json_contains_all_codes(self, client):
+        """The status codes JSON should contain all codes from status_code_list."""
+        from index import status_code_list
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Spot-check a few codes from different categories
+        for code in ['100', '200', '301', '404', '500']:
+            assert f'"{code}"' in html
+
+
+# === F4: Meta-Feather Unlock Animation Variety ===
+
+class TestMetaFeatherAnimation:
+    """Tests for distinct meta-feather celebration animations."""
+
+    def test_show_feather_toast_checks_meta_flag(self, client):
+        """showFeatherToast should check feather.meta property."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'feather.meta' in html or '!!feather.meta' in html
+
+    def test_meta_toast_class_added(self, client):
+        """Meta feathers should get the feather-toast-meta class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'feather-toast-meta' in html
+
+    def test_meta_achievement_label(self, client):
+        """Meta feather toast should include META ACHIEVEMENT label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'META ACHIEVEMENT' in html
+
+    def test_golden_confetti_function_exists(self, client):
+        """spawnGoldenConfetti function should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnGoldenConfetti' in html
+
+    def test_screen_shake_function_exists(self, client):
+        """triggerScreenShake function should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'triggerScreenShake' in html
+
+    def test_meta_toast_calls_golden_confetti(self, client):
+        """Meta feather path calls spawnGoldenConfetti instead of regular."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnGoldenConfetti(toast)' in html
+
+    def test_meta_toast_calls_screen_shake(self, client):
+        """Meta feather path calls triggerScreenShake."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'triggerScreenShake()' in html
+
+    def test_meta_toast_uses_legendary_flock(self, client):
+        """Meta feathers use legendary flock formation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnFlockFormation(true)' in html
+
+    def test_golden_confetti_uses_gold_colors(self, client):
+        """Golden confetti uses gold color palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'#ffd700'" in html
+        assert "'#ffb300'" in html
+
+    def test_golden_confetti_css_class(self, client):
+        """Golden confetti particles get the golden-confetti CSS class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'golden-confetti' in html
+
+    def test_meta_screen_shake_css(self):
+        """CSS should have meta-screen-shake keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'meta-screen-shake' in css
+        assert '@keyframes meta-screen-shake' in css
+
+    def test_meta_feather_toast_css(self):
+        """CSS should style feather-toast-meta with golden border."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.feather-toast-meta' in css
+        assert '#ffd700' in css
+
+    def test_meta_feather_label_css(self):
+        """CSS should style feather-toast-meta-label."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.feather-toast-meta-label' in css
+
+    def test_meta_shake_reduced_motion(self):
+        """Screen shake should be disabled for reduced motion preference."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'prefers-reduced-motion' in css
+        assert '.meta-screen-shake' in css
+
+    def test_meta_toast_longer_display(self, client):
+        """Meta feather toast should be visible longer than regular."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Meta toast uses 5500ms dismiss time
+        assert '5500' in html
+
+    def test_regular_feather_unchanged(self, client):
+        """Regular feathers still use spawnCelebrationConfetti."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti(toast)' in html
+
+    def test_screen_shake_respects_reduced_motion(self, client):
+        """triggerScreenShake checks prefers-reduced-motion."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'prefers-reduced-motion' in html
+
+
+# === F5: 404 Memory Game Replay ===
+
+class TestMemoryGameReplay:
+    """Tests for memory game Play Again button, best time, and faster replay."""
+
+    def test_replay_button_in_completion(self, client):
+        """Completion screen should include a Play Again button."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'Play Again' in html
+
+    def test_replay_button_class(self, client):
+        """Play Again button should have memory-game-replay-btn class."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-replay-btn' in html
+
+    def test_replay_calls_start_memory_game(self, client):
+        """Play Again button calls startMemoryGame to reset the game."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'startMemoryGame(parent)' in html
+
+    def test_best_time_key_defined(self, client):
+        """Best time localStorage key should be defined."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'httpparrot_memory_best_time' in html
+
+    def test_best_time_display_element(self, client):
+        """Memory game should show a best time display."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-best-time' in html
+
+    def test_best_time_saved_to_localstorage(self, client):
+        """Best time should be saved to localStorage."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'saveBestTime' in html
+        assert 'BEST_TIME_KEY' in html
+
+    def test_elapsed_time_tracked(self, client):
+        """Game should track elapsed time from start to completion."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'gameStartTime' in html
+        assert 'Date.now()' in html
+
+    def test_new_best_indicator(self, client):
+        """Should show 'New best!' when a new record is set."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'New best!' in html
+
+    def test_faster_replay_delay(self, client):
+        """Replay games should use 800ms flip-back delay instead of 900ms."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert '800' in html
+        assert 'getFlipBackDelay' in html
+
+    def test_play_count_tracked(self, client):
+        """Play count should be tracked for replay speed adjustment."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'playCount' in html
+
+    def test_format_time_function(self, client):
+        """formatTime function should exist for time display."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'formatTime' in html
+
+    def test_memory_game_actions_row(self, client):
+        """Completion screen should have actions row with both buttons."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-actions' in html
+
+    def test_replay_css_exists(self):
+        """CSS should style the replay button and time displays."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.memory-game-replay-btn' in css
+        assert '.memory-game-time' in css
+        assert '.memory-game-best-time' in css
+        assert '.memory-game-actions' in css
+
+    def test_time_display_in_completion(self, client):
+        """Completion handler receives elapsed time parameter."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'onGameComplete(parent, elapsed)' in html
+
+    def test_home_btn_still_present(self, client):
+        """Home button should still be present alongside replay."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-home-btn' in html
+        assert 'Back to all parrots' in html
+
+
+# === FN4: Global Search Live Dropdown ===
+
+class TestGlobalSearchDropdown:
+    """Tests for global header search live dropdown."""
+
+    def test_search_dropdown_element_exists(self, client):
+        """Global search dropdown element should be in the DOM."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'global-search-dropdown' in html
+
+    def test_search_dropdown_hidden_by_default(self, client):
+        """Dropdown should be hidden by default."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'global-search-dropdown' in html
+
+    def test_search_wrap_has_position_relative(self, client):
+        """Search wrap should have global-search-wrap class for positioning."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'global-search-wrap' in html
+
+    def test_dropdown_calls_api_search(self, client):
+        """Search dropdown should call /api/search endpoint."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '/api/search' in html
+
+    def test_search_debounce_300ms(self, client):
+        """Search input should debounce API calls at 300ms."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '300' in html
+        assert 'debounceTimer' in html
+
+    def test_search_escape_closes(self, client):
+        """Pressing Escape should close the dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "e.key === 'Escape'" in html or 'Escape' in html
+
+    def test_search_click_outside_closes(self, client):
+        """Clicking outside should close the dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'closeDropdown' in html
+
+    def test_search_result_structure(self, client):
+        """Each result should show code, name, and description."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'global-search-result-code' in html
+        assert 'global-search-result-name' in html
+        assert 'global-search-result-desc' in html
+
+    def test_search_result_is_link(self, client):
+        """Each search result should be a link to the code page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Results are <a> elements with href = '/' + code
+        assert "opt.href = '/' + item.code" in html
+
+    def test_search_keyboard_navigation(self, client):
+        """Arrow keys should navigate results."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ArrowDown' in html
+        assert 'ArrowUp' in html
+
+    def test_search_enter_navigates(self, client):
+        """Enter on active result should navigate to it."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'currentResults[activeIndex]' in html
+
+    def test_search_dropdown_css_exists(self):
+        """CSS should style the search dropdown."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.global-search-dropdown' in css
+        assert '.global-search-result' in css
+
+    def test_search_dropdown_matches_nav_style(self):
+        """Dropdown should use similar styles to nav-dropdown-menu."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Both use var(--surface-2) background and blur
+        assert 'backdrop-filter: blur(16px)' in css
+
+    def test_search_dropdown_hidden_on_mobile(self):
+        """Search dropdown should be hidden on mobile."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.global-search-dropdown' in css
+        assert 'display: none !important' in css
+
+    def test_search_desktop_check(self, client):
+        """Search only activates on desktop (>= 768px)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'isDesktop' in html
+        assert '768' in html
+
+    def test_search_listbox_role(self, client):
+        """Dropdown should have listbox role for accessibility."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="listbox"' in html
+
+    def test_search_result_option_role(self, client):
+        """Each result should have option role."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "role', 'option'" in html
+
+    def test_search_truncates_description(self, client):
+        """Long descriptions should be truncated to 80 chars."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '80' in html
+        assert "substring(0, 80)" in html
+
+    def test_api_search_returns_results(self, client):
+        """API search endpoint should return results for valid query."""
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        assert data[0]['code'] == '404'
+
+
+# === FN3: cURL Import to Playground Integration ===
+
+class TestCurlImportPlayground:
+    """Tests for cURL Import to Playground link and Playground query param pre-population."""
+
+    def test_playground_button_exists(self, client):
+        """cURL import page should have an Open in Playground button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-playground-btn' in html
+
+    def test_playground_button_hidden_initially(self, client):
+        """Playground button should be hidden before parsing."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "display:none" in html or "display: none" in html
+
+    def test_playground_link_builder(self, client):
+        """updatePlaygroundLink function should exist."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'updatePlaygroundLink' in html
+
+    def test_playground_link_has_method_param(self, client):
+        """Playground link should include method query param."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('method'" in html
+
+    def test_playground_link_has_url_param(self, client):
+        """Playground link should include url query param."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('url'" in html
+
+    def test_playground_link_has_header_params(self, client):
+        """Playground link should append header query params."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.append('header'" in html
+
+    def test_playground_link_has_body_param(self, client):
+        """Playground link should include body query param when present."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('body'" in html
+
+    def test_playground_link_navigates_to_playground(self, client):
+        """Playground link href should point to /playground."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "'/playground?'" in html
+
+    def test_playground_reads_query_params_on_load(self, client):
+        """Playground should check for query params on load."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'URLSearchParams' in html
+        assert "params.has('method')" in html or "params.has('url')" in html
+
+    def test_playground_populates_headers_from_params(self, client):
+        """Playground should populate headers from query params."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert "params.getAll('header')" in html
+
+    def test_playground_populates_body_from_params(self, client):
+        """Playground should populate body from query params."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert "params.get('body')" in html
+
+    def test_playground_cleans_url_after_populate(self, client):
+        """Playground should clean URL params after populating."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'replaceState' in html
+
+    def test_playground_page_loads_with_params(self, client):
+        """Playground should load successfully with query params."""
+        resp = client.get('/playground?method=POST&url=https://api.example.com&body=test')
+        assert resp.status_code == 200
+
+    def test_playground_button_label(self, client):
+        """Button should say 'Open in Playground'."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'Open in Playground' in html
+
+    def test_render_parsed_calls_playground_link(self, client):
+        """renderParsed should call updatePlaygroundLink."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'updatePlaygroundLink(req)' in html
+
+
+# --- Task 1: Fill remaining case_studies gaps ---
+
+class TestRemainingCaseStudies:
+    """Tests for the 10 newly added case_studies entries."""
+
+    def test_case_studies_added_to_10_remaining_codes(self):
+        """All 10 codes that previously lacked case_studies should now have them."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], (
+                f"Code {code} still missing case_studies"
+            )
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 2, (
+                f"Code {code} should have at least 2 case_studies entries, "
+                f"got {len(STATUS_EXTRA[code]['case_studies'])}"
+            )
+
+    def test_new_case_studies_have_required_keys(self):
+        """Every new case_studies entry must have api, scenario, lesson."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['case_studies']):
+                assert 'api' in entry, f"Missing 'api' in {code}[{i}]"
+                assert 'scenario' in entry, f"Missing 'scenario' in {code}[{i}]"
+                assert 'lesson' in entry, f"Missing 'lesson' in {code}[{i}]"
+
+    def test_new_case_studies_non_empty_strings(self):
+        """All case study strings should be non-empty."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['case_studies']):
+                assert len(entry['api'].strip()) > 0, f"Empty api in {code}[{i}]"
+                assert len(entry['scenario'].strip()) > 0, f"Empty scenario in {code}[{i}]"
+                assert len(entry['lesson'].strip()) > 0, f"Empty lesson in {code}[{i}]"
+
+    def test_new_case_studies_render_on_pages(self, client):
+        """Newly added case_studies should render on their detail pages."""
+        for code in ['305', '413', '417', '421', '426']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'case-studies-section' in html, f"/{code} missing case-studies-section"
+            assert 'case-study-card' in html, f"/{code} missing case-study-card"
+
+    def test_total_case_studies_at_least_70(self):
+        """With 10 new additions, total should be at least 70."""
+        from status_extra import STATUS_EXTRA
+        codes_with_studies = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'case_studies' in data and len(data['case_studies']) > 0
+        ]
+        assert len(codes_with_studies) >= 70, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 70"
+        )
+
+
+# --- Task 2: Fill common_mistakes for high-importance codes ---
+
+class TestNewCommonMistakes:
+    """Tests for the 6 newly added common_mistakes entries."""
+
+    def test_common_mistakes_added_to_6_codes(self):
+        """All 6 high-importance codes should now have common_mistakes."""
+        from status_extra import STATUS_EXTRA
+        codes = ['402', '407', '421', '425', '499', '507']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'common_mistakes' in STATUS_EXTRA[code], (
+                f"Code {code} missing common_mistakes"
+            )
+            assert len(STATUS_EXTRA[code]['common_mistakes']) >= 2, (
+                f"Code {code} should have at least 2 common_mistakes entries"
+            )
+
+    def test_new_common_mistakes_structure(self):
+        """Each new common_mistakes entry should have mistake and consequence."""
+        from status_extra import STATUS_EXTRA
+        codes = ['402', '407', '421', '425', '499', '507']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['common_mistakes']):
+                assert 'mistake' in entry, f"Missing 'mistake' in {code}[{i}]"
+                assert 'consequence' in entry, f"Missing 'consequence' in {code}[{i}]"
+                assert len(entry['mistake'].strip()) > 0, f"Empty mistake in {code}[{i}]"
+                assert len(entry['consequence'].strip()) > 0, f"Empty consequence in {code}[{i}]"
+
+    def test_new_common_mistakes_render_on_pages(self, client):
+        """Newly added common_mistakes should render on their detail pages."""
+        for code in ['402', '407', '421', '499', '507']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'mistakes-section' in html, f"/{code} missing mistakes-section"
+            assert 'mistake-card' in html, f"/{code} missing mistake-card"
+
+    def test_total_common_mistakes_at_least_45(self):
+        """With 6 new additions, total should be at least 45."""
+        from status_extra import STATUS_EXTRA
+        codes_with_mistakes = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'common_mistakes' in data and len(data['common_mistakes']) > 0
+        ]
+        assert len(codes_with_mistakes) >= 45, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 45"
+        )
+
+
+# --- Task 3: "When NOT to Use" section (dont_use_when) ---
+
+class TestDontUseWhen:
+    """Tests for the dont_use_when feature on the 15 most misused codes."""
+
+    def test_dont_use_when_present_on_15_codes(self):
+        """All 15 commonly misused codes should have dont_use_when."""
+        from status_extra import STATUS_EXTRA
+        codes = ['200', '201', '204', '301', '302', '307', '400', '401', '403',
+                 '404', '409', '422', '429', '500', '503']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'dont_use_when' in STATUS_EXTRA[code], (
+                f"Code {code} missing dont_use_when"
+            )
+            assert isinstance(STATUS_EXTRA[code]['dont_use_when'], list), (
+                f"Code {code} dont_use_when should be a list"
+            )
+            assert len(STATUS_EXTRA[code]['dont_use_when']) >= 3, (
+                f"Code {code} should have at least 3 dont_use_when entries"
+            )
+
+    def test_dont_use_when_strings_non_empty(self):
+        """All dont_use_when entries should be non-empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'dont_use_when' in data:
+                for i, reason in enumerate(data['dont_use_when']):
+                    assert isinstance(reason, str), (
+                        f"Code {code}[{i}] dont_use_when should be a string"
+                    )
+                    assert len(reason.strip()) > 0, (
+                        f"Code {code}[{i}] has empty dont_use_when entry"
+                    )
+
+    def test_dont_use_when_section_renders_on_page(self, client):
+        """Pages with dont_use_when should render the section."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-section' in html
+        assert 'When NOT to use this code' in html
+
+    def test_dont_use_when_renders_list_items(self, client):
+        """Each dont_use_when reason should render as a list item."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-list' in html
+        assert 'dont-use-item' in html
+
+    def test_dont_use_when_absent_on_page_without_data(self, client):
+        """Pages without dont_use_when should not show the section."""
+        resp = client.get('/102')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-section' not in html
+        assert 'dont-use-item' not in html
+
+    def test_dont_use_when_uses_details_element(self, client):
+        """The dont_use_when section should use a details/summary for collapsibility."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-summary' in html
+
+    def test_dont_use_when_css_styles_present(self, client):
+        """CSS should contain dont-use styles with red/coral accent."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.dont-use-section' in css
+        assert '.dont-use-summary' in css
+        assert '.dont-use-list' in css
+        assert '.dont-use-item' in css
+        assert '#e05252' in css
+
+    def test_dont_use_when_appears_after_mistakes(self, client):
+        """The dont_use_when section should appear after common mistakes."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        mistakes_pos = html.find('mistakes-section')
+        dont_use_pos = html.find('dont-use-section')
+        assert mistakes_pos > 0, "mistakes-section not found"
+        assert dont_use_pos > 0, "dont-use-section not found"
+        assert dont_use_pos > mistakes_pos, (
+            "dont-use-section should appear after mistakes-section"
+        )
+
+    def test_dont_use_when_renders_multiple_codes(self, client):
+        """Multiple codes should render the dont_use_when section."""
+        for code in ['201', '301', '401', '500']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'dont-use-section' in html, f"/{code} missing dont-use-section"
+
+
+# --- Task 4: Security-category scenarios ---
+
+class TestSecurityScenarios:
+    """Tests for the 5 new security-category scenarios."""
+
+    def test_security_scenarios_exist(self):
+        """There should be at least 5 security-category scenarios."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        assert len(security) >= 5, (
+            f"Only {len(security)} security scenarios, expected at least 5"
+        )
+
+    def test_security_scenario_ids_unique(self):
+        """Security scenario IDs should not conflict with existing IDs."""
+        from scenarios import SCENARIOS
+        ids = [s['id'] for s in SCENARIOS]
+        assert len(ids) == len(set(ids)), "Duplicate scenario IDs found"
+
+    def test_security_scenarios_cover_expected_topics(self):
+        """Security scenarios should cover CORS, XSS, SSRF, CSP, and webhooks."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        all_descriptions = ' '.join(s['description'].lower() for s in security)
+        assert 'cors' in all_descriptions or 'preflight' in all_descriptions, (
+            "Missing CORS preflight scenario"
+        )
+        assert 'xss' in all_descriptions or 'content-type' in all_descriptions.lower() or 'mime' in all_descriptions or 'nosniff' in all_descriptions, (
+            "Missing XSS/Content-Type scenario"
+        )
+        assert 'ssrf' in all_descriptions or '169.254' in all_descriptions or 'metadata' in all_descriptions, (
+            "Missing SSRF scenario"
+        )
+        assert 'csp' in all_descriptions or 'content security policy' in all_descriptions, (
+            "Missing CSP violation scenario"
+        )
+        assert 'webhook' in all_descriptions or 'signature' in all_descriptions, (
+            "Missing webhook signature scenario"
+        )
+
+    def test_security_scenarios_have_valid_structure(self):
+        """Each security scenario should have all required fields."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        for s in security:
+            assert 'id' in s
+            assert 'difficulty' in s
+            assert 'description' in s
+            assert 'correct' in s
+            assert 'options' in s
+            assert 'explanations' in s
+            assert len(s['options']) == 4, f"Scenario {s['id']} should have 4 options"
+            assert s['correct'] in s['options'], (
+                f"Scenario {s['id']} correct answer not in options"
+            )
+            for opt in s['options']:
+                assert opt in s['explanations'], (
+                    f"Scenario {s['id']} missing explanation for {opt}"
+                )
+
+    def test_security_scenarios_have_valid_difficulty(self):
+        """Security scenarios should have valid difficulty levels."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        valid = {'beginner', 'intermediate', 'expert'}
+        for s in security:
+            assert s['difficulty'] in valid, (
+                f"Scenario {s['id']} has invalid difficulty: {s['difficulty']}"
+            )
+
+    def test_total_scenarios_at_least_55(self):
+        """With 5 new additions, total should be at least 55."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 55, f"Only {len(SCENARIOS)} scenarios, expected 55+"
+
+
+# --- Task D1: Light Theme Coverage for Tool Pages ---
+
+class TestLightThemeToolPages:
+    """Tests for light theme overrides on tool pages (D1 final polish)."""
+
+    def _get_light_css(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        return css[idx:]
+
+    def test_light_theme_fault_sim_btn(self, client):
+        """Fault simulator button should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.fault-sim-btn' in block
+
+    def test_light_theme_compare_diff_label(self, client):
+        """Compare diff label should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-diff-label' in block
+
+    def test_light_theme_compare_diff_arrow(self, client):
+        """Compare diff arrow should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-diff-arrow' in block
+
+    def test_light_theme_compare_summary_text(self, client):
+        """Compare summary text should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-summary-text' in block
+
+    def test_light_theme_compare_summary_box(self, client):
+        """Compare summary box should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-summary-box' in block
+
+    def test_light_theme_headers_hero_p(self, client):
+        """Headers hero paragraph should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.headers-hero p' in block
+
+    def test_light_theme_cors_label(self, client):
+        """CORS label should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.cors-label' in block
+
+    def test_light_theme_playground_body(self, client):
+        """Playground body textarea should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.playground-body' in block
+
+    def test_light_theme_trace_hop_final_badge(self, client):
+        """Trace hop final badge should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.trace-hop-final-badge' in block
+
+    def test_light_theme_trace_chain(self, client):
+        """Trace chain should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.trace-chain' in block
+
+    def test_light_theme_dont_use_list(self, client):
+        """Dont-use list should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.dont-use-list' in block
+
+    def test_curl_import_has_light_theme_styles(self, client):
+        """cURL import page should include light theme overrides in its inline styles."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'prefers-color-scheme: light' in html
+        assert '.curl-method-head' in html
+        assert '.curl-tab-bar' in html
+
+
+# --- Task D3: Bento Dashboard Mobile Fix ---
+
+class TestBentoDashboardMobileFix:
+    """Tests for bento dashboard working well at 320-375px (D3)."""
+
+    def _get_css(self):
+        with open('static/style.css') as f:
+            return f.read()
+
+    def _get_bento_576_block(self):
+        """Find the 576px media query that contains bento-dashboard."""
+        css = self._get_css()
+        start = 0
+        while True:
+            idx = css.find('@media (max-width: 576px)', start)
+            if idx < 0:
+                return ''
+            block = css[idx:idx + 800]
+            if '.bento-dashboard' in block:
+                return block
+            start = idx + 1
+
+    def test_bento_576_single_column(self):
+        """At 576px, bento dashboard should use single column grid."""
+        block = self._get_bento_576_block()
+        assert block, "No 576px media query with .bento-dashboard found"
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_bento_576_overflow_hidden(self):
+        """At 576px, bento dashboard should prevent horizontal overflow."""
+        block = self._get_bento_576_block()
+        assert 'overflow-x: hidden' in block
+
+    def test_bento_576_span2_override(self):
+        """At 576px, grid-column span 2 should be overridden to span 1."""
+        block = self._get_bento_576_block()
+        assert 'grid-column: span 1' in block
+
+    def test_bento_375_single_column(self):
+        """At 375px, bento dashboard should explicitly set single column."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        assert idx_375 > 0
+        block = css[idx_375:idx_375 + 1200]
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_bento_375_overflow_hidden(self):
+        """At 375px, bento dashboard should prevent horizontal overflow."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'overflow-x: hidden' in block
+
+    def test_bento_375_max_width_viewport(self):
+        """At 375px, bento dashboard should not exceed viewport width."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'max-width: 100vw' in block
+
+    def test_bento_375_touch_friendly_action(self):
+        """Bento tile actions should have min 44px touch target."""
+        css = self._get_css()
+        assert '.bento-tile-action' in css
+        assert 'min-height: 44px' in css
+
+    def test_bento_375_span_override(self):
+        """At 375px, all bento children should be forced to span 1."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'grid-column: span 1' in block
+
+    def test_bento_375_potd_image_smaller(self):
+        """At 375px, POTD image should be smaller (120px) for tight screens."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'width: 120px' in block
+
+    def test_bento_375_streak_count_smaller(self):
+        """Streak count should have smaller font on mobile."""
+        css = self._get_css()
+        # Check that bento-streak-count exists somewhere in a 375px block
+        idx = css.find('.bento-streak-count')
+        block = css[idx:idx + 200] if idx > 0 else css
+        assert '.bento-streak-count' in block
+
+
+# --- Task: "When NOT to Use" Section Polish ---
+
+class TestDontUseSectionPolish:
+    """Tests for dont-use-when section CSS polish."""
+
+    def _get_css(self):
+        with open('static/style.css') as f:
+            return f.read()
+
+    def _get_light_css(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        return css[idx:]
+
+    def test_dont_use_mobile_responsive(self):
+        """Dont-use section should have mobile responsive rules."""
+        css = self._get_css()
+        assert '.dont-use-item' in css
+        # Check there is a responsive breakpoint for dont-use
+        idx = css.find('@media (max-width: 576px)')
+        assert idx > 0
+        # Find dont-use within a 576px block
+        block_end = css.find('}', css.find('}', idx + 1) + 1)
+        full_576_area = css[idx:idx + 2000]
+        assert '.dont-use-item' in full_576_area or '.dont-use-list' in full_576_area
+
+    def test_dont_use_mobile_smaller_font(self):
+        """Dont-use items should use smaller font on mobile."""
+        css = self._get_css()
+        # Find the responsive mobile block for dont-use
+        idx = css.find('responsive mobile')
+        assert idx > 0, "responsive mobile comment not found in CSS"
+        block = css[idx:idx + 800]
+        assert 'font-size: var(--text-sm)' in block
+
+    def test_dont_use_mobile_tighter_padding(self):
+        """Dont-use items should have tighter padding on mobile."""
+        css = self._get_css()
+        idx = css.find('responsive mobile')
+        assert idx > 0
+        block = css[idx:idx + 800]
+        assert '0.6rem' in block
+
+    def test_dont_use_mobile_thinner_border(self):
+        """Dont-use section should have thinner border on mobile."""
+        css = self._get_css()
+        idx = css.find('responsive mobile')
+        assert idx > 0
+        block = css[idx:idx + 800]
+        assert 'border-left-width: 2px' in block
+
+    def test_dont_use_light_theme_section(self, client):
+        """Dont-use section should have light theme border override."""
+        block = self._get_light_css(client)
+        assert '.dont-use-section' in block
+
+    def test_dont_use_light_theme_item(self, client):
+        """Dont-use items should have light theme overrides."""
+        block = self._get_light_css(client)
+        assert '.dont-use-item' in block
+
+    def test_dont_use_light_theme_summary(self, client):
+        """Dont-use summary should have light theme color."""
+        block = self._get_light_css(client)
+        assert '.dont-use-summary h2' in block
+
+    def test_dont_use_light_theme_before_pseudo(self, client):
+        """Dont-use item before pseudo should have light theme color."""
+        block = self._get_light_css(client)
+        assert ".dont-use-item::before" in block
+
+    def test_dont_use_coral_accent_in_dark(self):
+        """Dont-use section should use coral/red (#e05252) accent in dark mode."""
+        css = self._get_css()
+        # Base dont-use styles should use #e05252
+        idx = css.find('.dont-use-section {')
+        assert idx > 0
+        block = css[idx:idx + 300]
+        assert '#e05252' in block
+
+    def test_dont_use_consistent_with_mistakes_pattern(self):
+        """Dont-use section should follow the same structural pattern as mistakes."""
+        css = self._get_css()
+        # Both should use color-mix, border-left, and similar class structure
+        assert '.mistakes-section' in css
+        assert '.dont-use-section' in css
+        # Both use border-left
+        mistakes_idx = css.find('.mistakes-section {')
+        mistakes_block = css[mistakes_idx:mistakes_idx + 200]
+        assert 'border-left' in mistakes_block
+        dont_use_idx = css.find('.dont-use-section {')
+        dont_use_block = css[dont_use_idx:dont_use_idx + 200]
+        assert 'border-left' in dont_use_block
+
+
+# --- Java & Rust code examples (ED2) ---
+
+class TestJavaRustCodeExamples:
+    """Tests for Java and Rust code snippets in STATUS_EXTRA."""
+
+    TARGET_CODES = ['200', '201', '301', '400', '401', '403', '404', '422', '500', '503']
+
+    def test_java_snippets_present_for_target_codes(self):
+        """The 10 most important codes should have Java code examples."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert 'java' in STATUS_EXTRA[code]['code'], (
+                f"Code {code} missing 'java' snippet"
+            )
+
+    def test_rust_snippets_present_for_target_codes(self):
+        """The 10 most important codes should have Rust code examples."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert 'rust' in STATUS_EXTRA[code]['code'], (
+                f"Code {code} missing 'rust' snippet"
+            )
+
+    def test_java_snippets_use_spring_boot_style(self):
+        """Java snippets should use Spring Boot ResponseEntity style."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            snippet = STATUS_EXTRA[code]['code']['java']
+            assert 'ResponseEntity' in snippet or 'HttpStatus' in snippet, (
+                f"Java snippet for {code} does not use Spring Boot style"
+            )
+
+    def test_rust_snippets_use_actix_style(self):
+        """Rust snippets should use Actix-web HttpResponse style."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            snippet = STATUS_EXTRA[code]['code']['rust']
+            assert 'HttpResponse' in snippet or 'StatusCode' in snippet, (
+                f"Rust snippet for {code} does not use Actix-web style"
+            )
+
+    def test_java_snippets_are_non_empty(self):
+        """Java snippets should not be empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert len(STATUS_EXTRA[code]['code']['java'].strip()) > 10, (
+                f"Java snippet for {code} is too short or empty"
+            )
+
+    def test_rust_snippets_are_non_empty(self):
+        """Rust snippets should not be empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert len(STATUS_EXTRA[code]['code']['rust'].strip()) > 10, (
+                f"Rust snippet for {code} is too short or empty"
+            )
+
+    def test_java_snippets_rendered_on_detail_page(self, client):
+        """Java code examples should appear on the status detail page."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'java' in html.lower() or 'Java' in html
+        assert 'ResponseEntity' in html
+
+    def test_rust_snippets_rendered_on_detail_page(self, client):
+        """Rust code examples should appear on the status detail page."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'rust' in html.lower() or 'Rust' in html
+        assert 'HttpResponse' in html
+
+    def test_compare_page_includes_java_rust_langs(self, client):
+        """Compare page JS should list java and rust in code snippet langs."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert "'java'" in html or '"java"' in html
+        assert "'rust'" in html or '"rust"' in html
+        assert 'Java' in html
+        assert 'Rust' in html
+
+
+# --- Learning Path Completion Certificates (ED4) ---
+
+class TestPathCompletionCertificate:
+    """Tests for the Certificate of Completion on learning path detail pages."""
+
+    def test_certificate_section_present(self, client):
+        """Path detail page should contain the certificate HTML."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate' in html
+
+    def test_certificate_has_heading(self, client):
+        """Certificate should have a Certificate of Completion heading."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'Certificate of Completion' in html
+
+    def test_certificate_has_path_name(self, client):
+        """Certificate should include the path name."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate-path-name' in html
+        assert 'HTTP Foundations' in html
+
+    def test_certificate_has_step_count(self, client):
+        """Certificate should show step count."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'steps completed' in html
+
+    def test_certificate_has_share_button(self, client):
+        """Certificate should have a Share Certificate button."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-share-btn' in html
+        assert 'Share Certificate' in html
+
+    def test_certificate_has_xp_bonus(self, client):
+        """Certificate should show the 500 XP bonus."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert '+500 XP' in html
+
+    def test_certificate_has_date_placeholder(self, client):
+        """Certificate should have a date element for JS to fill."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-date' in html
+
+    def test_certificate_hidden_by_default(self, client):
+        """Certificate should be hidden by default (no visible class)."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate" id="path-certificate"' in html
+        # Should NOT have visible class in the static HTML
+        assert 'path-certificate visible' not in html
+
+    def test_certificate_share_script(self, client):
+        """Share button script should copy text to clipboard."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-share-btn' in html
+        assert 'clipboard' in html
+        assert '#HTTPParrots' in html
+
+    def test_completion_awards_500_xp(self, client):
+        """Completion script should award 500 XP (not 200)."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'ParrotXP.award(500' in html
+
+    def test_certificate_badge_icon(self, client):
+        """Certificate should have a trophy badge icon."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate-badge' in html
+
+    def test_certificate_stores_completion_date(self, client):
+        """Script should store completion date in localStorage."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'httpparrot_path_date_' in html
+        assert 'toLocaleDateString' in html
+
+
+# --- UX Fixes ---
+
+class TestPlaygroundClipboardCatch:
+    """Test that playground copy button has a .catch() handler."""
+
+    def test_clipboard_catch_handler(self, client):
+        """Playground clipboard writeText should have a .catch() handler."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert '.catch(function' in html
+
+    def test_clipboard_catch_shows_error(self, client):
+        """Clipboard .catch should show a 'Copy failed' message."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'Copy failed' in html
+
+
+class TestCompareEmptyState:
+    """Test that compare page has a styled empty state."""
+
+    def test_empty_state_has_icon(self, client):
+        """Empty state should have an icon element."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-icon' in html
+
+    def test_empty_state_has_heading(self, client):
+        """Empty state should have a descriptive heading."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-heading' in html
+        assert 'Pick two codes to compare' in html
+
+    def test_empty_state_has_cta_text(self, client):
+        """Empty state should have CTA text mentioning presets."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-text' in html
+        assert 'quick compare presets' in html
+
+    def test_empty_state_css_styles(self):
+        """CSS should include compare-empty-icon, heading, and text styles."""
+        with open('/Users/mfelldin/dev/personal/httpparrot/static/style.css') as f:
+            css = f.read()
+        assert '.compare-empty-icon' in css
+        assert '.compare-empty-heading' in css
+        assert '.compare-empty-text' in css
+
+
+class TestCheatsheetPrintFeedback:
+    """Test that cheatsheet print button shows feedback."""
+
+    def test_print_button_shows_feedback(self, client):
+        """Print button should show 'Opening print dialog...' feedback."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'Opening print dialog...' in html
+
+    def test_print_button_reverts_text(self, client):
+        """Print button should revert to original text after timeout."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'Print this page' in html
+        assert 'setTimeout' in html

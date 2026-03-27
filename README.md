@@ -6,55 +6,60 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 
 ## Features
 
-**Browse** - Gallery of 72 HTTP status codes with fuzzy search across all pages, category filtering, bento grid homepage dashboard with smart recommender, and an enhanced "Parrot of the Day" section with fun facts and sharing
+**Browse** - Gallery of 72 HTTP status codes with fuzzy search across all pages, category filtering, bento grid homepage dashboard with smart recommender, POTD badge on featured cards, and an enhanced "Parrot of the Day" section with fun facts and sharing. Global search with live dropdown for instant navigation.
 
 **Learn** - Each status code has:
 - Description and history with clickable RFC links
 - Real-world examples ("When would I see this?")
-- 42+ case studies ("In the Wild") with real-world service examples
-- Code snippets in Python, Node.js, and Go
+- 135 case studies ("In the Wild") across 70 status codes with real-world service examples
+- 96 common mistakes across 48 status codes with consequence explanations
+- 15 "When NOT to use" sections with guidance on choosing the right code
+- Code snippets in 5 languages: Python, Node.js, Go, Java, and Rust
 - Example HTTP request/response exchange with syntax highlighting and animated line-by-line display
 - Typical response headers
 - "Commonly confused with" links to related status codes (with deep links to confusion pair lessons when available)
 - Copy-as-curl button for the `/return/<code>` endpoint
 - **ELI5 mode** - Toggle "Simple mode" for fun, plain-language analogies (all 72 codes)
-- **Interactive parrot clicks** - Click any parrot for category-themed animations (1xx pulses, 2xx glows, 3xx slides, 4xx shakes, 5xx glitches)
+- **Interactive parrot clicks** - Click any parrot for code-specific fun facts and category-themed animations (1xx pulses, 2xx glows, 3xx slides, 4xx shakes, 5xx glitches)
 - **Share buttons** - Native Share API, Twitter/X, Slack, Discord, copy link
 - **Embed codes** - Copy HTML, Markdown, or direct image URL for any parrot
 
 **Structured learning**
 - **Confusion Pair Lessons** (`/learn`) - 15 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 301 vs 302), grouped by category
-- **Guided Learning Paths** (`/paths`) - 3 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master) with step-by-step checklists mixing visits, practice, quizzes, and lessons
+- **Guided Learning Paths** (`/paths`) - 3 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master) with step-by-step checklists mixing visits, practice, quizzes, and lessons; completion certificates on finishing a path
 - **Spaced Repetition Review** (`/review`) - Leitner box-based review queue pulling from scenarios, debug exercises, and confusion pairs for long-term retention
 
 **Interactive tools**
-- **Quiz** (`/quiz`) - Guess the status code from the parrot image (10 questions per round)
-- **Daily Challenge** (`/daily`) - Wordle-style daily quiz with streak tracking, streak freeze, milestones, and shareable results
-- **Weekly Challenge** (`/weekly`) - 5-question themed challenges rotating through 8 themes (Redirect Week, Auth Week, Error Week, etc.)
-- **Scenario Practice** (`/practice`) - 51 real-world API scenarios sorted by difficulty (beginner/intermediate/expert) with category filters and results summary
-- **Debug Exercises** (`/debug`) - 31 "Debug This Response" exercises with broken HTTP exchanges to diagnose, organized by category, with results summary
+- **Quiz** (`/quiz`) - Guess the status code from the parrot image (10 questions per round) with adaptive difficulty weighted by past mistakes
+- **Daily Challenge** (`/daily`) - Wordle-style daily quiz with streak tracking, streak freeze, milestones, shareable results, and suggested next actions
+- **Weekly Challenge** (`/weekly`) - 5-question themed challenges rotating through 8 themes (Redirect Week, Auth Week, Error Week, etc.) with challenge history; Theme Master feather for perfect scores
+- **Scenario Practice** (`/practice`) - 56 real-world API scenarios (including 5 security category) sorted by difficulty (beginner/intermediate/expert) with category filters and results summary
+- **Debug Exercises** (`/debug`) - 36 "Debug This Response" exercises with broken HTTP exchanges to diagnose, organized by category, with results summary
 - **HTTP Personality Quiz** (`/personality`) - "Which HTTP Status Code Are You?" fun personality quiz
 - **Flowchart** (`/flowchart`) - Interactive decision tree to pick the right status code
-- **Compare** (`/compare`) - Side-by-side comparison with visual diff, presets (401 vs 403, etc.), swap button, and smooth page transitions
-- **HTTP Tester** (`/tester`) - Enter a URL and see what status code it returns, with GET mode body preview and timing bar
+- **Compare** (`/compare`) - Side-by-side comparison with visual diff, presets (401 vs 403, etc.), swap button, empty state guidance, and smooth page transitions
+- **HTTP Tester** (`/tester`) - Enter a URL and see what status code it returns, with GET mode body preview, timing bar, and truncation warning for large responses
 - **Response Playground** (`/playground`) - Build custom HTTP responses with live preview and 11 presets
 - **Header Explainer** (`/headers`) - Paste HTTP headers for instant color-coded explanations
 - **CORS Checker** (`/cors-checker`) - Test CORS policies for any URL with preflight analysis
 - **Security Header Audit** (`/security-audit`) - Scan any URL for security header best practices with letter grades (A+ to F)
-- **cURL Import/Parse** (`/curl-import`) - Paste a cURL command to break down method, headers, body, and flags
+- **cURL Import/Parse** (`/curl-import`) - Paste a cURL command to break down method, headers, body, and flags; import directly into the Response Playground
 - **Redirect Tracer** (`/trace`) - Visualize full redirect chains with timing, headers, and SSRF protection at every hop
 - **Fault Simulator** (`/fault-simulator`) - Simulate network faults: configurable delay, byte drip, JSON streaming, random jitter, and unstable endpoints
 - **Webhook Inspector** (`/webhook-inspector`) - Create ephemeral request bins to capture and inspect incoming webhooks (1-hour TTL, 50 requests max)
 - **Cheat Sheet** (`/cheatsheet`) - Printable single-page reference with parrot thumbnails, filter/search, and compact toggle
-- **Parrotdex** (`/collection`) - Gamified collection tracker for visited status codes
+- **Parrotdex** (`/collection`) - Gamified collection tracker for visited status codes with milestones (10/25/50/72), category progress bars, and Konami code party mode
+- **Command Palette** - Press Cmd+K (Mac) or Ctrl+K (Windows/Linux) to open a global command palette for instant navigation
 
 **XP & gamification**
 - **XP System** - Earn XP from quizzes, daily challenges, practice scenarios, debug exercises, and exploration
 - **Profile Page** (`/profile`) - View total XP, rank, activity history, weekly history chart, and earned badges
+- **Customizable Profile** - Choose a spirit parrot avatar and theme accent color from the profile page
 - **Profile Sharing** - Share your profile via flock codes so others can see your progress
 - **Flock Formation Celebrations** - Animated celebrations when sharing or viewing flock profiles
 - **10 Ranks** - Progress from Fledgling through Nestling, Feathered Apprentice, Wing Cadet, Parrot Scout, Plume Knight, Wing Commander, Sky Captain, Grand Macaw, to Legendary Lorikeet
-- **25 Achievement Badges** ("Feathers") - 19 base feathers (First Flight, Quiz Whiz, Perfect 10, Streak Starter, On Fire, Centurion, Wing Commander, Completionist, Error Expert, Server Sage, Egg Hunter, Scholar, Night Owl, Speed Demon, Frozen Solid, Memory Master, Parrot Petter, Photographic Memory, Loyal Parrot) + 6 meta feathers (Explorer, Polyglot, Streak Lord, Triple Threat, Full Spectrum, Parrot Polymath)
+- **29 Achievement Badges** ("Feathers") - 23 base feathers (First Flight, Quiz Whiz, Perfect 10, Streak Starter, On Fire, Centurion, Wing Commander, Completionist, Error Expert, Server Sage, Egg Hunter, Scholar, Night Owl, Speed Demon, Frozen Solid, Memory Master, Parrot Petter, Photographic Memory, Loyal Parrot, Theme Master, Explorer 10, Explorer 25, Explorer 50) + 6 meta feathers (Explorer, Polyglot, Streak Lord, Triple Threat, Full Spectrum, Parrot Polymath)
+- **Meta-Feather Unlock Animations** - Golden confetti burst and screen shake when earning meta feathers
 - **Parrot Mood Ring** - XP badge color shifts based on recent activity categories
 - **Daily Login Rewards** - Calendar-based daily rewards for visiting the site, completing a full 7-day cycle earns the Loyal Parrot badge
 - **Daily Streak** tracking with streak freeze support and milestone celebrations
@@ -64,8 +69,8 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Category-themed hover effects: 1xx pulses, 2xx glows, 3xx slides sideways, 4xx shakes, 5xx glitches
 - Interactive parrot clicks with category-specific animations on detail pages
 - Speech bubbles with typewriter effect -- each parrot has a witty one-liner
-- 15+ easter eggs on specific cards: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code party mode, hidden `/coffee` page, and more
-- 404 memory card game -- find matching parrot pairs on the 404 page
+- 15+ easter eggs on specific cards: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code party mode (verified working), hidden `/coffee` page, and more
+- 404 memory card game -- find matching parrot pairs on the 404 page with replay and best time tracking
 - Procedural sound effects for interactions
 - View transitions between pages
 - Seasonal themes
@@ -80,8 +85,10 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Tactile micro-interactions (spring-physics easing, bounce, press states)
 - Breathing animation on idle elements
 - CSS design system with full tokenization (spacing, color, typography, and elevation tokens)
-- Mobile polish (optimized for 320px-375px edge cases)
-- Complete light theme support (`prefers-color-scheme: light`)
+- Mobile polish (optimized for 320px-375px edge cases, bento dashboard fixes)
+- Complete light theme support (`prefers-color-scheme: light`) including all tool pages
+- Print stylesheet feedback improvements and clipboard error handling
+- Form validation on all tool pages (tester, headers, CORS checker, security audit, trace, playground, curl import)
 
 **API** - Programmatic access to all data:
 - `GET /<code>` with `Accept: application/json` returns JSON
@@ -135,6 +142,7 @@ Full API documentation at `/api-docs`, including Slack and Discord bot integrati
 | `Enter` | Quiz | Next question |
 | `1`-`4` | Daily challenge | Select answer |
 | `1`-`4` | Weekly challenge | Select answer |
+| `Cmd+K` / `Ctrl+K` | Any page | Open command palette |
 
 ## CLI
 
@@ -166,7 +174,7 @@ pip install -r requirements-dev.txt
 python -m pytest test_app.py test_cli.py -v
 ```
 
-There are 1486 automated tests covering routes, API endpoints, security, gamification, and CLI.
+There are 1766 automated tests covering routes, API endpoints, security, gamification, and CLI.
 
 ## Tech stack
 
@@ -174,7 +182,7 @@ There are 1486 automated tests covering routes, API endpoints, security, gamific
 - Jinja2 templates with template inheritance (31 templates)
 - Custom CSS with design tokens, glassmorphism, scroll-driven animations, view transitions, seasonal themes, light/dark modes (no framework dependencies)
 - Vanilla JavaScript with localStorage-based gamification (no external dependencies)
-- 1486 automated tests with 97% code coverage
+- 1766 automated tests with 97%+ code coverage
 - gzip compression via flask-compress
 
 ## Security

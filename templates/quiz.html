@@ -45,6 +45,38 @@
         let answered = false;
         let history = [];
 
+        /* Adaptive difficulty: load mistakes from localStorage */
+        var MISTAKES_KEY = 'httpparrot_quiz_mistakes';
+        function getMistakes() {
+            try {
+                var raw = localStorage.getItem(MISTAKES_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return [];
+        }
+        function saveMistakes(arr) {
+            try { localStorage.setItem(MISTAKES_KEY, JSON.stringify(arr)); } catch(e) {}
+        }
+        function addMistake(code) {
+            var m = getMistakes();
+            if (m.indexOf(code) === -1) m.push(code);
+            saveMistakes(m);
+        }
+        function removeMistake(code) {
+            var m = getMistakes();
+            var idx = m.indexOf(code);
+            if (idx !== -1) m.splice(idx, 1);
+            saveMistakes(m);
+        }
+        function pickWeightedCode() {
+            var mistakes = getMistakes();
+            var mistakeCodes = allCodes.filter(function(c) { return mistakes.indexOf(c.code) !== -1; });
+            if (mistakeCodes.length > 0 && Math.random() < 0.5) {
+                return mistakeCodes[Math.floor(Math.random() * mistakeCodes.length)];
+            }
+            return allCodes[Math.floor(Math.random() * allCodes.length)];
+        }
+
         function spawnConfetti(originEl) {
             var rect = originEl.getBoundingClientRect();
             var cx = rect.left + rect.width / 2;
@@ -82,7 +114,7 @@
 
         function nextRound() {
             answered = false;
-            const correct = allCodes[Math.floor(Math.random() * allCodes.length)];
+            const correct = pickWeightedCode();
             const choices = pickChoices(correct);
 
             document.getElementById('quiz-img').src = '/static/' + correct.image;
@@ -120,6 +152,7 @@
                         score++;
                         streak++;
                         history.push(true);
+                        removeMistake(correct.code);
                         spawnConfetti(btn);
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
@@ -133,6 +166,7 @@
                         });
                         streak = 0;
                         history.push(false);
+                        addMistake(correct.code);
                         fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
                         fb.className = 'quiz-feedback nope';
                         if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();

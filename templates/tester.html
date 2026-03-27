@@ -24,6 +24,7 @@
                         </div>
                         <button type="submit" class="tester-submit" id="submit-btn">Ping</button>
                     </div>
+                    <div class="validation-error" id="url-validation-error" role="alert" style="display:none;">Please enter a URL</div>
                 </form>
             </div>
             <div class="tester-hero-parrot">
@@ -99,10 +100,18 @@
             });
         });
 
+        document.getElementById('url-input').addEventListener('input', function() {
+            document.getElementById('url-validation-error').style.display = 'none';
+        });
+
         document.getElementById('tester-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const url = document.getElementById('url-input').value.trim();
-            if (!url) return;
+            if (!url) {
+                document.getElementById('url-validation-error').style.display = '';
+                return;
+            }
+            document.getElementById('url-validation-error').style.display = 'none';
 
             const result = document.getElementById('result');
             const heroImg = document.getElementById('hero-img');
@@ -213,7 +222,14 @@
                         pre.textContent = formattedBody;
                         bodyContent.appendChild(pre);
                         if (data.truncated) {
-                            bodyContent.appendChild(el('div', 'tester-body-truncated', 'Body truncated at 10 KB'));
+                            var truncWarn = el('div', 'tester-truncation-warning');
+                            truncWarn.setAttribute('role', 'alert');
+                            var truncIcon = el('span', 'tester-truncation-icon', '\u26A0\uFE0F');
+                            truncIcon.setAttribute('aria-hidden', 'true');
+                            var truncText = el('span', 'tester-truncation-text', 'Response truncated at 10KB. Full response is larger.');
+                            truncWarn.appendChild(truncIcon);
+                            truncWarn.appendChild(truncText);
+                            bodySection.insertBefore(truncWarn, bodyContent);
                         }
                         collapseBtn.addEventListener('click', function() {
                             var collapsed = bodyContent.classList.toggle('collapsed');

@@ -68,8 +68,9 @@
                 </div>
             </div>
 
-            <!-- Send to Echo -->
-            <div style="text-align:center;margin-bottom:2rem;">
+            <!-- Actions: Open in Playground & Send to Echo -->
+            <div style="text-align:center;margin-bottom:2rem;display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="#" class="tester-submit" id="curl-playground-btn" style="display:none;text-decoration:none;text-align:center;">Open in Playground</a>
                 <button type="button" class="tester-submit" id="curl-echo-btn">Send to Echo</button>
             </div>
 
@@ -120,6 +121,14 @@
         .curl-tab-active {
             color: #42a5f5;
             border-bottom-color: #42a5f5;
+        }
+        @media (prefers-color-scheme: light) {
+            .curl-method-head { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+            .curl-method-options { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+            .curl-tab-bar { border-bottom-color: rgba(0, 0, 0, 0.08); }
+            .curl-tab { color: rgba(26, 26, 31, 0.45); }
+            .curl-tab:hover { color: rgba(26, 26, 31, 0.75); }
+            .curl-tab-active { color: #1565c0; border-bottom-color: #1565c0; }
         }
     </style>
 {% endblock %}
@@ -424,6 +433,8 @@
             currentReq = null;
         });
 
+        var playgroundBtn = document.getElementById('curl-playground-btn');
+
         /* --- Render parsed request --- */
         function renderParsed(req) {
             // Method badge
@@ -476,6 +487,24 @@
 
             // Export code
             updateExport();
+
+            // Build "Open in Playground" link
+            updatePlaygroundLink(req);
+        }
+
+        function updatePlaygroundLink(req) {
+            if (!playgroundBtn) return;
+            var params = new URLSearchParams();
+            params.set('method', req.method);
+            params.set('url', req.url);
+            for (var i = 0; i < req.headers.length; i++) {
+                params.append('header', req.headers[i][0] + ':' + req.headers[i][1]);
+            }
+            if (req.body) {
+                params.set('body', req.body);
+            }
+            playgroundBtn.href = '/playground?' + params.toString();
+            playgroundBtn.style.display = 'inline-block';
         }
 
         function updateExport() {

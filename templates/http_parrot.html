@@ -272,6 +272,21 @@
         </div>
         {% endif %}
 
+        {% if extra and extra.dont_use_when %}
+        <div class="detail-info dont-use-section">
+            <details>
+                <summary class="detail-section dont-use-summary">
+                    <h2>When NOT to use this code</h2>
+                </summary>
+                <ul class="dont-use-list">
+                    {% for reason in extra.dont_use_when %}
+                    <li class="dont-use-item">{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </div>
+        {% endif %}
+
         <nav class="detail-nav" aria-label="Status code navigation">
             <div class="detail-nav-side">
                 {% if prev_code %}
@@ -503,7 +518,7 @@
         var animClass = 'parrot-anim-' + category + 'xx';
         var eli5Text = {{ (eli5 or '')|tojson }};
         var description = {{ info.get('description', '')|tojson }};
-        var funFacts = [
+        var genericFacts = [
             'HTTP was invented by Tim Berners-Lee in 1989!',
             'The first web server was a NeXT computer at CERN.',
             'HTTP/2 was standardized in 2015.',
@@ -513,12 +528,34 @@
             'The 100 Continue status lets clients check before sending large payloads.',
             'A 204 No Content means success, but nothing to show.',
             'Cloudflare introduced 499 for client-closed requests.',
-            'The 451 code is named after Fahrenheit 451 by Ray Bradbury.'
+            'The 451 code is named after Fahrenheit 451 by Ray Bradbury.',
+            'The longest valid URL is about 2,083 characters in most browsers.',
+            'REST APIs were defined by Roy Fielding in his 2000 PhD dissertation.',
+            'HTTP headers are case-insensitive according to RFC 7230.',
+            'The very first website is still online at info.cern.ch.',
+            'A single emoji in a URL gets percent-encoded into 12+ characters.',
+            'HTTPS was introduced by Netscape in 1995 for secure browsing.',
+            'The HTTP TRACE method can be used for diagnostic loopback tests.',
+            'Cookies were invented by Lou Montulli at Netscape in 1994.',
+            'The 300-399 range can cause infinite redirect loops if misconfigured.',
+            'HTTP pipelining allows sending multiple requests without waiting for responses.'
         ];
-        var texts = [];
-        if (eli5Text) texts.push(eli5Text);
-        if (description) texts.push(description);
-        texts = texts.concat(funFacts);
+        /* Code-specific facts from examples, case studies, and ELI5 */
+        var codeSpecificFacts = [];
+        if (eli5Text) codeSpecificFacts.push(eli5Text);
+        if (description) codeSpecificFacts.push(description);
+        {% if extra and extra.examples %}
+        {% for ex in extra.examples %}
+        codeSpecificFacts.push({{ ex|tojson }});
+        {% endfor %}
+        {% endif %}
+        {% if extra and extra.case_studies %}
+        {% for cs in extra.case_studies %}
+        codeSpecificFacts.push({{ cs.scenario|tojson }});
+        {% endfor %}
+        {% endif %}
+        /* Merge: code-specific facts first (weighted higher), then generic */
+        var texts = codeSpecificFacts.concat(genericFacts);
         var animating = false;
 
         /* Remove click hint if user already petted before */
