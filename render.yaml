@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: httpparrot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn index:app --preload --workers 2 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: SECRET_KEY
+        generateValue: true
+    plan: free
