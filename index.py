@@ -175,6 +175,7 @@ _PRUNE_INTERVAL = 300  # prune stale entries every 5 minutes
 
 
 def is_rate_limited(client_ip):
+    """Return True if client_ip has exceeded RATE_LIMIT_MAX requests within the window."""
     global _rate_limit_last_prune
     now = time.time()
     # Periodically prune stale entries to prevent unbounded memory growth
@@ -221,6 +222,7 @@ def _prune_expired_bins():
 
 @app.context_processor
 def inject_csp_nonce():
+    """Generate a per-request CSP nonce and inject it into the template context."""
     nonce = secrets.token_urlsafe(32)
     g.csp_nonce = nonce
     return {'csp_nonce': nonce}
@@ -228,6 +230,7 @@ def inject_csp_nonce():
 
 @app.after_request
 def set_security_headers(response):
+    """Attach security headers (CSP, HSTS, X-Frame-Options, etc.) to every response."""
     nonce = getattr(g, 'csp_nonce', '')
     response.headers.pop('Server', None)
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -301,6 +304,7 @@ IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.JPG', '.png', '.gif']
 
 
 def _find_image(code):
+    """Search for a parrot image file matching the status code across supported extensions."""
     for ext in IMAGE_EXTENSIONS:
         path = os.path.join('static', code + ext)
         if os.path.exists(path):
@@ -310,6 +314,7 @@ def _find_image(code):
 
 # Build caches at startup
 def _build_caches():
+    """Build startup caches: pruned status-code list and code-to-image lookup dict."""
     pruned = []
     image_map = {}
     for sc in status_code_list:
@@ -328,10 +333,12 @@ _name_cache = {sc.code: sc.name for sc in status_code_list}
 
 
 def pruned_status_codes():
+    """Return the cached list of status codes that have associated parrot images."""
     return _pruned_cache
 
 
 def find_image(code):
+    """Return the image filename for a status code, or None if not found."""
     return _image_cache.get(code)
 
 
@@ -1031,6 +1038,7 @@ def check_cors():
         results['actual'] = {'error': 'Could not connect'}
     # Analysis — extract CORS headers from whichever response returned them
     def _cors_header(section, name):
+        """Extract a CORS header value from the preflight or actual response."""
         return results.get(section, {}).get('headers', {}).get(name, '')
 
     acao = _cors_header('actual', 'Access-Control-Allow-Origin') or _cors_header('preflight', 'Access-Control-Allow-Origin')
@@ -1605,6 +1613,7 @@ def api_drip():
         return jsonify({"error": "numbytes must be between 1 and 10240."}), 400
 
     def _drip_generator():
+        """Yield byte chunks at timed intervals to simulate a slow drip response."""
         chunk_count = max(1, int(duration))
         bytes_per_chunk = max(1, numbytes // chunk_count)
         remainder = numbytes - (bytes_per_chunk * chunk_count)
@@ -1631,6 +1640,7 @@ def api_stream(n):
     codes = [sc.code for sc in pruned_status_codes()]
 
     def _stream_generator():
+        """Yield one JSON line per second for streaming simulation."""
         for i in range(n):
             line = json.dumps({
                 "id": i,
@@ -1914,6 +1924,7 @@ def api_diff():
     )
 
     def _code_detail(code, name, related):
+        """Build a detail dict for one side of a status code comparison."""
         info = STATUS_INFO.get(code, {})
         extra = STATUS_EXTRA.get(code, {})
         return {
