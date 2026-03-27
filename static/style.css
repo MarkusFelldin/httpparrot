@@ -2057,6 +2057,20 @@ body > main, body > .container-fluid { flex: 1; }
   font-weight: 700;
 }
 
+/* "When NOT to use" section — responsive mobile */
+@media (max-width: 576px) {
+  .dont-use-item {
+    padding: 0.6rem 0.85rem 0.6rem 2rem;
+    font-size: var(--text-sm);
+  }
+  .dont-use-list {
+    gap: 0.5rem;
+  }
+  .dont-use-section {
+    border-left-width: 2px;
+  }
+}
+
 /* Case Studies ("In the Wild") section */
 .case-studies-section {
   border-left: 3px solid color-mix(in srgb, var(--color-teal), transparent 50%);
@@ -3611,6 +3625,26 @@ body > main, body > .container-fluid { flex: 1; }
   padding: 4rem 2rem;
   color: rgba(255,255,255,0.25);
   font-size: var(--text-md);
+}
+.compare-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+.compare-empty-heading {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0 0 0.4rem;
+}
+.compare-empty-text {
+  font-size: 0.92rem;
+  color: rgba(255,255,255,0.35);
+  margin: 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
 }
 
 .compare-columns {
@@ -5997,6 +6031,7 @@ body {
   .fault-sim-try { background: rgba(0, 0, 0, 0.02); border-color: rgba(0, 0, 0, 0.08); }
   .fault-sim-try label { color: rgba(26, 26, 31, 0.65); }
   .fault-sim-try input { background: #ffffff; border-color: rgba(0, 0, 0, 0.1); color: #1a1a1f; }
+  .fault-sim-btn { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
   .fault-sim-result { background: #eeeef0; color: rgba(26, 26, 31, 0.75); }
   .fault-sim-progress { background: rgba(0, 0, 0, 0.06); }
 
@@ -6004,6 +6039,8 @@ body {
   .trace-hop pre { background: rgba(0, 0, 0, 0.03); color: rgba(26, 26, 31, 0.75); }
   .trace-hop-loc-value { color: #009d82; }
   .trace-hop-error-msg { color: #c83050; }
+  .trace-hop-final-badge { color: rgba(26, 26, 31, 0.55); }
+  .trace-chain { color: rgba(26, 26, 31, 0.8); }
 
   /* cURL import parsed breakdown & code export — light theme */
   .curl-method-head { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
@@ -6038,6 +6075,27 @@ body {
   .leitner-dist-label { color: rgba(26, 26, 31, 0.55); }
   .leitner-mastered-count { color: #009d82; }
   .review-caught-up { color: rgba(26, 26, 31, 0.55); }
+
+  /* Compare diff: remaining elements — light theme */
+  .compare-diff-label { color: rgba(26, 26, 31, 0.55); }
+  .compare-diff-arrow { color: rgba(26, 26, 31, 0.2); }
+  .compare-summary-text { color: rgba(26, 26, 31, 0.65); }
+  .compare-summary-box { background: rgba(0, 201, 167, 0.05); border-color: rgba(0, 201, 167, 0.15); }
+  .compare-empty-heading { color: rgba(26, 26, 31, 0.5); }
+  .compare-empty-text { color: rgba(26, 26, 31, 0.35); }
+
+  /* Headers page hero — light theme */
+  .headers-hero p { color: rgba(26, 26, 31, 0.5); }
+  .cors-label { color: rgba(26, 26, 31, 0.55); }
+
+  /* Playground body textarea — light theme */
+  .playground-body { background: #ffffff; border-color: rgba(0, 0, 0, 0.1); color: #1a1a1f; }
+
+  /* Webhook inspector: additional light theme polish */
+  .tester-loading { background: none; }
+
+  /* "When NOT to Use" section — light theme completeness */
+  .dont-use-list { gap: 0.5rem; }
 }
 
 /* === Easter egg: Barrel Roll === */
@@ -7392,6 +7450,7 @@ body {
 @media (max-width: 576px) {
   .bento-dashboard {
     grid-template-columns: 1fr;
+    overflow-x: hidden;
   }
   .bento-tile--potd { grid-column: span 1; }
   .bento-tile--potd .potd-link {
@@ -7404,6 +7463,9 @@ body {
   .bento-tools-grid { grid-template-columns: repeat(2, 1fr); }
   .bento-tile { min-height: 120px; }
   .bento-tool-link { min-height: 56px; }
+  /* Prevent any span 2 from breaking single-column layout */
+  .bento-dashboard > * { grid-column: span 1 !important; }
+  .bento-tile--potd { grid-column: span 1 !important; }
 }
 
 /* --- Weekly Challenge --- */
@@ -8176,18 +8238,45 @@ body {
     max-width: 100%;
   }
 
-  /* Bento dashboard: proper spacing at 320px */
+  /* Bento dashboard: proper spacing at 320-375px */
   .bento-dashboard {
+    grid-template-columns: 1fr;
     gap: 0.75rem;
     padding: 1rem 0;
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  .bento-dashboard > * {
+    grid-column: span 1 !important;
   }
   .bento-tile {
     padding: 1rem;
     min-height: 110px;
   }
+  .bento-tile--potd .potd-link {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .bento-tile--potd .potd-image {
+    width: 120px;
+  }
   .bento-tile--potd .potd-share-btn {
     width: calc(100% - 2rem);
     margin: 0 1rem 1rem;
+  }
+  .bento-tool-link {
+    min-height: 48px;
+    padding: 0.6rem 0.4rem;
+  }
+  .bento-streak-count {
+    font-size: 2rem;
+  }
+  .bento-tile-action {
+    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -8567,3 +8656,4 @@ body {
     height: 28px;
   }
 }
+

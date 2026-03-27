@@ -70,7 +70,12 @@
 
 {% block scripts %}
     <script nonce="{{ csp_nonce }}">
-    document.getElementById('print-btn').addEventListener('click', function() { window.print(); });
+    document.getElementById('print-btn').addEventListener('click', function() {
+        var btn = this;
+        btn.textContent = 'Opening print dialog...';
+        setTimeout(function() { btn.textContent = 'Print this page'; }, 2000);
+        window.print();
+    });
     </script>
     <script nonce="{{ csp_nonce }}">
     (function() {

@@ -200,8 +200,8 @@
             if (extra.code) {
                 var sec5 = el('div', 'compare-section');
                 sec5.appendChild(el('h3', 'compare-section-title', 'Code snippets'));
-                var langs = ['python', 'node', 'go'];
-                var langLabels = {python: 'Python', node: 'Node.js', go: 'Go'};
+                var langs = ['python', 'node', 'go', 'java', 'rust'];
+                var langLabels = {python: 'Python', node: 'Node.js', go: 'Go', java: 'Java', rust: 'Rust'};
                 langs.forEach(function(lang) {
                     if (extra.code[lang]) {
                         var snip = el('div', 'compare-snippet');
@@ -260,7 +260,12 @@
             while (summaryEl.firstChild) summaryEl.removeChild(summaryEl.firstChild);
 
             if (!a && !b) {
-                result.appendChild(el('div', 'compare-empty', 'Select two status codes above to compare them.'));
+                var emptyState = el('div', 'compare-empty');
+                var emptyIcon = el('div', 'compare-empty-icon', '\u2194');
+                emptyState.appendChild(emptyIcon);
+                emptyState.appendChild(el('h3', 'compare-empty-heading', 'Pick two codes to compare'));
+                emptyState.appendChild(el('p', 'compare-empty-text', 'Select status codes from the dropdowns above, or try one of the quick compare presets.'));
+                result.appendChild(emptyState);
                 return;
             }
 

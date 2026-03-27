@@ -88,6 +88,8 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"status": "ok"}), 200',
             "node": "res.status(200).json({ status: 'ok' });",
             "go": 'w.WriteHeader(http.StatusOK)\nw.Write([]byte("OK"))',
+            "java": 'return ResponseEntity.status(HttpStatus.OK).body(Map.of("status", "ok"));',
+            "rust": 'HttpResponse::Ok().json(serde_json::json!({"status": "ok"}))',
         },
         "eli5": "You asked for something and got exactly what you wanted. Like asking mom for a cookie and she hands you one right away. Everything worked perfectly!",
         "case_studies": [
@@ -122,6 +124,8 @@ STATUS_EXTRA = {
             "python": 'return jsonify(user), 201',
             "node": "res.status(201).json(newUser);",
             "go": "w.WriteHeader(http.StatusCreated)",
+            "java": 'return ResponseEntity.status(HttpStatus.CREATED).body(newUser);',
+            "rust": 'HttpResponse::Created().json(new_user)',
         },
         "eli5": "You asked someone to build you a LEGO house, and they did! Now there's a brand new LEGO house that didn't exist before. It was just created, fresh and new!",
         "case_studies": [
@@ -357,6 +361,8 @@ STATUS_EXTRA = {
             "python": "return redirect('https://new.example.com', code=301)",
             "node": "res.redirect(301, 'https://new.example.com');",
             "go": "http.Redirect(w, r, url, http.StatusMovedPermanently)",
+            "java": 'return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)\n    .header("Location", "https://new.example.com").build();',
+            "rust": 'HttpResponse::MovedPermanently()\n    .insert_header(("Location", "https://new.example.com")).finish()',
         },
         "eli5": "Your friend moved to a new house — forever! Now every time you want to visit them, you go to the new address. The old house has a sign on the door saying 'We moved to 123 New Street!'",
         "case_studies": [
@@ -576,6 +582,8 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"error": "Invalid input"}), 400',
             "node": "res.status(400).json({ error: 'Invalid input' });",
             "go": 'http.Error(w, "Bad Request", http.StatusBadRequest)',
+            "java": 'return ResponseEntity.status(HttpStatus.BAD_REQUEST)\n    .body(Map.of("error", "Invalid input"));',
+            "rust": 'HttpResponse::BadRequest().json(serde_json::json!({"error": "Invalid input"}))',
         },
         "eli5": "You tried to order a pizza but said 'I want a pizza with blarghhh topping.' The pizza place doesn't understand what you're asking for because it doesn't make sense!",
         "case_studies": [
@@ -610,6 +618,8 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"error": "Unauthorized"}), 401',
             "node": "res.status(401).json({ error: 'Unauthorized' });",
             "go": 'http.Error(w, "Unauthorized", http.StatusUnauthorized)',
+            "java": 'return ResponseEntity.status(HttpStatus.UNAUTHORIZED)\n    .body(Map.of("error", "Unauthorized"));',
+            "rust": 'HttpResponse::Unauthorized().json(serde_json::json!({"error": "Unauthorized"}))',
         },
         "eli5": "You try to walk into a secret clubhouse, but the guard says 'What's the password?' You don't know it, so you can't come in. Tell them who you are first!",
         "case_studies": [
@@ -666,6 +676,8 @@ STATUS_EXTRA = {
             "python": "abort(403)",
             "node": "res.status(403).json({ error: 'Forbidden' });",
             "go": 'http.Error(w, "Forbidden", http.StatusForbidden)',
+            "java": 'return ResponseEntity.status(HttpStatus.FORBIDDEN)\n    .body(Map.of("error", "Forbidden"));',
+            "rust": 'HttpResponse::Forbidden().json(serde_json::json!({"error": "Forbidden"}))',
         },
         "eli5": "The guard at the clubhouse knows exactly who you are, but says 'Sorry, you're not allowed in the VIP room.' You can see the door, but you're just not on the list!",
         "case_studies": [
@@ -700,6 +712,8 @@ STATUS_EXTRA = {
             "python": "abort(404)",
             "node": "res.status(404).json({ error: 'Not found' });",
             "go": 'http.NotFound(w, r)',
+            "java": 'return ResponseEntity.status(HttpStatus.NOT_FOUND)\n    .body(Map.of("error", "Not found"));',
+            "rust": 'HttpResponse::NotFound().json(serde_json::json!({"error": "Not found"}))',
         },
         "eli5": "Imagine you ask the librarian for a book, but that book doesn't exist in the library. The librarian shrugs and says 'Sorry, never heard of it!'",
         "case_studies": [
@@ -1126,6 +1140,8 @@ STATUS_EXTRA = {
             "python": 'return jsonify({"errors": {"email": "invalid"}}), 422',
             "node": "res.status(422).json({ errors: { email: 'invalid' } });",
             "go": "w.WriteHeader(http.StatusUnprocessableEntity)",
+            "java": 'return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)\n    .body(Map.of("errors", Map.of("email", "invalid")));',
+            "rust": 'HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY)\n    .json(serde_json::json!({"errors": {"email": "invalid"}}))',
         },
         "eli5": "Your homework has all the right words and good handwriting, but the answers are wrong. The teacher says 'I can read it just fine, but the content doesn't make sense!'",
         "case_studies": [
@@ -1438,6 +1454,8 @@ STATUS_EXTRA = {
             "python": "# Don't return 500 intentionally — Flask does it on unhandled exceptions",
             "node": "// Express returns 500 automatically on unhandled errors",
             "go": 'http.Error(w, "Internal Server Error", http.StatusInternalServerError)',
+            "java": 'return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)\n    .body(Map.of("error", "Internal Server Error"));',
+            "rust": 'HttpResponse::InternalServerError()\n    .json(serde_json::json!({"error": "Internal Server Error"}))',
         },
         "eli5": "The ice cream machine at the restaurant just broke. It's nobody's fault outside — something went wrong inside the machine. The worker says 'Sorry, something broke in the back. We're fixing it!'",
         "case_studies": [
@@ -1528,6 +1546,8 @@ STATUS_EXTRA = {
             "python": 'return "Service temporarily unavailable", 503',
             "node": "res.status(503).set('Retry-After', '300').send('Maintenance');",
             "go": 'w.Header().Set("Retry-After", "300")\nhttp.Error(w, "Service Unavailable", 503)',
+            "java": 'return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)\n    .header("Retry-After", "300").body("Service temporarily unavailable");',
+            "rust": 'HttpResponse::ServiceUnavailable()\n    .insert_header(("Retry-After", "300"))\n    .body("Service temporarily unavailable")',
         },
         "eli5": "Picture a restaurant so busy they put up a 'Please wait to be seated' sign. The kitchen is still there, just too slammed right now. Come back in a little bit!",
         "case_studies": [

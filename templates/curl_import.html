@@ -122,6 +122,14 @@
             color: #42a5f5;
             border-bottom-color: #42a5f5;
         }
+        @media (prefers-color-scheme: light) {
+            .curl-method-head { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+            .curl-method-options { background: rgba(0, 0, 0, 0.05); color: rgba(26, 26, 31, 0.6); border-color: rgba(0, 0, 0, 0.1); }
+            .curl-tab-bar { border-bottom-color: rgba(0, 0, 0, 0.08); }
+            .curl-tab { color: rgba(26, 26, 31, 0.45); }
+            .curl-tab:hover { color: rgba(26, 26, 31, 0.75); }
+            .curl-tab-active { color: #1565c0; border-bottom-color: #1565c0; }
+        }
     </style>
 {% endblock %}
 {% block scripts %}

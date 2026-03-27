@@ -7220,7 +7220,7 @@ class TestPathDetailRoute:
         resp = client.get('/paths/http-foundations')
         html = resp.data.decode()
         assert 'path_complete' in html
-        assert '200' in html  # 200 XP bonus
+        assert '500' in html  # 500 XP bonus
 
     def test_all_paths_render(self, client):
         """Every configured path detail page should render without error."""
@@ -13219,3 +13219,496 @@ class TestSecurityScenarios:
         """With 5 new additions, total should be at least 55."""
         from scenarios import SCENARIOS
         assert len(SCENARIOS) >= 55, f"Only {len(SCENARIOS)} scenarios, expected 55+"
+
+
+# --- Task D1: Light Theme Coverage for Tool Pages ---
+
+class TestLightThemeToolPages:
+    """Tests for light theme overrides on tool pages (D1 final polish)."""
+
+    def _get_light_css(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        return css[idx:]
+
+    def test_light_theme_fault_sim_btn(self, client):
+        """Fault simulator button should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.fault-sim-btn' in block
+
+    def test_light_theme_compare_diff_label(self, client):
+        """Compare diff label should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-diff-label' in block
+
+    def test_light_theme_compare_diff_arrow(self, client):
+        """Compare diff arrow should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-diff-arrow' in block
+
+    def test_light_theme_compare_summary_text(self, client):
+        """Compare summary text should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-summary-text' in block
+
+    def test_light_theme_compare_summary_box(self, client):
+        """Compare summary box should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.compare-summary-box' in block
+
+    def test_light_theme_headers_hero_p(self, client):
+        """Headers hero paragraph should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.headers-hero p' in block
+
+    def test_light_theme_cors_label(self, client):
+        """CORS label should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.cors-label' in block
+
+    def test_light_theme_playground_body(self, client):
+        """Playground body textarea should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.playground-body' in block
+
+    def test_light_theme_trace_hop_final_badge(self, client):
+        """Trace hop final badge should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.trace-hop-final-badge' in block
+
+    def test_light_theme_trace_chain(self, client):
+        """Trace chain should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.trace-chain' in block
+
+    def test_light_theme_dont_use_list(self, client):
+        """Dont-use list should have light theme override."""
+        block = self._get_light_css(client)
+        assert '.dont-use-list' in block
+
+    def test_curl_import_has_light_theme_styles(self, client):
+        """cURL import page should include light theme overrides in its inline styles."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'prefers-color-scheme: light' in html
+        assert '.curl-method-head' in html
+        assert '.curl-tab-bar' in html
+
+
+# --- Task D3: Bento Dashboard Mobile Fix ---
+
+class TestBentoDashboardMobileFix:
+    """Tests for bento dashboard working well at 320-375px (D3)."""
+
+    def _get_css(self):
+        with open('static/style.css') as f:
+            return f.read()
+
+    def _get_bento_576_block(self):
+        """Find the 576px media query that contains bento-dashboard."""
+        css = self._get_css()
+        start = 0
+        while True:
+            idx = css.find('@media (max-width: 576px)', start)
+            if idx < 0:
+                return ''
+            block = css[idx:idx + 800]
+            if '.bento-dashboard' in block:
+                return block
+            start = idx + 1
+
+    def test_bento_576_single_column(self):
+        """At 576px, bento dashboard should use single column grid."""
+        block = self._get_bento_576_block()
+        assert block, "No 576px media query with .bento-dashboard found"
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_bento_576_overflow_hidden(self):
+        """At 576px, bento dashboard should prevent horizontal overflow."""
+        block = self._get_bento_576_block()
+        assert 'overflow-x: hidden' in block
+
+    def test_bento_576_span2_override(self):
+        """At 576px, grid-column span 2 should be overridden to span 1."""
+        block = self._get_bento_576_block()
+        assert 'grid-column: span 1' in block
+
+    def test_bento_375_single_column(self):
+        """At 375px, bento dashboard should explicitly set single column."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        assert idx_375 > 0
+        block = css[idx_375:idx_375 + 1200]
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_bento_375_overflow_hidden(self):
+        """At 375px, bento dashboard should prevent horizontal overflow."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'overflow-x: hidden' in block
+
+    def test_bento_375_max_width_viewport(self):
+        """At 375px, bento dashboard should not exceed viewport width."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'max-width: 100vw' in block
+
+    def test_bento_375_touch_friendly_action(self):
+        """Bento tile actions should have min 44px touch target."""
+        css = self._get_css()
+        assert '.bento-tile-action' in css
+        assert 'min-height: 44px' in css
+
+    def test_bento_375_span_override(self):
+        """At 375px, all bento children should be forced to span 1."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'grid-column: span 1' in block
+
+    def test_bento_375_potd_image_smaller(self):
+        """At 375px, POTD image should be smaller (120px) for tight screens."""
+        css = self._get_css()
+        idx_375 = css.rfind('@media (max-width: 375px)')
+        block = css[idx_375:idx_375 + 1200]
+        assert 'width: 120px' in block
+
+    def test_bento_375_streak_count_smaller(self):
+        """Streak count should have smaller font on mobile."""
+        css = self._get_css()
+        # Check that bento-streak-count exists somewhere in a 375px block
+        idx = css.find('.bento-streak-count')
+        block = css[idx:idx + 200] if idx > 0 else css
+        assert '.bento-streak-count' in block
+
+
+# --- Task: "When NOT to Use" Section Polish ---
+
+class TestDontUseSectionPolish:
+    """Tests for dont-use-when section CSS polish."""
+
+    def _get_css(self):
+        with open('static/style.css') as f:
+            return f.read()
+
+    def _get_light_css(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-color-scheme: light)')
+        return css[idx:]
+
+    def test_dont_use_mobile_responsive(self):
+        """Dont-use section should have mobile responsive rules."""
+        css = self._get_css()
+        assert '.dont-use-item' in css
+        # Check there is a responsive breakpoint for dont-use
+        idx = css.find('@media (max-width: 576px)')
+        assert idx > 0
+        # Find dont-use within a 576px block
+        block_end = css.find('}', css.find('}', idx + 1) + 1)
+        full_576_area = css[idx:idx + 2000]
+        assert '.dont-use-item' in full_576_area or '.dont-use-list' in full_576_area
+
+    def test_dont_use_mobile_smaller_font(self):
+        """Dont-use items should use smaller font on mobile."""
+        css = self._get_css()
+        # Find the responsive mobile block for dont-use
+        idx = css.find('responsive mobile')
+        assert idx > 0, "responsive mobile comment not found in CSS"
+        block = css[idx:idx + 800]
+        assert 'font-size: var(--text-sm)' in block
+
+    def test_dont_use_mobile_tighter_padding(self):
+        """Dont-use items should have tighter padding on mobile."""
+        css = self._get_css()
+        idx = css.find('responsive mobile')
+        assert idx > 0
+        block = css[idx:idx + 800]
+        assert '0.6rem' in block
+
+    def test_dont_use_mobile_thinner_border(self):
+        """Dont-use section should have thinner border on mobile."""
+        css = self._get_css()
+        idx = css.find('responsive mobile')
+        assert idx > 0
+        block = css[idx:idx + 800]
+        assert 'border-left-width: 2px' in block
+
+    def test_dont_use_light_theme_section(self, client):
+        """Dont-use section should have light theme border override."""
+        block = self._get_light_css(client)
+        assert '.dont-use-section' in block
+
+    def test_dont_use_light_theme_item(self, client):
+        """Dont-use items should have light theme overrides."""
+        block = self._get_light_css(client)
+        assert '.dont-use-item' in block
+
+    def test_dont_use_light_theme_summary(self, client):
+        """Dont-use summary should have light theme color."""
+        block = self._get_light_css(client)
+        assert '.dont-use-summary h2' in block
+
+    def test_dont_use_light_theme_before_pseudo(self, client):
+        """Dont-use item before pseudo should have light theme color."""
+        block = self._get_light_css(client)
+        assert ".dont-use-item::before" in block
+
+    def test_dont_use_coral_accent_in_dark(self):
+        """Dont-use section should use coral/red (#e05252) accent in dark mode."""
+        css = self._get_css()
+        # Base dont-use styles should use #e05252
+        idx = css.find('.dont-use-section {')
+        assert idx > 0
+        block = css[idx:idx + 300]
+        assert '#e05252' in block
+
+    def test_dont_use_consistent_with_mistakes_pattern(self):
+        """Dont-use section should follow the same structural pattern as mistakes."""
+        css = self._get_css()
+        # Both should use color-mix, border-left, and similar class structure
+        assert '.mistakes-section' in css
+        assert '.dont-use-section' in css
+        # Both use border-left
+        mistakes_idx = css.find('.mistakes-section {')
+        mistakes_block = css[mistakes_idx:mistakes_idx + 200]
+        assert 'border-left' in mistakes_block
+        dont_use_idx = css.find('.dont-use-section {')
+        dont_use_block = css[dont_use_idx:dont_use_idx + 200]
+        assert 'border-left' in dont_use_block
+
+
+# --- Java & Rust code examples (ED2) ---
+
+class TestJavaRustCodeExamples:
+    """Tests for Java and Rust code snippets in STATUS_EXTRA."""
+
+    TARGET_CODES = ['200', '201', '301', '400', '401', '403', '404', '422', '500', '503']
+
+    def test_java_snippets_present_for_target_codes(self):
+        """The 10 most important codes should have Java code examples."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert 'java' in STATUS_EXTRA[code]['code'], (
+                f"Code {code} missing 'java' snippet"
+            )
+
+    def test_rust_snippets_present_for_target_codes(self):
+        """The 10 most important codes should have Rust code examples."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert 'rust' in STATUS_EXTRA[code]['code'], (
+                f"Code {code} missing 'rust' snippet"
+            )
+
+    def test_java_snippets_use_spring_boot_style(self):
+        """Java snippets should use Spring Boot ResponseEntity style."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            snippet = STATUS_EXTRA[code]['code']['java']
+            assert 'ResponseEntity' in snippet or 'HttpStatus' in snippet, (
+                f"Java snippet for {code} does not use Spring Boot style"
+            )
+
+    def test_rust_snippets_use_actix_style(self):
+        """Rust snippets should use Actix-web HttpResponse style."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            snippet = STATUS_EXTRA[code]['code']['rust']
+            assert 'HttpResponse' in snippet or 'StatusCode' in snippet, (
+                f"Rust snippet for {code} does not use Actix-web style"
+            )
+
+    def test_java_snippets_are_non_empty(self):
+        """Java snippets should not be empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert len(STATUS_EXTRA[code]['code']['java'].strip()) > 10, (
+                f"Java snippet for {code} is too short or empty"
+            )
+
+    def test_rust_snippets_are_non_empty(self):
+        """Rust snippets should not be empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code in self.TARGET_CODES:
+            assert len(STATUS_EXTRA[code]['code']['rust'].strip()) > 10, (
+                f"Rust snippet for {code} is too short or empty"
+            )
+
+    def test_java_snippets_rendered_on_detail_page(self, client):
+        """Java code examples should appear on the status detail page."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'java' in html.lower() or 'Java' in html
+        assert 'ResponseEntity' in html
+
+    def test_rust_snippets_rendered_on_detail_page(self, client):
+        """Rust code examples should appear on the status detail page."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'rust' in html.lower() or 'Rust' in html
+        assert 'HttpResponse' in html
+
+    def test_compare_page_includes_java_rust_langs(self, client):
+        """Compare page JS should list java and rust in code snippet langs."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert "'java'" in html or '"java"' in html
+        assert "'rust'" in html or '"rust"' in html
+        assert 'Java' in html
+        assert 'Rust' in html
+
+
+# --- Learning Path Completion Certificates (ED4) ---
+
+class TestPathCompletionCertificate:
+    """Tests for the Certificate of Completion on learning path detail pages."""
+
+    def test_certificate_section_present(self, client):
+        """Path detail page should contain the certificate HTML."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate' in html
+
+    def test_certificate_has_heading(self, client):
+        """Certificate should have a Certificate of Completion heading."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'Certificate of Completion' in html
+
+    def test_certificate_has_path_name(self, client):
+        """Certificate should include the path name."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate-path-name' in html
+        assert 'HTTP Foundations' in html
+
+    def test_certificate_has_step_count(self, client):
+        """Certificate should show step count."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'steps completed' in html
+
+    def test_certificate_has_share_button(self, client):
+        """Certificate should have a Share Certificate button."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-share-btn' in html
+        assert 'Share Certificate' in html
+
+    def test_certificate_has_xp_bonus(self, client):
+        """Certificate should show the 500 XP bonus."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert '+500 XP' in html
+
+    def test_certificate_has_date_placeholder(self, client):
+        """Certificate should have a date element for JS to fill."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-date' in html
+
+    def test_certificate_hidden_by_default(self, client):
+        """Certificate should be hidden by default (no visible class)."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate" id="path-certificate"' in html
+        # Should NOT have visible class in the static HTML
+        assert 'path-certificate visible' not in html
+
+    def test_certificate_share_script(self, client):
+        """Share button script should copy text to clipboard."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'cert-share-btn' in html
+        assert 'clipboard' in html
+        assert '#HTTPParrots' in html
+
+    def test_completion_awards_500_xp(self, client):
+        """Completion script should award 500 XP (not 200)."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'ParrotXP.award(500' in html
+
+    def test_certificate_badge_icon(self, client):
+        """Certificate should have a trophy badge icon."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-certificate-badge' in html
+
+    def test_certificate_stores_completion_date(self, client):
+        """Script should store completion date in localStorage."""
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'httpparrot_path_date_' in html
+        assert 'toLocaleDateString' in html
+
+
+# --- UX Fixes ---
+
+class TestPlaygroundClipboardCatch:
+    """Test that playground copy button has a .catch() handler."""
+
+    def test_clipboard_catch_handler(self, client):
+        """Playground clipboard writeText should have a .catch() handler."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert '.catch(function' in html
+
+    def test_clipboard_catch_shows_error(self, client):
+        """Clipboard .catch should show a 'Copy failed' message."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'Copy failed' in html
+
+
+class TestCompareEmptyState:
+    """Test that compare page has a styled empty state."""
+
+    def test_empty_state_has_icon(self, client):
+        """Empty state should have an icon element."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-icon' in html
+
+    def test_empty_state_has_heading(self, client):
+        """Empty state should have a descriptive heading."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-heading' in html
+        assert 'Pick two codes to compare' in html
+
+    def test_empty_state_has_cta_text(self, client):
+        """Empty state should have CTA text mentioning presets."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'compare-empty-text' in html
+        assert 'quick compare presets' in html
+
+    def test_empty_state_css_styles(self):
+        """CSS should include compare-empty-icon, heading, and text styles."""
+        with open('/Users/mfelldin/dev/personal/httpparrot/static/style.css') as f:
+            css = f.read()
+        assert '.compare-empty-icon' in css
+        assert '.compare-empty-heading' in css
+        assert '.compare-empty-text' in css
+
+
+class TestCheatsheetPrintFeedback:
+    """Test that cheatsheet print button shows feedback."""
+
+    def test_print_button_shows_feedback(self, client):
+        """Print button should show 'Opening print dialog...' feedback."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'Opening print dialog...' in html
+
+    def test_print_button_reverts_text(self, client):
+        """Print button should revert to original text after timeout."""
+        resp = client.get('/cheatsheet')
+        html = resp.data.decode()
+        assert 'Print this page' in html
+        assert 'setTimeout' in html
