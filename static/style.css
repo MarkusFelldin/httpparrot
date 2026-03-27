@@ -3098,6 +3098,75 @@ body > main, body > .container-fluid { flex: 1; }
 .docs-try-btn:hover { opacity: 0.85; }
 .docs-try-result { margin-top: 0.5rem; background: var(--bg-deep); border-radius: 8px; padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: var(--text-sm); color: rgba(255,255,255,0.7); overflow-x: auto; white-space: pre; line-height: 1.6; max-height: 300px; overflow-y: auto; }
 
+/* Fault Simulator */
+.fault-sim-try {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fault-sim-try label {
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 500;
+}
+.fault-sim-try input {
+  width: 80px;
+  padding: 0.35rem 0.5rem;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  background: var(--bg-deep);
+  color: var(--color-text);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+.fault-sim-btn {
+  padding: 0.4rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-purple), var(--color-blue));
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-in-out);
+  font-family: inherit;
+}
+.fault-sim-btn:hover { opacity: 0.85; }
+.fault-sim-btn:active { transform: scale(0.97); }
+.fault-sim-result {
+  margin-top: 0.5rem;
+  width: 100%;
+  background: var(--bg-deep);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.7);
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.fault-sim-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.fault-sim-progress-fill {
+  height: 100%;
+  background: var(--color-teal);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 @media (max-width: 480px) {
   .docs-container { padding: 1.5rem 1rem 3rem; }
   .docs-code { font-size: var(--text-xs); }
