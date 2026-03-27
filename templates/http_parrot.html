@@ -185,6 +185,24 @@
                 {% endfor %}
             </div>
             {% endif %}
+
+            {% if extra.case_studies %}
+            <details class="case-studies-section">
+                <summary class="case-studies-toggle">
+                    <h2>In the Wild</h2>
+                    <span class="case-studies-badge">{{ extra.case_studies|length }} case{{ 's' if extra.case_studies|length > 1 }}</span>
+                </summary>
+                <div class="case-studies-list">
+                    {% for cs in extra.case_studies %}
+                    <div class="case-study-card">
+                        <div class="case-study-api">{{ cs.api }}</div>
+                        <p class="case-study-scenario">{{ cs.scenario }}</p>
+                        <p class="case-study-lesson">{{ cs.lesson }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
         {% endif %}
 

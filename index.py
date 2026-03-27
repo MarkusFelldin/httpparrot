@@ -1227,12 +1227,55 @@ def api_security_audit():
     })
 
 
+def _levenshtein(a, b):
+    """Compute Levenshtein edit distance between two strings."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        curr = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            curr[j] = min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        prev = curr
+    return prev[len(b)]
+
+
+def _fuzzy_word_match(query, text, threshold=2):
+    """Check if query fuzzy-matches any word in text.
+
+    Supports word-prefix matching (e.g. "unauth" matches "unauthorized")
+    and Levenshtein distance within threshold.
+    """
+    import re
+    words = re.split(r'[\s\-_/]+', text)
+    for word in words:
+        # Word prefix match
+        if word.startswith(query):
+            return True
+        # Full Levenshtein match
+        if _levenshtein(query, word) <= threshold:
+            return True
+        # Prefix-length Levenshtein for partial queries
+        if len(query) >= 3 and len(word) > len(query):
+            sub = word[:len(query)]
+            if _levenshtein(query, sub) <= max(1, threshold // 2):
+                return True
+    return False
+
+
 @app.route('/api/search')
 def api_search():
     """Search status codes by code number, name, description, or keywords.
 
     Returns a JSON array of matching status codes with relevance scores.
     Query parameter: q (required).
+    Falls back to fuzzy matching (Levenshtein distance + word-prefix) when
+    exact matches return zero results.
     """
     query = request.args.get('q', '').strip().lower()
     if not query:
@@ -1282,6 +1325,23 @@ def api_search():
                 "description": info.get('description', ''),
                 "score": score,
             })
+
+    # Fuzzy fallback when exact matches return zero results
+    if not results and len(query) >= 2:
+        for sc in status_code_list:
+            code = sc.code
+            name = sc.name.lower()
+            info = STATUS_INFO.get(code, {})
+            description = info.get('description', '').lower()
+            text = name + ' ' + description
+            if _fuzzy_word_match(query, text):
+                results.append({
+                    "code": code,
+                    "name": sc.name,
+                    "description": info.get('description', ''),
+                    "score": 15,
+                    "fuzzy": True,
+                })
 
     results.sort(key=lambda r: (-r['score'], r['code']))
     return jsonify(results)

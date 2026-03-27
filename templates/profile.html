@@ -247,7 +247,7 @@
         ParrotXP.FEATHERS.forEach(function(f) {
             var card = document.createElement('div');
             var isEarned = earned.indexOf(f.id) !== -1;
-            card.className = 'feather-card ' + (isEarned ? 'earned' : 'locked');
+            card.className = 'feather-card ' + (isEarned ? 'earned' : 'locked') + (f.meta ? ' meta-feather' : '');
 
             var iconEl = document.createElement('span');
             iconEl.className = 'feather-card-icon';

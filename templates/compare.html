@@ -25,6 +25,7 @@
         <div class="compare-selectors">
             <div class="compare-select-wrap">
                 <label for="select-a" class="compare-select-label">Code A</label>
+                <input type="text" class="compare-search-input" id="compare-search-a" placeholder="Type to filter..." autocomplete="off" aria-label="Filter codes for Code A">
                 <select id="select-a" class="compare-select" aria-label="Select first status code">
                     <option value="">Choose a code...</option>
                     {% for c in code_list %}
@@ -35,6 +36,7 @@
             <button id="swap-codes" class="compare-swap-btn" aria-label="Swap codes" title="Swap codes">&#8646;</button>
             <div class="compare-select-wrap">
                 <label for="select-b" class="compare-select-label">Code B</label>
+                <input type="text" class="compare-search-input" id="compare-search-b" placeholder="Type to filter..." autocomplete="off" aria-label="Filter codes for Code B">
                 <select id="select-b" class="compare-select" aria-label="Select second status code">
                     <option value="">Choose a code...</option>
                     {% for c in code_list %}
@@ -362,6 +364,36 @@
 
         /* Initial render */
         update();
+
+        /* Fuzzy search filter for select dropdowns */
+        function setupSelectFilter(inputId, selectId) {
+            var input = document.getElementById(inputId);
+            var select = document.getElementById(selectId);
+            if (!input || !select) return;
+            var options = select.querySelectorAll('option');
+
+            input.addEventListener('input', function() {
+                var q = input.value.toLowerCase().trim();
+                var firstMatch = '';
+                options.forEach(function(opt) {
+                    if (!opt.value) { opt.style.display = ''; return; } /* keep placeholder */
+                    var text = opt.textContent.toLowerCase();
+                    var show = false;
+                    if (!q) {
+                        show = true;
+                    } else if (text.indexOf(q) !== -1) {
+                        show = true;
+                    } else if (typeof ParrotSearch !== 'undefined' && ParrotSearch.fuzzyMatch(q, text)) {
+                        show = true;
+                    }
+                    opt.style.display = show ? '' : 'none';
+                    if (show && !firstMatch && opt.value) firstMatch = opt.value;
+                });
+            });
+        }
+
+        setupSelectFilter('compare-search-a', 'select-a');
+        setupSelectFilter('compare-search-b', 'select-b');
     })();
     </script>
 {% endblock %}

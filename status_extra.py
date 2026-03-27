@@ -66,6 +66,10 @@ STATUS_EXTRA = {
             "go": 'w.WriteHeader(http.StatusOK)\nw.Write([]byte("OK"))',
         },
         "eli5": "You asked for something and got exactly what you wanted. Like asking mom for a cookie and she hands you one right away. Everything worked perfectly!",
+        "case_studies": [
+            {"api": "Most REST APIs", "scenario": "Standard successful GET response", "lesson": "Always check the body — some APIs return 200 with error objects"},
+            {"api": "Stripe", "scenario": "Successful charge returns 200 with charge object", "lesson": "Even a 200 may contain a 'failure_code' field inside the body — always inspect nested status"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Returning 200 with an error body like {\"error\": \"not found\"}",
@@ -90,6 +94,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusCreated)",
         },
         "eli5": "You asked someone to build you a LEGO house, and they did! Now there's a brand new LEGO house that didn't exist before. It was just created, fresh and new!",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Creating a repository returns 201 with the repo object and Location header", "lesson": "Always return the created resource and a Location header so the client knows where to find it"},
+            {"api": "Stripe", "scenario": "Creating a customer or subscription returns 201", "lesson": "Idempotency keys prevent duplicate creates — use them with POST/201 flows"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Returning 201 without a Location header pointing to the new resource",
@@ -142,6 +150,9 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusNoContent)",
         },
         "eli5": "You asked your friend to throw away your drawing, and they did. But they just nod silently — there's nothing to hand back to you because, well, it's gone!",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Successful DELETE returns 204 with no body", "lesson": "If the client needs confirmation details like a timestamp, use 200 with a body instead"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Including a response body with 204",
@@ -248,6 +259,10 @@ STATUS_EXTRA = {
             "go": "http.Redirect(w, r, url, http.StatusMovedPermanently)",
         },
         "eli5": "Your friend moved to a new house — forever! Now every time you want to visit them, you go to the new address. The old house has a sign on the door saying 'We moved to 123 New Street!'",
+        "case_studies": [
+            {"api": "URL shorteners (bit.ly)", "scenario": "Short URL permanently redirects to destination", "lesson": "Browsers cache 301s aggressively — use 302 if the redirect might change"},
+            {"api": "Google Search", "scenario": "Follows 301s and transfers PageRank to the new URL", "lesson": "Use 301 for domain migrations to preserve SEO rankings"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 301 for temporary moves",
@@ -272,6 +287,9 @@ STATUS_EXTRA = {
             "go": "http.Redirect(w, r, \"/login\", http.StatusFound)",
         },
         "eli5": "You go to the toy store but it's closed for painting. There's a note saying 'Go to our other store down the street for today!' Tomorrow they'll be back here though.",
+        "case_studies": [
+            {"api": "OAuth providers (Google, GitHub)", "scenario": "Redirect to authorization server, then back to callback URL with 302", "lesson": "OAuth flows rely on 302 — using 301 would cause the browser to skip the authorization server on future logins"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 302 when you mean 301 (permanent redirect)",
@@ -310,6 +328,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusNotModified)",
         },
         "eli5": "You ask your teacher 'Did the homework change since yesterday?' and the teacher says 'Nope, same as before!' So you just use the copy you already have.",
+        "case_studies": [
+            {"api": "CDNs (Cloudflare, Fastly)", "scenario": "Browser sends If-None-Match with ETag, CDN responds 304", "lesson": "ETags and If-None-Match save bandwidth dramatically for static assets — always enable them"},
+            {"api": "GitHub API", "scenario": "Conditional requests with If-None-Match don't count against rate limits", "lesson": "Use conditional requests to reduce API rate limit consumption on frequently polled endpoints"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Including a body in a 304 response",
@@ -398,6 +420,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Bad Request", http.StatusBadRequest)',
         },
         "eli5": "You tried to order a pizza but said 'I want a pizza with blarghhh topping.' The pizza place doesn't understand what you're asking for because it doesn't make sense!",
+        "case_studies": [
+            {"api": "Stripe", "scenario": "Invalid card number or missing required field returns 400 with detailed error object", "lesson": "Include machine-readable error codes alongside human-readable messages so clients can programmatically handle specific failures"},
+            {"api": "Slack API", "scenario": "Malformed JSON or missing token returns 400", "lesson": "Validate request bodies early and return clear error messages — don't let bad data reach your business logic"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 400 as a catch-all for any client error",
@@ -422,6 +448,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Unauthorized", http.StatusUnauthorized)',
         },
         "eli5": "You try to walk into a secret clubhouse, but the guard says 'What's the password?' You don't know it, so you can't come in. Tell them who you are first!",
+        "case_studies": [
+            {"api": "GitHub API", "scenario": "Missing or expired OAuth token returns 401 with WWW-Authenticate header", "lesson": "Implement token refresh flows so users don't have to re-login constantly"},
+            {"api": "AWS S3", "scenario": "Expired or invalid signature returns 401", "lesson": "Clock skew between client and server is a common cause of surprise 401s — sync NTP"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 401 when the user IS authenticated but lacks permission",
@@ -460,6 +490,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Forbidden", http.StatusForbidden)',
         },
         "eli5": "The guard at the clubhouse knows exactly who you are, but says 'Sorry, you're not allowed in the VIP room.' You can see the door, but you're just not on the list!",
+        "case_studies": [
+            {"api": "AWS IAM", "scenario": "IAM policy denies access to an S3 bucket", "lesson": "Return enough context for the user to know which permission they need — 'Access Denied' alone is frustrating to debug"},
+            {"api": "GitHub API", "scenario": "Trying to push to a repo you can only read returns 403", "lesson": "Distinguish 403 from 404 carefully — 403 confirms the resource exists, which may be a security leak"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 403 to hide the existence of a resource",
@@ -484,6 +518,10 @@ STATUS_EXTRA = {
             "go": 'http.NotFound(w, r)',
         },
         "eli5": "Imagine you ask the librarian for a book, but that book doesn't exist in the library. The librarian shrugs and says 'Sorry, never heard of it!'",
+        "case_studies": [
+            {"api": "Twitter/X API", "scenario": "Requesting a deleted tweet returns 404", "lesson": "Consider using 410 Gone if the resource was deliberately deleted — it tells clients to stop looking"},
+            {"api": "REST APIs generally", "scenario": "GET /users/12345 when user doesn't exist", "lesson": "Return a structured error body with 404 — just the status code alone doesn't help the caller understand what was missing"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Returning 404 for validation errors",
@@ -507,6 +545,9 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)',
         },
         "eli5": "You try to open a door by pushing, but there's a big sign that says 'PULL ONLY.' The door is right there, but you're doing it the wrong way!",
+        "case_studies": [
+            {"api": "REST APIs generally", "scenario": "POST to a read-only collection endpoint", "lesson": "Always include the Allow header so clients know which methods are accepted"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Returning 405 without the Allow header listing valid methods",
@@ -572,6 +613,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Conflict", http.StatusConflict)',
         },
         "eli5": "Two people tried to edit the same document at the same time and now there's a conflict about whose changes to keep. It's like two kids grabbing the last toy at the same time!",
+        "case_studies": [
+            {"api": "Git hosting (GitHub/GitLab)", "scenario": "Merge conflict when pushing a branch that diverged", "lesson": "Use ETags or version numbers with conditional requests (If-Match) to detect conflicts before they happen"},
+            {"api": "Kubernetes API", "scenario": "Concurrent edits to the same resource return 409 with resourceVersion mismatch", "lesson": "Optimistic concurrency with resource versions avoids locking while still preventing lost updates"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Using 400 instead of 409 for duplicate resource conflicts",
@@ -853,6 +898,11 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Retry-After", "60")\nhttp.Error(w, "Too Many Requests", 429)',
         },
         "eli5": "You keep asking 'Are we there yet? Are we there yet? Are we there yet?' so many times that your parents finally say 'STOP ASKING! Wait 5 minutes before you ask again!'",
+        "case_studies": [
+            {"api": "Twitter/X API", "scenario": "Rate limit exceeded, returns Retry-After header", "lesson": "Always implement exponential backoff, never hammer a 429"},
+            {"api": "GitHub API", "scenario": "60 unauthenticated requests/hour, 5000 authenticated", "lesson": "Check X-RateLimit-Remaining headers proactively to avoid hitting limits at all"},
+            {"api": "Shopify API", "scenario": "Leaky bucket rate limiter returns 429 with Retry-After", "lesson": "Different rate limit algorithms (fixed window, sliding window, leaky bucket) require different backoff strategies"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Not including a Retry-After header",
@@ -972,6 +1022,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Internal Server Error", http.StatusInternalServerError)',
         },
         "eli5": "The ice cream machine at the restaurant just broke. It's nobody's fault outside — something went wrong inside the machine. The worker says 'Sorry, something broke in the back. We're fixing it!'",
+        "case_studies": [
+            {"api": "Any production service", "scenario": "Unhandled exception crashes the request handler", "lesson": "Never expose stack traces to end users — log them server-side and return a generic error with a request ID for debugging"},
+            {"api": "AWS Lambda", "scenario": "Function throws unhandled error, API Gateway returns 500", "lesson": "Wrap Lambda handlers in try/catch and return proper 4xx/5xx — unhandled errors give callers no useful information"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Catching all exceptions and returning 500 with the stack trace",
@@ -1010,6 +1064,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Bad Gateway", http.StatusBadGateway)',
         },
         "eli5": "You tell your big sister to ask mom for a cookie. Your sister goes to mom, but mom says something confusing that doesn't make sense. Your sister comes back and says 'I tried, but I got a weird answer!'",
+        "case_studies": [
+            {"api": "Cloudflare", "scenario": "Origin server is down, CDN returns 502", "lesson": "502 means the gateway is working but the upstream server isn't — check your origin, not the CDN"},
+            {"api": "AWS ALB", "scenario": "Target group has no healthy instances, ALB returns 502", "lesson": "Set up health checks and auto-scaling so there is always at least one healthy backend to route to"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Returning 502 from application code",
@@ -1034,6 +1092,10 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Retry-After", "300")\nhttp.Error(w, "Service Unavailable", 503)',
         },
         "eli5": "Picture a restaurant so busy they put up a 'Please wait to be seated' sign. The kitchen is still there, just too slammed right now. Come back in a little bit!",
+        "case_studies": [
+            {"api": "Heroku", "scenario": "Dyno overload or boot timeout returns 503", "lesson": "Include a Retry-After header so clients know when to come back instead of hammering retries"},
+            {"api": "GitHub", "scenario": "Planned maintenance returns 503 with maintenance page", "lesson": "Use 503 for temporary downtime, not permanent removal — search engines treat 503 as 'come back later'"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Not including a Retry-After header",
@@ -1058,6 +1120,10 @@ STATUS_EXTRA = {
             "go": "// Set http.Server.ReadTimeout and WriteTimeout",
         },
         "eli5": "You ask your sister to ask mom for a cookie, but mom is taking a nap and won't wake up. Your sister waits and waits, and finally gives up and says 'Sorry, mom didn't answer in time!'",
+        "case_studies": [
+            {"api": "Nginx", "scenario": "proxy_read_timeout exceeded waiting for upstream, returns 504", "lesson": "Tune timeouts per-endpoint — a report generation endpoint needs a longer timeout than a health check"},
+            {"api": "AWS API Gateway", "scenario": "Lambda function exceeds 29-second integration timeout", "lesson": "For long-running operations, return 202 Accepted with a polling URL instead of blocking until completion"},
+        ],
         "common_mistakes": [
             {
                 "mistake": "Confusing 504 with 408 (Request Timeout)",

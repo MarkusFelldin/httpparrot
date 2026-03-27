@@ -134,6 +134,7 @@
                 </div>
             {% endfor %}
         </div>
+        <div id="fuzzy-indicator" class="fuzzy-indicator" role="status" aria-live="polite" style="display:none;">Showing fuzzy matches</div>
         <div id="no-results" class="no-results" role="status" aria-live="polite">
             No parrots found matching your search.
         </div>
@@ -175,9 +176,14 @@
         const dropdown = document.getElementById('filter-dropdown');
         const potdSection = document.getElementById('potd-section');
 
+        const fuzzyIndicator = document.getElementById('fuzzy-indicator');
+
         function filterCards() {
             const q = searchEl.value.toLowerCase().trim();
             let visible = 0;
+            let isFuzzy = false;
+
+            /* First pass: exact substring match */
             cards.forEach(function(card) {
                 const code = card.dataset.code;
                 const name = card.dataset.name;
@@ -188,7 +194,24 @@
                 card.style.display = show ? '' : 'none';
                 if (show) visible++;
             });
+
+            /* Fuzzy fallback when exact match returns zero results */
+            if (q && visible === 0 && typeof ParrotSearch !== 'undefined') {
+                cards.forEach(function(card) {
+                    const code = card.dataset.code;
+                    const name = card.dataset.name;
+                    const catMatch = activeCat === 'all' || code[0] === activeCat;
+                    const desc = card.dataset.desc || '';
+                    var fuzzyHit = ParrotSearch.fuzzyMatch(q, code + ' ' + name + ' ' + desc);
+                    const show = catMatch && fuzzyHit;
+                    card.style.display = show ? '' : 'none';
+                    if (show) visible++;
+                });
+                if (visible > 0) isFuzzy = true;
+            }
+
             noResults.style.display = visible ? 'none' : 'block';
+            fuzzyIndicator.style.display = (isFuzzy && visible > 0) ? '' : 'none';
             /* Hide dashboard when filtering or searching */
             if (potdSection) {
                 potdSection.style.display = (q || activeCat !== 'all') ? 'none' : '';

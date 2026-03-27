@@ -59,6 +59,7 @@
         <!-- Compact grid view (hidden by default, populated by JS) -->
         <div class="cheat-compact-grid" id="cheat-compact-view" style="display:none;"></div>
 
+        <div id="cheat-fuzzy-indicator" class="fuzzy-indicator" role="status" aria-live="polite" style="display:none;">Showing fuzzy matches</div>
         <div id="cheat-no-results" class="cheat-no-results" role="status" aria-live="polite">No status codes match your search.</div>
 
         <div class="cheat-print-btn">
@@ -112,23 +113,28 @@
             compactView.appendChild(a);
         });
 
-        function filterAll() {
-            var q = searchEl.value.toLowerCase().trim();
-            var visibleCount = 0;
+        var cheatFuzzyIndicator = document.getElementById('cheat-fuzzy-indicator');
 
+        function filterItems(q, useFuzzy) {
+            var visibleCount = 0;
             if (isCompact) {
-                /* Filter compact items */
                 compactView.querySelectorAll('.cheat-compact-item').forEach(function(item) {
                     var code = item.dataset.code;
                     var name = item.dataset.name;
                     var catMatch = activeCat === 'all' || code.startsWith(activeCat[0]);
-                    var searchMatch = !q || code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                    var searchMatch;
+                    if (!q) {
+                        searchMatch = true;
+                    } else if (useFuzzy && typeof ParrotSearch !== 'undefined') {
+                        searchMatch = ParrotSearch.fuzzyMatch(q, code + ' ' + name);
+                    } else {
+                        searchMatch = code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                    }
                     var show = catMatch && searchMatch;
                     item.style.display = show ? '' : 'none';
                     if (show) visibleCount++;
                 });
             } else {
-                /* Filter table rows and categories */
                 var categories = tableView.querySelectorAll('.cheat-category');
                 categories.forEach(function(cat) {
                     var catCode = cat.dataset.category;
@@ -143,15 +149,36 @@
                     rows.forEach(function(tr) {
                         var code = tr.dataset.code;
                         var name = tr.dataset.name;
-                        var searchMatch = !q || code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                        var searchMatch;
+                        if (!q) {
+                            searchMatch = true;
+                        } else if (useFuzzy && typeof ParrotSearch !== 'undefined') {
+                            searchMatch = ParrotSearch.fuzzyMatch(q, code + ' ' + name);
+                        } else {
+                            searchMatch = code.indexOf(q) !== -1 || name.indexOf(q) !== -1;
+                        }
                         tr.style.display = searchMatch ? '' : 'none';
                         if (searchMatch) { catVisible++; visibleCount++; }
                     });
                     if (catVisible === 0) cat.style.display = 'none';
                 });
             }
+            return visibleCount;
+        }
+
+        function filterAll() {
+            var q = searchEl.value.toLowerCase().trim();
+            var visibleCount = filterItems(q, false);
+            var isFuzzy = false;
+
+            /* Fuzzy fallback when exact match returns zero results */
+            if (q && visibleCount === 0) {
+                visibleCount = filterItems(q, true);
+                if (visibleCount > 0) isFuzzy = true;
+            }
 
             noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+            cheatFuzzyIndicator.style.display = (isFuzzy && visibleCount > 0) ? '' : 'none';
         }
 
         searchEl.addEventListener('input', filterAll);

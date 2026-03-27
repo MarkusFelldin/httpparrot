@@ -9,7 +9,8 @@ import requests
 
 from index import (app, _rate_limit, _run_security_checks, _score_to_grade,
                    _webhook_bins, _WEBHOOK_BIN_TTL, _WEBHOOK_BIN_MAX_REQUESTS,
-                   is_rate_limited, linkify_rfcs, resolve_and_validate)
+                   is_rate_limited, linkify_rfcs, resolve_and_validate,
+                   _levenshtein, _fuzzy_word_match)
 
 
 @pytest.fixture
@@ -4667,15 +4668,17 @@ class TestFeatherBadges:
         assert 'FEATHERS' in html
         assert 'httpparrot_feathers' in html
 
-    def test_all_15_badges_defined(self, client):
-        """All 15 feather badge IDs should appear in the base template."""
+    def test_all_22_badges_defined(self, client):
+        """All 22 feather badge IDs (16 base + 6 meta) should appear in the base template."""
         resp = client.get('/')
         html = resp.data.decode()
         badge_ids = [
             'first_flight', 'quiz_whiz', 'perfect_10', 'streak_starter',
             'on_fire', 'centurion', 'wing_commander', 'completionist',
             'error_expert', 'server_sage', 'egg_hunter', 'scholar',
-            'night_owl', 'speed_demon', 'frozen_solid'
+            'night_owl', 'speed_demon', 'frozen_solid', 'memory_master',
+            'explorer', 'polyglot', 'streak_lord', 'triple_threat',
+            'full_spectrum', 'parrot_polymath'
         ]
         for badge_id in badge_ids:
             assert badge_id in html, f"Badge '{badge_id}' not found in base template"
@@ -8911,3 +8914,295 @@ class TestNextUpRecommender:
         assert '.bento-nextup' in css
         assert '.bento-nextup-message' in css
         assert '.bento-nextup-sub' in css
+
+
+class TestMetaFeathers:
+    """Verify Meta-Feather achievements are defined and check conditions present."""
+
+    META_FEATHERS = [
+        {'id': 'explorer', 'name': 'Explorer', 'bonus': 150},
+        {'id': 'polyglot', 'name': 'Polyglot', 'bonus': 200},
+        {'id': 'streak_lord', 'name': 'Streak Lord', 'bonus': 250},
+        {'id': 'triple_threat', 'name': 'Triple Threat', 'bonus': 300},
+        {'id': 'full_spectrum', 'name': 'Full Spectrum', 'bonus': 250},
+        {'id': 'parrot_polymath', 'name': 'Parrot Polymath', 'bonus': 500},
+    ]
+
+    def test_all_meta_feather_ids_defined(self, client):
+        """All 6 meta-feather IDs should appear in the base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        for mf in self.META_FEATHERS:
+            assert mf['id'] in html, f"Meta-feather '{mf['id']}' not found"
+
+    def test_meta_feathers_have_meta_flag(self, client):
+        """Meta-feathers should have meta: true in their definition."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        for mf in self.META_FEATHERS:
+            assert f"id: '{mf['id']}'" in html
+        assert 'meta: true' in html
+
+    def test_meta_feather_bonus_xp_values(self, client):
+        """Meta-feathers should have higher bonus XP (150-500)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        for mf in self.META_FEATHERS:
+            assert f"bonus: {mf['bonus']}" in html, \
+                f"Meta-feather '{mf['id']}' should have bonus: {mf['bonus']}"
+
+    def test_explorer_check_condition(self, client):
+        """Explorer should check parrotdex for codes starting with 1,2,3,4,5."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('explorer')" in html
+        assert "charAt(0) === '1'" in html
+        assert "charAt(0) === '2'" in html
+        assert "charAt(0) === '3'" in html
+        assert "charAt(0) === '4'" in html
+        assert "charAt(0) === '5'" in html
+
+    def test_polyglot_check_condition(self, client):
+        """Polyglot should check activity log for quiz, practice, debug, review."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('polyglot')" in html
+        assert "'quiz_correct'" in html
+        assert "'practice_correct'" in html
+        assert "'debug_correct'" in html
+        assert "'review_correct'" in html
+
+    def test_streak_lord_check_condition(self, client):
+        """Streak Lord should check milestonesHit for 30."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('streak_lord')" in html
+        assert "milestonesHit" in html
+        assert "indexOf(30)" in html
+
+    def test_triple_threat_check_condition(self, client):
+        """Triple Threat should require quiz_whiz + scholar + memory_master."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('triple_threat')" in html
+        assert "'quiz_whiz'" in html
+        assert "'scholar'" in html
+        assert "'memory_master'" in html
+
+    def test_full_spectrum_check_condition(self, client):
+        """Full Spectrum should require error_expert + server_sage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('full_spectrum')" in html
+        assert "'error_expert'" in html
+        assert "'server_sage'" in html
+
+    def test_parrot_polymath_check_condition(self, client):
+        """Parrot Polymath should require 12 base feathers, excluding meta."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('parrot_polymath')" in html
+        assert "baseCount >= 12" in html
+        assert "META_IDS" in html
+
+    def test_meta_ids_list_defined(self, client):
+        """META_IDS array should list all meta-feather IDs."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "META_IDS" in html
+        assert "'explorer'" in html
+        assert "'polyglot'" in html
+        assert "'streak_lord'" in html
+        assert "'triple_threat'" in html
+        assert "'full_spectrum'" in html
+        assert "'parrot_polymath'" in html
+
+    def test_meta_feather_css_gold_border(self, client):
+        """Meta-feathers should have gold border CSS styling."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-card.meta-feather' in css
+        assert '#ffd700' in css
+
+    def test_meta_feather_earned_gold_glow(self, client):
+        """Earned meta-feathers should have a gold glow effect."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-card.meta-feather.earned' in css
+        assert 'box-shadow' in css
+
+    def test_profile_adds_meta_feather_class(self, client):
+        """Profile script should add meta-feather class for meta badges."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'meta-feather' in html
+        assert 'f.meta' in html
+
+    def test_meta_feather_names_in_template(self, client):
+        """All meta-feather display names should appear in the template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        names = ['Explorer', 'Polyglot', 'Streak Lord', 'Triple Threat',
+                 'Full Spectrum', 'Parrot Polymath']
+        for name in names:
+            assert name in html, f"Meta-feather name '{name}' not found"
+
+    def test_meta_feather_descriptions(self, client):
+        """All meta-feather descriptions should appear in the template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        descriptions = [
+            'Visit at least one code from each category (1xx-5xx)',
+            'Use quiz, practice, debug, AND review modes',
+            'Hit the 30-day streak milestone',
+            'Earn Quiz Whiz + Scholar + Memory Master',
+            'Earn Error Expert + Server Sage',
+            'Earn any 12 base feathers',
+        ]
+        for desc in descriptions:
+            assert desc in html, f"Description '{desc}' not found"
+
+    def test_meta_feather_icons_distinct(self, client):
+        """Each meta-feather should have a distinct icon escape sequence."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Icons are stored as JS unicode escape sequences in the template
+        icon_escapes = [
+            '\\uD83C\\uDF0D',  # Explorer - globe
+            '\\uD83D\\uDD00',  # Polyglot - shuffle
+            '\\uD83D\\uDC51',  # Streak Lord - crown
+            '\\uD83D\\uDD31',  # Triple Threat - trident
+            '\\uD83C\\uDF08',  # Full Spectrum - rainbow
+            '\\uD83E\\uDDA9',  # Parrot Polymath - flamingo
+        ]
+        for esc in icon_escapes:
+            assert esc in html, f"Meta-feather icon escape '{esc}' not found"
+
+
+# --- Case Studies ("In the Wild") feature ---
+
+class TestCaseStudies:
+    def test_case_studies_section_appears_on_page_with_data(self, client):
+        """Pages with case_studies data should render the In the Wild section."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'case-studies-section' in html
+        assert 'In the Wild' in html
+
+    def test_case_study_card_structure(self, client):
+        """Each case study card should have api, scenario, and lesson elements."""
+        resp = client.get('/429')
+        html = resp.get_data(as_text=True)
+        assert 'case-study-card' in html
+        assert 'case-study-api' in html
+        assert 'case-study-scenario' in html
+        assert 'case-study-lesson' in html
+
+    def test_case_study_content_rendered(self, client):
+        """The actual case study text should appear in the rendered HTML."""
+        resp = client.get('/429')
+        html = resp.get_data(as_text=True)
+        assert 'Twitter/X API' in html
+        assert 'exponential backoff' in html
+
+    def test_case_studies_absent_on_page_without_data(self, client):
+        """Pages without case_studies data should not show the section."""
+        resp = client.get('/100')
+        html = resp.get_data(as_text=True)
+        assert 'case-studies-section' not in html
+        assert 'case-study-card' not in html
+
+    def test_at_least_15_codes_have_case_studies(self):
+        """At least 15 status codes should have case_studies in STATUS_EXTRA."""
+        from status_extra import STATUS_EXTRA
+        codes_with_studies = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'case_studies' in data and len(data['case_studies']) > 0
+        ]
+        assert len(codes_with_studies) >= 15, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 15"
+        )
+
+    def test_case_studies_structure(self):
+        """Each case_studies entry should have 'api', 'scenario', and 'lesson' keys."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'case_studies' in data:
+                for entry in data['case_studies']:
+                    assert 'api' in entry, f"Missing 'api' key in {code}"
+                    assert 'scenario' in entry, f"Missing 'scenario' key in {code}"
+                    assert 'lesson' in entry, f"Missing 'lesson' key in {code}"
+
+    def test_case_studies_badge_count(self, client):
+        """Badge should show correct count of case studies."""
+        resp = client.get('/429')
+        html = resp.get_data(as_text=True)
+        assert 'case-studies-badge' in html
+        assert '3 cases' in html
+
+    def test_case_studies_collapsible(self, client):
+        """The case studies section should use a details/summary for collapsibility."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert '<details class="case-studies-section">' in html
+        assert '<summary' in html
+
+    def test_case_studies_css_styles_present(self, client):
+        """CSS should have case studies styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.case-studies-section' in css
+        assert '.case-study-card' in css
+        assert '.case-study-api' in css
+        assert '.case-study-lesson' in css
+        assert '.case-studies-badge' in css
+
+
+# --- Mobile Polish CSS ---
+
+class TestMobilePolishCSS:
+    def test_compare_columns_stacks_at_768(self, client):
+        """Compare columns should stack to 1fr at 768px breakpoint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-columns' in css
+        # The stacking rule should exist somewhere in a 768px media query
+        assert 'grid-template-columns: 1fr' in css
+
+    def test_playground_stacks_at_768(self, client):
+        """Playground builder/preview should stack at 768px."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.playground-layout' in css
+
+    def test_profile_heatmap_scrollable(self, client):
+        """Profile heatmap should have overflow-x: auto for mobile scrollability."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'overflow-x: auto' in css
+        assert '.profile-heatmap-container' in css
+
+    def test_filter_pills_touch_targets(self, client):
+        """Filter pills should have 44px minimum touch targets in 768px query."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.cheat-filter-pills .cheat-compact-btn' in css or '.cheat-compact-btn' in css
+        assert 'min-height: 44px' in css
+
+    def test_normalized_breakpoints_576(self, client):
+        """CSS should use 576px as the standard small breakpoint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '576px' in css
+
+    def test_normalized_breakpoints_768(self, client):
+        """CSS should use 768px as the standard tablet breakpoint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'max-width: 768px' in css
+
+    def test_normalized_breakpoints_992(self, client):
+        """CSS should use 992px as the standard desktop breakpoint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'max-width: 992px' in css
