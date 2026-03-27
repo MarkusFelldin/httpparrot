@@ -44,24 +44,6 @@
     <main id="main-content" class="container-fluid parrot-grid" role="main">
         <!-- Bento Dashboard -->
         <section class="bento-dashboard" id="bento-dashboard" aria-label="Dashboard">
-            <!-- Parrot of the Day tile (spans 2 cols) -->
-            <div class="bento-tile bento-tile--potd" id="potd-section">
-                <div class="bento-tile-badge">Parrot of the Day</div>
-                <a href="/{{ featured }}" class="potd-link" aria-label="Parrot of the Day: {{ featured }} {{ featured_description }}">
-                    <div class="potd-image">
-                        <img src="/static/{{ featured_image }}" alt="{{ featured }} {{ featured_description }}" width="600" height="500" fetchpriority="high">
-                    </div>
-                    <div class="potd-info">
-                        <div class="potd-code category-{{ featured[0] }}xx">{{ featured }}</div>
-                        <div class="potd-name">{{ featured_description }}</div>
-                        {% if featured_fun_fact %}
-                        <p class="potd-fun-fact">{{ featured_fun_fact }}</p>
-                        {% endif %}
-                    </div>
-                </a>
-                <button class="potd-share-btn" id="potd-share" title="Share today's parrot" aria-label="Share today's parrot">Share today's parrot</button>
-            </div>
-
             <!-- Daily Challenge tile -->
             <div class="bento-tile bento-tile--daily" id="bento-daily">
                 <div class="bento-tile-header">

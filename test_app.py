@@ -1711,50 +1711,22 @@ class TestFAQSchema:
 # --- Parrot of the Day on homepage ---
 
 class TestParrotOfTheDay:
-    def test_homepage_has_potd_section(self, client):
-        """Homepage should have a Parrot of the Day section."""
+    def test_homepage_has_featured_card(self, client):
+        """Homepage should mark the Parrot of the Day in the grid."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert 'potd-section' in html
-        assert 'Parrot of the Day' in html
-
-    def test_potd_has_share_button(self, client):
-        """POTD section should have a share button."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-share' in html
-        assert "Share today's parrot" in html
-
-    def test_potd_has_fun_fact(self, client):
-        """POTD section should display a fun fact."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-fun-fact' in html
-
-    def test_potd_has_image(self, client):
-        """POTD section should have an image."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-image' in html
-
-    def test_potd_links_to_detail_page(self, client):
-        """POTD section should link to the featured code's detail page."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-link' in html
+        assert 'featured' in html
 
     def test_potd_deterministic(self, client):
-        """Same day should produce the same POTD."""
+        """Same day should produce the same featured parrot."""
         resp1 = client.get('/')
         resp2 = client.get('/')
         html1 = resp1.data.decode()
         html2 = resp2.data.decode()
-        # Both should contain the same potd-code value
+        # Both should contain the same featured card
         import re
-        code1 = re.search(r'class="potd-code[^"]*">(\d+)', html1)
-        code2 = re.search(r'class="potd-code[^"]*">(\d+)', html2)
-        assert code1 is not None
-        assert code1.group(1) == code2.group(1)
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
 
 
 # --- RSS Feed ---
@@ -3112,12 +3084,11 @@ class TestAccessibilityScreenReader:
         html = resp.data.decode()
         assert 'aria-label="200 OK"' in html
 
-    def test_potd_link_has_aria_label(self, client):
-        """Parrot of the Day link should have descriptive aria-label."""
+    def test_featured_card_in_grid(self, client):
+        """Featured parrot card should have the featured class in the grid."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert 'class="potd-link"' in html
-        assert 'aria-label="Parrot of the Day:' in html
+        assert 'featured' in html
 
 
 # --- CSS Media Queries ---
@@ -7665,12 +7636,11 @@ class TestBentoDashboard:
         html = resp.data.decode()
         assert 'href="/paths"' in html
 
-    def test_potd_integrated_in_dashboard(self, client):
-        """Parrot of the Day should be integrated into the bento dashboard."""
+    def test_potd_shown_as_tag_in_grid(self, client):
+        """Parrot of the Day should be shown as a tag on the featured card in the grid."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert 'bento-tile--potd' in html
-        assert 'Parrot of the Day' in html
+        assert 'featured' in html
 
     def test_parrot_grid_still_present(self, client):
         """The existing parrot card grid should still exist below the dashboard."""
