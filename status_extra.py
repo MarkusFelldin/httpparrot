@@ -104,6 +104,12 @@ STATUS_EXTRA = {
                 "consequence": "Breaks HTTP caching, proxies, and browser built-in error handling. Clients must parse the body to detect failures.",
             },
         ],
+        "dont_use_when": [
+            "The request created a new resource — use 201 Created instead",
+            "The action was accepted but not yet completed — use 202 Accepted instead",
+            "The request succeeded but there is no body to return — use 204 No Content instead",
+            "There was an error but you want to hide it in the response body — use the proper 4xx or 5xx code",
+        ],
     },
     "201": {
         "examples": [
@@ -131,6 +137,12 @@ STATUS_EXTRA = {
                 "mistake": "Using 201 for idempotent operations that return an existing resource",
                 "consequence": "201 means 'created something new.' If the resource already existed, use 200 or 409 instead.",
             },
+        ],
+        "dont_use_when": [
+            "The resource already existed and was returned as-is — use 200 OK instead",
+            "The creation is asynchronous and hasn't completed yet — use 202 Accepted instead",
+            "A PUT or PATCH updated an existing resource — use 200 OK instead",
+            "The request conflicted with an existing resource — use 409 Conflict instead",
         ],
     },
     "202": {
@@ -204,6 +216,12 @@ STATUS_EXTRA = {
                 "mistake": "Using 204 when the client needs confirmation details",
                 "consequence": "Clients get no feedback about what happened. Use 200 with a body if the client needs to know specifics like a timestamp or ID.",
             },
+        ],
+        "dont_use_when": [
+            "The client needs confirmation details like a timestamp or modified resource — use 200 OK with a body",
+            "A new resource was created — use 201 Created with a Location header",
+            "The operation is asynchronous — use 202 Accepted with a job status URL",
+            "The resource was not found to delete — use 404 Not Found instead",
         ],
     },
     "205": {
@@ -355,6 +373,12 @@ STATUS_EXTRA = {
                 "consequence": "Most browsers change POST to GET on 301 redirect, losing the request body. Use 308 to preserve the method.",
             },
         ],
+        "dont_use_when": [
+            "The redirect is temporary — use 302 Found or 307 Temporary Redirect instead",
+            "You need to preserve POST/PUT method across the redirect — use 308 Permanent Redirect instead",
+            "You're redirecting after a form submission (PRG pattern) — use 303 See Other instead",
+            "The URL shortener destination might change — use 302 to avoid permanent browser caching",
+        ],
     },
     "302": {
         "examples": [
@@ -381,6 +405,12 @@ STATUS_EXTRA = {
                 "mistake": "Creating redirect loops (A -> B -> A)",
                 "consequence": "Browsers will detect the loop and show an error. Always verify redirect targets don't point back.",
             },
+        ],
+        "dont_use_when": [
+            "The move is permanent — use 301 Moved Permanently for SEO and caching benefits",
+            "You need to preserve the POST method — use 307 Temporary Redirect instead (302 may change POST to GET)",
+            "You are redirecting after a POST form submission — use 303 See Other (explicit POST-to-GET semantics)",
+            "The API endpoint moved permanently and must preserve the method — use 308 Permanent Redirect",
         ],
     },
     "303": {
@@ -451,6 +481,10 @@ STATUS_EXTRA = {
             "go": '// Deprecated — most clients ignore 305 for security reasons',
         },
         "eli5": "You want to talk to the principal, but the secretary says 'You can't go directly — you have to go through your teacher first.' You need a middleman to get there.",
+        "case_studies": [
+            {"api": "Legacy corporate proxies", "scenario": "Internal network appliances returned 305 to force clients through a caching proxy for bandwidth management and content filtering", "lesson": "305 is deprecated and ignored by modern browsers due to security concerns — an attacker could redirect traffic through a malicious proxy"},
+            {"api": "Squid proxy (historical)", "scenario": "Squid's access controls once used 305 to redirect clients to an authenticated proxy endpoint before allowing external access", "lesson": "Use explicit proxy configuration (PAC files or WPAD) instead of 305 — no modern client honors this status code"},
+        ],
     },
     "306": {
         "examples": [
@@ -495,6 +529,12 @@ STATUS_EXTRA = {
                 "mistake": "Using 302 instead of 307 for POST redirects",
                 "consequence": "302 lets browsers change POST to GET, losing the request body. 307 guarantees the method is preserved.",
             },
+        ],
+        "dont_use_when": [
+            "The move is permanent — use 308 Permanent Redirect to preserve the method permanently",
+            "You want the client to switch to GET — use 303 See Other for explicit method change semantics",
+            "The resource has not moved but the client needs to re-authenticate — use 401 Unauthorized instead",
+            "You are doing a permanent domain migration — use 301 to signal search engines to update their indexes",
         ],
     },
     "308": {
@@ -552,6 +592,12 @@ STATUS_EXTRA = {
                 "consequence": "Clients have no idea how to fix their request. Always include a clear error message or validation details.",
             },
         ],
+        "dont_use_when": [
+            "The user is not authenticated — use 401 Unauthorized instead",
+            "The user is authenticated but lacks permission — use 403 Forbidden instead",
+            "The request is well-formed but fails business validation — use 422 Unprocessable Entity instead",
+            "The requested resource doesn't exist — use 404 Not Found instead",
+        ],
     },
     "401": {
         "examples": [
@@ -580,6 +626,12 @@ STATUS_EXTRA = {
                 "consequence": "The HTTP spec requires WWW-Authenticate with 401. Without it, clients don't know what auth scheme to use.",
             },
         ],
+        "dont_use_when": [
+            "The user IS authenticated but lacks permission — use 403 Forbidden instead",
+            "The user's subscription or payment expired — use 402 Payment Required instead",
+            "You want to hide the resource's existence from unauthenticated users — use 404 Not Found instead",
+            "The user is rate limited — use 429 Too Many Requests instead",
+        ],
     },
     "402": {
         "examples": [
@@ -597,6 +649,10 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Stripe API", "scenario": "Stripe uses 402 when a payment fails during checkout — the response body contains detailed decline codes for the client to display", "lesson": "Include machine-readable decline codes and human-readable messages so the client can show appropriate next steps like 'try another card'"},
             {"api": "SaaS APIs (Slack, GitHub)", "scenario": "GitHub returns 402 when a repository feature requires a paid plan upgrade", "lesson": "402 was originally reserved for future use but is now widely adopted for paywall and subscription enforcement — include an upgrade URL in the response"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Using 402 as a generic 'access denied' instead of specifically for payment issues", "consequence": "Clients and monitoring tools interpret 402 as a billing problem. Using it for non-payment access control confuses automated retry logic and billing dashboards."},
+            {"mistake": "Not including upgrade URL or pricing information in the 402 response body", "consequence": "Users hit a paywall with no way forward. Include a link to the pricing page or upgrade endpoint so they can resolve the issue without contacting support."},
         ],
     },
     "403": {
@@ -626,6 +682,12 @@ STATUS_EXTRA = {
                 "consequence": "401 means 'who are you?' (not authenticated). 403 means 'I know who you are, but you can't do this' (not authorized).",
             },
         ],
+        "dont_use_when": [
+            "The user is not authenticated at all — use 401 Unauthorized instead",
+            "You want to hide that the resource exists — use 404 Not Found to avoid leaking information",
+            "The content is blocked for legal reasons — use 451 Unavailable For Legal Reasons instead",
+            "The user's request is malformed — use 400 Bad Request instead",
+        ],
     },
     "404": {
         "examples": [
@@ -653,6 +715,12 @@ STATUS_EXTRA = {
                 "mistake": "Returning a 200 with a 'not found' message instead of 404",
                 "consequence": "Search engines index the error page as real content. Monitoring misses the failure. Use the proper status code.",
             },
+        ],
+        "dont_use_when": [
+            "The resource existed before but was permanently deleted — use 410 Gone instead",
+            "The user lacks permission to access the resource — use 403 Forbidden (or 404 to hide existence)",
+            "The URL is valid but the HTTP method is wrong — use 405 Method Not Allowed instead",
+            "The user is not authenticated — use 401 Unauthorized instead",
         ],
     },
     "405": {
@@ -725,6 +793,10 @@ STATUS_EXTRA = {
             {"api": "Squid proxy", "scenario": "Corporate networks using Squid require NTLM or Basic proxy auth before any outbound HTTP traffic is allowed", "lesson": "407 is from the proxy, not the origin server — debug by checking proxy logs, not application logs"},
             {"api": "Charles / Fiddler (debugging proxies)", "scenario": "Developer debugging proxies return 407 when configured with authentication, confusing developers who forget the proxy is intercepting", "lesson": "If you see 407 in development, check if a debugging proxy (Charles, Fiddler, mitmproxy) is running with auth enabled"},
         ],
+        "common_mistakes": [
+            {"mistake": "Confusing 407 (proxy auth) with 401 (origin auth) and debugging the wrong server", "consequence": "Developers waste hours debugging their application server when the 407 is coming from a corporate proxy. Check the response headers — 407 uses Proxy-Authenticate, not WWW-Authenticate."},
+            {"mistake": "Not handling 407 in HTTP client libraries that go through corporate proxies", "consequence": "Applications work in development but fail in corporate environments. Configure proxy credentials in your HTTP client or environment variables (HTTP_PROXY, HTTPS_PROXY)."},
+        ],
     },
     "408": {
         "examples": [
@@ -780,6 +852,12 @@ STATUS_EXTRA = {
                 "mistake": "Not explaining how to resolve the conflict in the response body",
                 "consequence": "Clients get 'conflict' but don't know what conflicted or how to fix it. Include the conflicting field or resource version.",
             },
+        ],
+        "dont_use_when": [
+            "The request body itself is malformed — use 400 Bad Request instead",
+            "The resource simply doesn't exist — use 404 Not Found instead",
+            "The request fails validation rules — use 422 Unprocessable Entity instead",
+            "The client needs to retry with different credentials — use 401 or 403 instead",
         ],
     },
     "410": {
@@ -868,6 +946,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)',
         },
         "eli5": "You tried to stuff a giant teddy bear into a tiny mailbox. The mailbox says 'That's way too big! Bring something smaller!'",
+        "case_studies": [
+            {"api": "Nginx", "scenario": "Nginx returns 413 when the request body exceeds client_max_body_size, which defaults to 1MB — a frequent surprise for file upload endpoints", "lesson": "Always configure client_max_body_size explicitly and return the limit in the error body so clients know what size is acceptable"},
+            {"api": "AWS API Gateway", "scenario": "API Gateway enforces a 10MB payload limit and returns 413 for Lambda proxy integrations that exceed it", "lesson": "For large payloads, use presigned S3 upload URLs instead of passing data through API Gateway — it avoids the 10MB hard limit entirely"},
+        ],
         "common_mistakes": [
             {"mistake": "Not telling the client what the size limit is in the error response", "consequence": "Clients know the body was too big but not how big is allowed. Include the maximum allowed size so they can resize and retry."},
             {"mistake": "Returning 413 for requests that could be split into smaller chunks", "consequence": "Consider supporting chunked uploads or multipart uploads for large files instead of hard-rejecting with 413."},
@@ -949,6 +1031,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Expectation Failed", http.StatusExpectationFailed)',
         },
         "eli5": "You told the bouncer 'I expect VIP treatment when I walk in.' The bouncer says 'Nope, can't promise that.' Your expectations didn't match what they can deliver!",
+        "case_studies": [
+            {"api": "cURL / libcurl", "scenario": "cURL sends Expect: 100-continue by default for large POST bodies — servers that don't support it return 417, causing the upload to fail unexpectedly", "lesson": "If you see 417 from a server, disable the Expect header with curl -H 'Expect:' or handle the fallback by sending the body after a short timeout"},
+            {"api": "IIS (Internet Information Services)", "scenario": "Older versions of IIS return 417 for any request with an Expect header, even Expect: 100-continue, breaking many HTTP client libraries", "lesson": "Test your API against IIS specifically if clients use Expect headers — many enterprise environments still run legacy IIS versions that reject the header outright"},
+        ],
     },
     "418": {
         "examples": [
@@ -984,6 +1070,10 @@ STATUS_EXTRA = {
             "go": '// Non-standard; consider using 403 or 440 instead',
         },
         "eli5": "You were playing a video game and walked away for too long. When you came back, the game kicked you out and said 'Your session expired — start over!' Your hall pass timed out.",
+        "case_studies": [
+            {"api": "Laravel (PHP framework)", "scenario": "Laravel returns 419 when a form submission has a missing or expired CSRF token, which commonly happens when users leave a form open overnight", "lesson": "Implement token refresh via AJAX or show a user-friendly 'session expired' message with a reload button instead of a raw 419 error page"},
+            {"api": "WordPress plugins", "scenario": "Some WordPress security plugins return 419 for expired nonces on admin AJAX actions, breaking dashboard functionality after idle sessions", "lesson": "419 is non-standard — if you need CSRF expiry semantics, consider using 403 with a descriptive body for broader client compatibility"},
+        ],
     },
     "420": {
         "examples": [
@@ -998,6 +1088,10 @@ STATUS_EXTRA = {
             "go": '// Non-standard; prefer 429 Too Many Requests',
         },
         "eli5": "You're bouncing off the walls with too much energy and someone tells you to chill out. 'Enhance your calm!' Take a deep breath and slow down a little.",
+        "case_studies": [
+            {"api": "Twitter API v1 (historical)", "scenario": "Twitter's original API returned 420 Enhance Your Calm for rate-limited requests before HTTP 429 was standardized in RFC 6585", "lesson": "420 was a creative non-standard choice, but once 429 Too Many Requests was standardized, Twitter migrated to it — always prefer standardized codes"},
+            {"api": "Spring Framework", "scenario": "Spring's HttpStatus.METHOD_FAILURE (420) was used internally for method-level failures before being deprecated in favor of standard 4xx codes", "lesson": "Non-standard codes create confusion for monitoring tools and client libraries — use 429 for rate limiting and appropriate 4xx codes for other client errors"},
+        ],
     },
     "421": {
         "examples": [
@@ -1012,6 +1106,14 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Misdirected Request", http.StatusMisdirectedRequest)',
         },
         "eli5": "You wrote a letter to Grandma but accidentally mailed it to Grandpa's house. Grandpa says 'This isn't for me — you sent it to the wrong place!'",
+        "case_studies": [
+            {"api": "Cloudflare / HTTP/2 connection coalescing", "scenario": "When HTTP/2 connection coalescing routes a request to a server whose TLS certificate doesn't cover the requested hostname, the server returns 421", "lesson": "421 is the correct response when a server receives a request it cannot authoritatively handle — clients should retry on a new connection to the correct server"},
+            {"api": "Apache httpd (mod_ssl)", "scenario": "Apache returns 421 when SNI-based virtual hosting routes a request to a vhost whose SSL certificate doesn't match the Host header", "lesson": "Ensure all hostnames sharing an IP have proper TLS certificates or use SAN certificates — 421 errors often indicate TLS misconfiguration in multi-tenant setups"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Returning 421 when the issue is actually a DNS or routing misconfiguration rather than a misdirected request", "consequence": "421 specifically means the server cannot produce a response for the target URI on the current connection. Use 502 or 503 for backend routing problems."},
+            {"mistake": "Not retrying on a new connection after receiving 421 from an HTTP/2 server", "consequence": "421 means the connection was reused incorrectly. The client should open a fresh connection to the correct server — the request itself is valid."},
+        ],
     },
     "422": {
         "examples": [
@@ -1040,6 +1142,12 @@ STATUS_EXTRA = {
                 "consequence": "Clients can't programmatically show field-level errors. Include a machine-readable error object like {\"errors\": {\"field\": \"reason\"}}.",
             },
         ],
+        "dont_use_when": [
+            "The request body itself is malformed (invalid JSON syntax) — use 400 Bad Request instead",
+            "The request conflicts with existing data (duplicate username) — use 409 Conflict instead",
+            "The request is well-formed and valid but the user lacks permission — use 403 Forbidden instead",
+            "The endpoint or resource doesn't exist — use 404 Not Found instead",
+        ],
     },
     "423": {
         "examples": [
@@ -1054,6 +1162,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Locked", 423)',
         },
         "eli5": "Someone else is already using the bathroom and the door is locked. You'll have to wait until they're done before you can go in!",
+        "case_studies": [
+            {"api": "Microsoft SharePoint (WebDAV)", "scenario": "SharePoint returns 423 when a document is checked out by another user, preventing concurrent edits that could cause data loss", "lesson": "Always include lock owner and lock timeout information in the 423 response so clients can display who holds the lock and when it expires"},
+            {"api": "Subversion (SVN)", "scenario": "SVN servers return 423 when a commit targets a path that is locked by another working copy, enforcing exclusive write access", "lesson": "Implement lock timeouts and forced unlock capabilities for administrators — stale locks from crashed clients can block entire teams"},
+        ],
     },
     "424": {
         "examples": [
@@ -1067,6 +1179,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Failed Dependency", 424)',
         },
         "eli5": "You can't ice the cake because the oven broke and the cake never got baked. Step two failed because step one didn't work out. One domino knocked the other one down!",
+        "case_studies": [
+            {"api": "CalDAV / CardDAV servers", "scenario": "A bulk calendar update via PROPPATCH returns 424 for properties that couldn't be set because a prerequisite property change in the same request failed", "lesson": "424 tells the client which operations were skipped due to an earlier failure — include the dependency chain in the response so clients know what to fix first"},
+            {"api": "Microsoft Graph API (batch requests)", "scenario": "Batch requests to Microsoft Graph return 424 for dependent requests when a prerequisite request in the batch fails", "lesson": "When designing batch APIs, clearly document dependency ordering — 424 should identify which prior request caused the cascade so clients can retry intelligently"},
+        ],
     },
     "425": {
         "examples": [
@@ -1084,6 +1200,10 @@ STATUS_EXTRA = {
             {"api": "Cloudflare / TLS 1.3", "scenario": "TLS 1.3 0-RTT early data can be replayed by attackers — servers return 425 to reject state-changing requests sent in early data", "lesson": "Never allow POST, PUT, or DELETE in TLS 0-RTT early data — replay attacks could duplicate transactions like payments"},
             {"api": "CDN edge servers", "scenario": "Edge servers reject early data for non-idempotent requests to prevent replay-based cache poisoning", "lesson": "Use 425 as a signal to retry the request after the full TLS handshake completes — the request itself is fine, just the timing was wrong"},
         ],
+        "common_mistakes": [
+            {"mistake": "Allowing state-changing requests (POST, PUT, DELETE) in TLS 1.3 0-RTT early data", "consequence": "Early data can be replayed by attackers, potentially duplicating payments or creating duplicate resources. Only allow idempotent GET/HEAD in 0-RTT."},
+            {"mistake": "Not implementing automatic retry after receiving 425", "consequence": "425 means 'try again after the full handshake' — clients that don't retry automatically will fail on the first request of every new TLS 1.3 connection."},
+        ],
     },
     "426": {
         "examples": [
@@ -1098,6 +1218,10 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Upgrade", "TLS/1.2")\nhttp.Error(w, "Upgrade Required", 426)',
         },
         "eli5": "You're trying to talk through a tin-can telephone, but the other person says 'Get a real phone first, then call me!' You need to upgrade your equipment before they'll talk to you.",
+        "case_studies": [
+            {"api": "Let's Encrypt / ACME protocol", "scenario": "ACME servers return 426 with Upgrade: TLS/1.2 when clients attempt certificate issuance over plain HTTP or outdated TLS versions", "lesson": "426 with the Upgrade header tells clients exactly which protocol to use — always include the required protocol version so automated clients can adapt"},
+            {"api": "WebSocket endpoints", "scenario": "REST endpoints that only accept WebSocket connections return 426 when accessed via plain HTTP, indicating the client must upgrade to WebSocket", "lesson": "Return 426 with Upgrade: websocket and Connection: Upgrade headers to guide HTTP clients toward the correct protocol for real-time endpoints"},
+        ],
     },
     "428": {
         "examples": [
@@ -1154,6 +1278,12 @@ STATUS_EXTRA = {
                 "mistake": "Rate limiting without providing rate limit headers (X-RateLimit-Remaining, etc.)",
                 "consequence": "Clients can't proactively slow down before hitting the limit. Good APIs tell you how many requests you have left.",
             },
+        ],
+        "dont_use_when": [
+            "The server is overloaded and cannot process any requests — use 503 Service Unavailable instead",
+            "The user's account is suspended or banned — use 403 Forbidden instead",
+            "The request is malformed or invalid — use 400 Bad Request instead",
+            "The user needs to pay to continue — use 402 Payment Required instead",
         ],
     },
     "431": {
@@ -1214,6 +1344,10 @@ STATUS_EXTRA = {
             "go": "// Non-standard; only relevant to Microsoft/Windows environments",
         },
         "eli5": "Your parents set up parental controls on the computer, and when you try to visit a website, the screen says 'Nope, your parents blocked this!' Grounded from the internet.",
+        "case_studies": [
+            {"api": "Microsoft Windows Family Safety", "scenario": "Windows Family Safety intercepts HTTP requests and returns 450 when a child account tries to access a blocked website category", "lesson": "450 is Microsoft-specific and not part of any HTTP standard — if you see it, it's coming from a Windows content filter, not your origin server"},
+            {"api": "Microsoft ISA Server / TMG", "scenario": "Microsoft's Threat Management Gateway used 450 to block content categories like gambling or adult content for managed network users", "lesson": "Unlike 403 which comes from the origin, 450 comes from a client-side proxy — troubleshoot by checking local Windows parental control or network filter settings"},
+        ],
     },
     "451": {
         "examples": [
@@ -1288,6 +1422,10 @@ STATUS_EXTRA = {
             {"api": "Nginx access logs", "scenario": "Nginx logs 499 when a user navigates away from a slow page before the backend finishes generating the response", "lesson": "High 499 rates in Nginx logs indicate slow backend responses — investigate backend latency, not Nginx configuration"},
             {"api": "AWS ALB + Nginx", "scenario": "ALB idle timeout (60s default) closes connections to Nginx backends, which logs these as 499 client-closed-request", "lesson": "Set Nginx proxy_read_timeout higher than ALB idle timeout, or use keep-alive to prevent ALB from closing connections prematurely"},
         ],
+        "common_mistakes": [
+            {"mistake": "Ignoring high 499 rates in Nginx logs because they seem like a client problem", "consequence": "499 spikes usually indicate slow backend responses, not impatient users. Investigate backend latency and optimize slow endpoints before blaming clients."},
+            {"mistake": "Setting Nginx proxy_read_timeout lower than the load balancer's idle timeout", "consequence": "The load balancer closes the connection before Nginx finishes, generating 499s. Nginx timeouts should always exceed the upstream load balancer's idle timeout."},
+        ],
     },
     "500": {
         "examples": [
@@ -1315,6 +1453,12 @@ STATUS_EXTRA = {
                 "mistake": "Using 500 for expected errors like invalid input",
                 "consequence": "500 means something broke on the server. If the client sent bad data, use 4xx. False 500s trigger on-call alerts and mask real outages.",
             },
+        ],
+        "dont_use_when": [
+            "The client sent invalid data — use 400 Bad Request or 422 Unprocessable Entity instead",
+            "An upstream/backend server failed — use 502 Bad Gateway instead",
+            "The server is temporarily overloaded — use 503 Service Unavailable with Retry-After",
+            "A dependency timed out — use 504 Gateway Timeout instead",
         ],
     },
     "501": {
@@ -1400,6 +1544,12 @@ STATUS_EXTRA = {
                 "consequence": "503 implies 'try again later.' If the service is gone for good, use 410 (Gone) or remove the endpoint entirely.",
             },
         ],
+        "dont_use_when": [
+            "The server crashed due to a bug — use 500 Internal Server Error instead",
+            "An upstream server returned an invalid response — use 502 Bad Gateway instead",
+            "An upstream server timed out — use 504 Gateway Timeout instead",
+            "The client is sending too many requests — use 429 Too Many Requests instead",
+        ],
     },
     "504": {
         "examples": [
@@ -1483,6 +1633,10 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Google Drive / Dropbox", "scenario": "Uploading a file when the user's storage quota is full returns 507", "lesson": "Include the current usage and quota limit in the error response so the user knows exactly how much space they need to free up"},
             {"api": "Exchange / SharePoint (WebDAV)", "scenario": "Mailbox or document library exceeds its storage quota, returning 507 on write operations", "lesson": "Set up monitoring and alerts for storage quotas well before they fill up — a 507 means writes are already failing"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Using 507 for application-level quota limits (like API request quotas) instead of actual storage exhaustion", "consequence": "507 specifically means the server cannot store the representation needed to complete the request. Use 429 for rate limits and 403 for quota-based access denial."},
+            {"mistake": "Not including storage usage and quota details in the 507 error response", "consequence": "Users see 'insufficient storage' but don't know how much space they have or need. Include current_usage, quota_limit, and required_space in the response body."},
         ],
     },
     "508": {

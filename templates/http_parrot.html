@@ -272,6 +272,21 @@
         </div>
         {% endif %}
 
+        {% if extra and extra.dont_use_when %}
+        <div class="detail-info dont-use-section">
+            <details>
+                <summary class="detail-section dont-use-summary">
+                    <h2>When NOT to use this code</h2>
+                </summary>
+                <ul class="dont-use-list">
+                    {% for reason in extra.dont_use_when %}
+                    <li class="dont-use-item">{{ reason }}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </div>
+        {% endif %}
+
         <nav class="detail-nav" aria-label="Status code navigation">
             <div class="detail-nav-side">
                 {% if prev_code %}

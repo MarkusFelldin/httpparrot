@@ -5594,7 +5594,7 @@ class TestScenarioData:
 
     def test_scenario_categories_valid(self):
         from scenarios import SCENARIOS
-        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design', 'security'}
         for s in SCENARIOS:
             assert 'category' in s, f"Scenario {s['id']} missing category"
             assert s['category'] in valid_cats, \
@@ -9476,7 +9476,7 @@ class TestCaseStudies:
 
     def test_case_studies_absent_on_page_without_data(self, client):
         """Pages without case_studies data should not show the section."""
-        resp = client.get('/305')
+        resp = client.get('/414')
         html = resp.get_data(as_text=True)
         assert 'case-studies-section' not in html
         assert 'case-study-card' not in html
@@ -12498,3 +12498,724 @@ class TestStatusCodesJsonContextProcessor:
         # Spot-check a few codes from different categories
         for code in ['100', '200', '301', '404', '500']:
             assert f'"{code}"' in html
+
+
+# === F4: Meta-Feather Unlock Animation Variety ===
+
+class TestMetaFeatherAnimation:
+    """Tests for distinct meta-feather celebration animations."""
+
+    def test_show_feather_toast_checks_meta_flag(self, client):
+        """showFeatherToast should check feather.meta property."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'feather.meta' in html or '!!feather.meta' in html
+
+    def test_meta_toast_class_added(self, client):
+        """Meta feathers should get the feather-toast-meta class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'feather-toast-meta' in html
+
+    def test_meta_achievement_label(self, client):
+        """Meta feather toast should include META ACHIEVEMENT label."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'META ACHIEVEMENT' in html
+
+    def test_golden_confetti_function_exists(self, client):
+        """spawnGoldenConfetti function should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnGoldenConfetti' in html
+
+    def test_screen_shake_function_exists(self, client):
+        """triggerScreenShake function should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'triggerScreenShake' in html
+
+    def test_meta_toast_calls_golden_confetti(self, client):
+        """Meta feather path calls spawnGoldenConfetti instead of regular."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnGoldenConfetti(toast)' in html
+
+    def test_meta_toast_calls_screen_shake(self, client):
+        """Meta feather path calls triggerScreenShake."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'triggerScreenShake()' in html
+
+    def test_meta_toast_uses_legendary_flock(self, client):
+        """Meta feathers use legendary flock formation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnFlockFormation(true)' in html
+
+    def test_golden_confetti_uses_gold_colors(self, client):
+        """Golden confetti uses gold color palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'#ffd700'" in html
+        assert "'#ffb300'" in html
+
+    def test_golden_confetti_css_class(self, client):
+        """Golden confetti particles get the golden-confetti CSS class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'golden-confetti' in html
+
+    def test_meta_screen_shake_css(self):
+        """CSS should have meta-screen-shake keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'meta-screen-shake' in css
+        assert '@keyframes meta-screen-shake' in css
+
+    def test_meta_feather_toast_css(self):
+        """CSS should style feather-toast-meta with golden border."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.feather-toast-meta' in css
+        assert '#ffd700' in css
+
+    def test_meta_feather_label_css(self):
+        """CSS should style feather-toast-meta-label."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.feather-toast-meta-label' in css
+
+    def test_meta_shake_reduced_motion(self):
+        """Screen shake should be disabled for reduced motion preference."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'prefers-reduced-motion' in css
+        assert '.meta-screen-shake' in css
+
+    def test_meta_toast_longer_display(self, client):
+        """Meta feather toast should be visible longer than regular."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Meta toast uses 5500ms dismiss time
+        assert '5500' in html
+
+    def test_regular_feather_unchanged(self, client):
+        """Regular feathers still use spawnCelebrationConfetti."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti(toast)' in html
+
+    def test_screen_shake_respects_reduced_motion(self, client):
+        """triggerScreenShake checks prefers-reduced-motion."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'prefers-reduced-motion' in html
+
+
+# === F5: 404 Memory Game Replay ===
+
+class TestMemoryGameReplay:
+    """Tests for memory game Play Again button, best time, and faster replay."""
+
+    def test_replay_button_in_completion(self, client):
+        """Completion screen should include a Play Again button."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'Play Again' in html
+
+    def test_replay_button_class(self, client):
+        """Play Again button should have memory-game-replay-btn class."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-replay-btn' in html
+
+    def test_replay_calls_start_memory_game(self, client):
+        """Play Again button calls startMemoryGame to reset the game."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'startMemoryGame(parent)' in html
+
+    def test_best_time_key_defined(self, client):
+        """Best time localStorage key should be defined."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'httpparrot_memory_best_time' in html
+
+    def test_best_time_display_element(self, client):
+        """Memory game should show a best time display."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-best-time' in html
+
+    def test_best_time_saved_to_localstorage(self, client):
+        """Best time should be saved to localStorage."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'saveBestTime' in html
+        assert 'BEST_TIME_KEY' in html
+
+    def test_elapsed_time_tracked(self, client):
+        """Game should track elapsed time from start to completion."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'gameStartTime' in html
+        assert 'Date.now()' in html
+
+    def test_new_best_indicator(self, client):
+        """Should show 'New best!' when a new record is set."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'New best!' in html
+
+    def test_faster_replay_delay(self, client):
+        """Replay games should use 800ms flip-back delay instead of 900ms."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert '800' in html
+        assert 'getFlipBackDelay' in html
+
+    def test_play_count_tracked(self, client):
+        """Play count should be tracked for replay speed adjustment."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'playCount' in html
+
+    def test_format_time_function(self, client):
+        """formatTime function should exist for time display."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'formatTime' in html
+
+    def test_memory_game_actions_row(self, client):
+        """Completion screen should have actions row with both buttons."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-actions' in html
+
+    def test_replay_css_exists(self):
+        """CSS should style the replay button and time displays."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.memory-game-replay-btn' in css
+        assert '.memory-game-time' in css
+        assert '.memory-game-best-time' in css
+        assert '.memory-game-actions' in css
+
+    def test_time_display_in_completion(self, client):
+        """Completion handler receives elapsed time parameter."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'onGameComplete(parent, elapsed)' in html
+
+    def test_home_btn_still_present(self, client):
+        """Home button should still be present alongside replay."""
+        resp = client.get('/nonexistent-page')
+        html = resp.data.decode()
+        assert 'memory-game-home-btn' in html
+        assert 'Back to all parrots' in html
+
+
+# === FN4: Global Search Live Dropdown ===
+
+class TestGlobalSearchDropdown:
+    """Tests for global header search live dropdown."""
+
+    def test_search_dropdown_element_exists(self, client):
+        """Global search dropdown element should be in the DOM."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'global-search-dropdown' in html
+
+    def test_search_dropdown_hidden_by_default(self, client):
+        """Dropdown should be hidden by default."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'global-search-dropdown' in html
+
+    def test_search_wrap_has_position_relative(self, client):
+        """Search wrap should have global-search-wrap class for positioning."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'global-search-wrap' in html
+
+    def test_dropdown_calls_api_search(self, client):
+        """Search dropdown should call /api/search endpoint."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '/api/search' in html
+
+    def test_search_debounce_300ms(self, client):
+        """Search input should debounce API calls at 300ms."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '300' in html
+        assert 'debounceTimer' in html
+
+    def test_search_escape_closes(self, client):
+        """Pressing Escape should close the dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "e.key === 'Escape'" in html or 'Escape' in html
+
+    def test_search_click_outside_closes(self, client):
+        """Clicking outside should close the dropdown."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'closeDropdown' in html
+
+    def test_search_result_structure(self, client):
+        """Each result should show code, name, and description."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'global-search-result-code' in html
+        assert 'global-search-result-name' in html
+        assert 'global-search-result-desc' in html
+
+    def test_search_result_is_link(self, client):
+        """Each search result should be a link to the code page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Results are <a> elements with href = '/' + code
+        assert "opt.href = '/' + item.code" in html
+
+    def test_search_keyboard_navigation(self, client):
+        """Arrow keys should navigate results."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ArrowDown' in html
+        assert 'ArrowUp' in html
+
+    def test_search_enter_navigates(self, client):
+        """Enter on active result should navigate to it."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'currentResults[activeIndex]' in html
+
+    def test_search_dropdown_css_exists(self):
+        """CSS should style the search dropdown."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.global-search-dropdown' in css
+        assert '.global-search-result' in css
+
+    def test_search_dropdown_matches_nav_style(self):
+        """Dropdown should use similar styles to nav-dropdown-menu."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Both use var(--surface-2) background and blur
+        assert 'backdrop-filter: blur(16px)' in css
+
+    def test_search_dropdown_hidden_on_mobile(self):
+        """Search dropdown should be hidden on mobile."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.global-search-dropdown' in css
+        assert 'display: none !important' in css
+
+    def test_search_desktop_check(self, client):
+        """Search only activates on desktop (>= 768px)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'isDesktop' in html
+        assert '768' in html
+
+    def test_search_listbox_role(self, client):
+        """Dropdown should have listbox role for accessibility."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="listbox"' in html
+
+    def test_search_result_option_role(self, client):
+        """Each result should have option role."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "role', 'option'" in html
+
+    def test_search_truncates_description(self, client):
+        """Long descriptions should be truncated to 80 chars."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '80' in html
+        assert "substring(0, 80)" in html
+
+    def test_api_search_returns_results(self, client):
+        """API search endpoint should return results for valid query."""
+        resp = client.get('/api/search?q=not+found')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        assert data[0]['code'] == '404'
+
+
+# === FN3: cURL Import to Playground Integration ===
+
+class TestCurlImportPlayground:
+    """Tests for cURL Import to Playground link and Playground query param pre-population."""
+
+    def test_playground_button_exists(self, client):
+        """cURL import page should have an Open in Playground button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-playground-btn' in html
+
+    def test_playground_button_hidden_initially(self, client):
+        """Playground button should be hidden before parsing."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "display:none" in html or "display: none" in html
+
+    def test_playground_link_builder(self, client):
+        """updatePlaygroundLink function should exist."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'updatePlaygroundLink' in html
+
+    def test_playground_link_has_method_param(self, client):
+        """Playground link should include method query param."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('method'" in html
+
+    def test_playground_link_has_url_param(self, client):
+        """Playground link should include url query param."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('url'" in html
+
+    def test_playground_link_has_header_params(self, client):
+        """Playground link should append header query params."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.append('header'" in html
+
+    def test_playground_link_has_body_param(self, client):
+        """Playground link should include body query param when present."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "params.set('body'" in html
+
+    def test_playground_link_navigates_to_playground(self, client):
+        """Playground link href should point to /playground."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert "'/playground?'" in html
+
+    def test_playground_reads_query_params_on_load(self, client):
+        """Playground should check for query params on load."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'URLSearchParams' in html
+        assert "params.has('method')" in html or "params.has('url')" in html
+
+    def test_playground_populates_headers_from_params(self, client):
+        """Playground should populate headers from query params."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert "params.getAll('header')" in html
+
+    def test_playground_populates_body_from_params(self, client):
+        """Playground should populate body from query params."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert "params.get('body')" in html
+
+    def test_playground_cleans_url_after_populate(self, client):
+        """Playground should clean URL params after populating."""
+        resp = client.get('/playground')
+        html = resp.data.decode()
+        assert 'replaceState' in html
+
+    def test_playground_page_loads_with_params(self, client):
+        """Playground should load successfully with query params."""
+        resp = client.get('/playground?method=POST&url=https://api.example.com&body=test')
+        assert resp.status_code == 200
+
+    def test_playground_button_label(self, client):
+        """Button should say 'Open in Playground'."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'Open in Playground' in html
+
+    def test_render_parsed_calls_playground_link(self, client):
+        """renderParsed should call updatePlaygroundLink."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'updatePlaygroundLink(req)' in html
+
+
+# --- Task 1: Fill remaining case_studies gaps ---
+
+class TestRemainingCaseStudies:
+    """Tests for the 10 newly added case_studies entries."""
+
+    def test_case_studies_added_to_10_remaining_codes(self):
+        """All 10 codes that previously lacked case_studies should now have them."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], (
+                f"Code {code} still missing case_studies"
+            )
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 2, (
+                f"Code {code} should have at least 2 case_studies entries, "
+                f"got {len(STATUS_EXTRA[code]['case_studies'])}"
+            )
+
+    def test_new_case_studies_have_required_keys(self):
+        """Every new case_studies entry must have api, scenario, lesson."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['case_studies']):
+                assert 'api' in entry, f"Missing 'api' in {code}[{i}]"
+                assert 'scenario' in entry, f"Missing 'scenario' in {code}[{i}]"
+                assert 'lesson' in entry, f"Missing 'lesson' in {code}[{i}]"
+
+    def test_new_case_studies_non_empty_strings(self):
+        """All case study strings should be non-empty."""
+        from status_extra import STATUS_EXTRA
+        codes = ['305', '413', '417', '419', '420', '421', '423', '424', '426', '450']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['case_studies']):
+                assert len(entry['api'].strip()) > 0, f"Empty api in {code}[{i}]"
+                assert len(entry['scenario'].strip()) > 0, f"Empty scenario in {code}[{i}]"
+                assert len(entry['lesson'].strip()) > 0, f"Empty lesson in {code}[{i}]"
+
+    def test_new_case_studies_render_on_pages(self, client):
+        """Newly added case_studies should render on their detail pages."""
+        for code in ['305', '413', '417', '421', '426']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'case-studies-section' in html, f"/{code} missing case-studies-section"
+            assert 'case-study-card' in html, f"/{code} missing case-study-card"
+
+    def test_total_case_studies_at_least_70(self):
+        """With 10 new additions, total should be at least 70."""
+        from status_extra import STATUS_EXTRA
+        codes_with_studies = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'case_studies' in data and len(data['case_studies']) > 0
+        ]
+        assert len(codes_with_studies) >= 70, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 70"
+        )
+
+
+# --- Task 2: Fill common_mistakes for high-importance codes ---
+
+class TestNewCommonMistakes:
+    """Tests for the 6 newly added common_mistakes entries."""
+
+    def test_common_mistakes_added_to_6_codes(self):
+        """All 6 high-importance codes should now have common_mistakes."""
+        from status_extra import STATUS_EXTRA
+        codes = ['402', '407', '421', '425', '499', '507']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'common_mistakes' in STATUS_EXTRA[code], (
+                f"Code {code} missing common_mistakes"
+            )
+            assert len(STATUS_EXTRA[code]['common_mistakes']) >= 2, (
+                f"Code {code} should have at least 2 common_mistakes entries"
+            )
+
+    def test_new_common_mistakes_structure(self):
+        """Each new common_mistakes entry should have mistake and consequence."""
+        from status_extra import STATUS_EXTRA
+        codes = ['402', '407', '421', '425', '499', '507']
+        for code in codes:
+            for i, entry in enumerate(STATUS_EXTRA[code]['common_mistakes']):
+                assert 'mistake' in entry, f"Missing 'mistake' in {code}[{i}]"
+                assert 'consequence' in entry, f"Missing 'consequence' in {code}[{i}]"
+                assert len(entry['mistake'].strip()) > 0, f"Empty mistake in {code}[{i}]"
+                assert len(entry['consequence'].strip()) > 0, f"Empty consequence in {code}[{i}]"
+
+    def test_new_common_mistakes_render_on_pages(self, client):
+        """Newly added common_mistakes should render on their detail pages."""
+        for code in ['402', '407', '421', '499', '507']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'mistakes-section' in html, f"/{code} missing mistakes-section"
+            assert 'mistake-card' in html, f"/{code} missing mistake-card"
+
+    def test_total_common_mistakes_at_least_45(self):
+        """With 6 new additions, total should be at least 45."""
+        from status_extra import STATUS_EXTRA
+        codes_with_mistakes = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'common_mistakes' in data and len(data['common_mistakes']) > 0
+        ]
+        assert len(codes_with_mistakes) >= 45, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 45"
+        )
+
+
+# --- Task 3: "When NOT to Use" section (dont_use_when) ---
+
+class TestDontUseWhen:
+    """Tests for the dont_use_when feature on the 15 most misused codes."""
+
+    def test_dont_use_when_present_on_15_codes(self):
+        """All 15 commonly misused codes should have dont_use_when."""
+        from status_extra import STATUS_EXTRA
+        codes = ['200', '201', '204', '301', '302', '307', '400', '401', '403',
+                 '404', '409', '422', '429', '500', '503']
+        for code in codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'dont_use_when' in STATUS_EXTRA[code], (
+                f"Code {code} missing dont_use_when"
+            )
+            assert isinstance(STATUS_EXTRA[code]['dont_use_when'], list), (
+                f"Code {code} dont_use_when should be a list"
+            )
+            assert len(STATUS_EXTRA[code]['dont_use_when']) >= 3, (
+                f"Code {code} should have at least 3 dont_use_when entries"
+            )
+
+    def test_dont_use_when_strings_non_empty(self):
+        """All dont_use_when entries should be non-empty strings."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'dont_use_when' in data:
+                for i, reason in enumerate(data['dont_use_when']):
+                    assert isinstance(reason, str), (
+                        f"Code {code}[{i}] dont_use_when should be a string"
+                    )
+                    assert len(reason.strip()) > 0, (
+                        f"Code {code}[{i}] has empty dont_use_when entry"
+                    )
+
+    def test_dont_use_when_section_renders_on_page(self, client):
+        """Pages with dont_use_when should render the section."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-section' in html
+        assert 'When NOT to use this code' in html
+
+    def test_dont_use_when_renders_list_items(self, client):
+        """Each dont_use_when reason should render as a list item."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-list' in html
+        assert 'dont-use-item' in html
+
+    def test_dont_use_when_absent_on_page_without_data(self, client):
+        """Pages without dont_use_when should not show the section."""
+        resp = client.get('/102')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-section' not in html
+        assert 'dont-use-item' not in html
+
+    def test_dont_use_when_uses_details_element(self, client):
+        """The dont_use_when section should use a details/summary for collapsibility."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'dont-use-summary' in html
+
+    def test_dont_use_when_css_styles_present(self, client):
+        """CSS should contain dont-use styles with red/coral accent."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.dont-use-section' in css
+        assert '.dont-use-summary' in css
+        assert '.dont-use-list' in css
+        assert '.dont-use-item' in css
+        assert '#e05252' in css
+
+    def test_dont_use_when_appears_after_mistakes(self, client):
+        """The dont_use_when section should appear after common mistakes."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        mistakes_pos = html.find('mistakes-section')
+        dont_use_pos = html.find('dont-use-section')
+        assert mistakes_pos > 0, "mistakes-section not found"
+        assert dont_use_pos > 0, "dont-use-section not found"
+        assert dont_use_pos > mistakes_pos, (
+            "dont-use-section should appear after mistakes-section"
+        )
+
+    def test_dont_use_when_renders_multiple_codes(self, client):
+        """Multiple codes should render the dont_use_when section."""
+        for code in ['201', '301', '401', '500']:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'dont-use-section' in html, f"/{code} missing dont-use-section"
+
+
+# --- Task 4: Security-category scenarios ---
+
+class TestSecurityScenarios:
+    """Tests for the 5 new security-category scenarios."""
+
+    def test_security_scenarios_exist(self):
+        """There should be at least 5 security-category scenarios."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        assert len(security) >= 5, (
+            f"Only {len(security)} security scenarios, expected at least 5"
+        )
+
+    def test_security_scenario_ids_unique(self):
+        """Security scenario IDs should not conflict with existing IDs."""
+        from scenarios import SCENARIOS
+        ids = [s['id'] for s in SCENARIOS]
+        assert len(ids) == len(set(ids)), "Duplicate scenario IDs found"
+
+    def test_security_scenarios_cover_expected_topics(self):
+        """Security scenarios should cover CORS, XSS, SSRF, CSP, and webhooks."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        all_descriptions = ' '.join(s['description'].lower() for s in security)
+        assert 'cors' in all_descriptions or 'preflight' in all_descriptions, (
+            "Missing CORS preflight scenario"
+        )
+        assert 'xss' in all_descriptions or 'content-type' in all_descriptions.lower() or 'mime' in all_descriptions or 'nosniff' in all_descriptions, (
+            "Missing XSS/Content-Type scenario"
+        )
+        assert 'ssrf' in all_descriptions or '169.254' in all_descriptions or 'metadata' in all_descriptions, (
+            "Missing SSRF scenario"
+        )
+        assert 'csp' in all_descriptions or 'content security policy' in all_descriptions, (
+            "Missing CSP violation scenario"
+        )
+        assert 'webhook' in all_descriptions or 'signature' in all_descriptions, (
+            "Missing webhook signature scenario"
+        )
+
+    def test_security_scenarios_have_valid_structure(self):
+        """Each security scenario should have all required fields."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        for s in security:
+            assert 'id' in s
+            assert 'difficulty' in s
+            assert 'description' in s
+            assert 'correct' in s
+            assert 'options' in s
+            assert 'explanations' in s
+            assert len(s['options']) == 4, f"Scenario {s['id']} should have 4 options"
+            assert s['correct'] in s['options'], (
+                f"Scenario {s['id']} correct answer not in options"
+            )
+            for opt in s['options']:
+                assert opt in s['explanations'], (
+                    f"Scenario {s['id']} missing explanation for {opt}"
+                )
+
+    def test_security_scenarios_have_valid_difficulty(self):
+        """Security scenarios should have valid difficulty levels."""
+        from scenarios import SCENARIOS
+        security = [s for s in SCENARIOS if s['category'] == 'security']
+        valid = {'beginner', 'intermediate', 'expert'}
+        for s in security:
+            assert s['difficulty'] in valid, (
+                f"Scenario {s['id']} has invalid difficulty: {s['difficulty']}"
+            )
+
+    def test_total_scenarios_at_least_55(self):
+        """With 5 new additions, total should be at least 55."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 55, f"Only {len(SCENARIOS)} scenarios, expected 55+"

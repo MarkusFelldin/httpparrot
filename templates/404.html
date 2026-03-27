@@ -108,6 +108,9 @@
             'HTTP 200 OK is the most common response on the internet by far.'
         ];
 
+        var BEST_TIME_KEY = 'httpparrot_memory_best_time';
+        var playCount = 0;
+
         /* Track failed URL attempts in sessionStorage */
         var countKey = 'httpparrot_404_count';
         var count = parseInt(sessionStorage.getItem(countKey) || '0', 10) + 1;
@@ -138,6 +141,30 @@
             startMemoryGame(container);
         });
 
+        function getFlipBackDelay() {
+            return playCount > 0 ? 800 : 900;
+        }
+
+        function getBestTime() {
+            var stored = localStorage.getItem(BEST_TIME_KEY);
+            return stored ? parseFloat(stored) : null;
+        }
+
+        function saveBestTime(seconds) {
+            var current = getBestTime();
+            if (current === null || seconds < current) {
+                localStorage.setItem(BEST_TIME_KEY, String(seconds));
+                return true;
+            }
+            return false;
+        }
+
+        function formatTime(seconds) {
+            var m = Math.floor(seconds / 60);
+            var s = Math.floor(seconds % 60);
+            return (m > 0 ? m + 'm ' : '') + s + 's';
+        }
+
         function startMemoryGame(parent) {
             /* Replace the 404 content with the game */
             while (parent.firstChild) parent.removeChild(parent.firstChild);
@@ -153,11 +180,23 @@
             subtitle.textContent = 'Match each status code to its name!';
             parent.appendChild(subtitle);
 
+            /* Best time display */
+            var bestTime = getBestTime();
+            var bestTimeDisplay = document.createElement('p');
+            bestTimeDisplay.className = 'memory-game-best-time';
+            bestTimeDisplay.id = 'memory-best-time';
+            if (bestTime !== null) {
+                bestTimeDisplay.textContent = 'Best time: ' + formatTime(bestTime);
+            }
+            parent.appendChild(bestTimeDisplay);
+
             var grid = document.createElement('div');
             grid.className = 'memory-game-grid';
             grid.setAttribute('role', 'grid');
             grid.setAttribute('aria-label', 'Memory card game grid');
             parent.appendChild(grid);
+
+            var gameStartTime = Date.now();
 
             /* Build card data: codes + names, shuffled */
             var cards = [];
@@ -174,6 +213,7 @@
             var flipped = [];
             var matched = 0;
             var locked = false;
+            var flipBackDelay = getFlipBackDelay();
 
             for (var c = 0; c < cards.length; c++) {
                 var card = document.createElement('button');
@@ -231,7 +271,8 @@
                                 flipped = [];
                                 locked = false;
                                 if (matched === MEMORY_PAIRS.length) {
-                                    onGameComplete(parent);
+                                    var elapsed = (Date.now() - gameStartTime) / 1000;
+                                    onGameComplete(parent, elapsed);
                                 }
                             } else {
                                 /* No match — flip back */
@@ -240,15 +281,19 @@
                                     b.classList.remove('memory-card-flipped');
                                     flipped = [];
                                     locked = false;
-                                }, 900);
+                                }, flipBackDelay);
                             }
                         }
                     };
                 })(card));
             }
+
+            playCount++;
         }
 
-        function onGameComplete(parent) {
+        function onGameComplete(parent, elapsedSeconds) {
+            var isNewBest = saveBestTime(elapsedSeconds);
+
             var result = document.createElement('div');
             result.className = 'memory-game-complete';
             result.setAttribute('role', 'status');
@@ -261,6 +306,22 @@
             congrats.textContent = 'Congratulations!';
             result.appendChild(congrats);
 
+            /* Time display */
+            var timeP = document.createElement('p');
+            timeP.className = 'memory-game-time';
+            timeP.textContent = 'Your time: ' + formatTime(elapsedSeconds);
+            if (isNewBest) timeP.textContent += ' (New best!)';
+            result.appendChild(timeP);
+
+            /* Best time display */
+            var bestTime = getBestTime();
+            if (bestTime !== null) {
+                var bestP = document.createElement('p');
+                bestP.className = 'memory-game-best-time';
+                bestP.textContent = 'Best time: ' + formatTime(bestTime);
+                result.appendChild(bestP);
+            }
+
             var factP = document.createElement('p');
             factP.className = 'memory-game-fact';
             factP.textContent = 'Hidden fact: ' + fact;
@@ -271,12 +332,26 @@
             award.textContent = 'You earned the "Photographic Memory" feather!';
             result.appendChild(award);
 
+            /* Action buttons row */
+            var actionsRow = document.createElement('div');
+            actionsRow.className = 'memory-game-actions';
+
             var homeLink = document.createElement('a');
             homeLink.href = '/';
             homeLink.className = 'btn-back memory-game-home-btn';
             homeLink.textContent = '\u2190 Back to all parrots';
-            result.appendChild(homeLink);
+            actionsRow.appendChild(homeLink);
 
+            var replayBtn = document.createElement('button');
+            replayBtn.type = 'button';
+            replayBtn.className = 'memory-game-start-btn memory-game-replay-btn';
+            replayBtn.textContent = 'Play Again';
+            replayBtn.addEventListener('click', function() {
+                startMemoryGame(parent);
+            });
+            actionsRow.appendChild(replayBtn);
+
+            result.appendChild(actionsRow);
             parent.appendChild(result);
 
             /* Mark completion and award feather */
