@@ -21,11 +21,11 @@
 .review-header h1 {
     font-size: 2rem;
     font-weight: 800;
-    color: #f0f0f0;
+    color: var(--text-primary);
     margin: 0 0 0.5rem;
 }
 .review-header p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1.05rem;
     margin: 0;
 }
@@ -35,9 +35,9 @@
     gap: 2rem;
     margin-bottom: 2rem;
     padding: 1rem;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-interactive);
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-interactive);
 }
 .review-stat-item {
     text-align: center;
@@ -45,7 +45,7 @@
 .review-stat-value {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #f0f0f0;
+    color: var(--text-primary);
     font-family: 'JetBrains Mono', monospace;
 }
 .review-stat-value.stat-due { color: #7b61ff; }
@@ -58,8 +58,8 @@
     letter-spacing: 0.05em;
 }
 .review-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface-interactive);
+    border: 1px solid var(--border-interactive);
     border-radius: 12px;
     padding: 2rem;
     margin-bottom: 1.5rem;
@@ -123,7 +123,7 @@
 }
 .review-option-btn:hover:not(:disabled) {
     background: rgba(255,255,255,0.08);
-    color: #f0f0f0;
+    color: var(--text-primary);
     border-color: rgba(255,255,255,0.2);
 }
 .review-option-btn:disabled {
@@ -160,7 +160,7 @@
     color: #b0b0c0;
 }
 .review-explanation p strong {
-    color: #f0f0f0;
+    color: var(--text-primary);
 }
 .review-next-btn {
     display: none;
@@ -193,7 +193,7 @@
     margin: 0 0 0.5rem;
 }
 .review-complete p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1rem;
 }
 .review-empty {
@@ -201,12 +201,12 @@
     padding: 3rem 1rem;
 }
 .review-empty h2 {
-    color: #f0f0f0;
+    color: var(--text-primary);
     font-size: 1.5rem;
     margin: 0 0 0.5rem;
 }
 .review-empty p {
-    color: #a0a0b0;
+    color: var(--text-secondary);
     font-size: 1rem;
 }
 .review-start-btn {

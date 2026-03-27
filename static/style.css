@@ -71,6 +71,19 @@
   --border-subtle: rgba(200, 200, 210, 0.06);
   --border-default: rgba(200, 200, 210, 0.10);
 
+  /* Text color tokens */
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0b0;
+  --text-muted: #888;
+  --text-body: #d0d0e0;
+  --text-dim: #c0c0d0;
+
+  /* Interactive surface tokens */
+  --surface-interactive: rgba(255,255,255,0.04);
+  --surface-interactive-hover: rgba(255,255,255,0.08);
+  --border-interactive: rgba(255,255,255,0.06);
+  --border-interactive-hover: rgba(255,255,255,0.12);
+
   /* Semantic: warning/amber */
   --color-warning: rgb(245, 180, 60);
 }
@@ -3335,10 +3348,16 @@ body > main, body > .container-fluid { flex: 1; }
 .docs-base { font-family: var(--font-mono); font-size: var(--text-sm); color: rgba(255,255,255,0.65); background: var(--bg-deep); padding: 0.5rem 1rem; border-radius: var(--radius-sm); display: inline-block; margin-top: 0.5rem; word-break: break-all; }
 .docs-copy-curl-btn { display: inline-block; margin-top: 0.4rem; padding: 0.25rem 0.6rem; font-size: var(--text-xs); font-weight: 600; color: var(--color-emerald); background: rgba(0,201,167,0.1); border: 1px solid rgba(0,201,167,0.25); border-radius: 6px; cursor: pointer; transition: background var(--duration-fast), color var(--duration-fast); }
 .docs-copy-curl-btn:hover { background: rgba(0,201,167,0.2); color: #fff; }
-.docs-try-it { margin-top: 0.75rem; }
+.docs-try-it { margin-top: 0.75rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.docs-try-input { padding: 0.35rem 0.6rem; font-size: var(--text-sm); font-family: var(--font-mono); background: var(--bg-deep); color: var(--color-text); border: 1px solid var(--border-default); border-radius: var(--radius-sm); outline: none; transition: border-color var(--duration-fast); }
+.docs-try-input:focus { border-color: var(--color-purple); }
+.docs-try-input--wide { width: 220px; }
+.docs-try-input--narrow { width: 80px; }
+.docs-try-slider { width: 140px; accent-color: var(--color-purple); vertical-align: middle; }
+.docs-try-slider-value { font-family: var(--font-mono); font-size: var(--text-sm); color: rgba(255,255,255,0.7); min-width: 2.5em; display: inline-block; }
 .docs-try-btn { padding: 0.35rem 0.9rem; font-size: var(--text-sm); font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--color-purple), var(--color-blue)); border: none; border-radius: var(--radius-sm); cursor: pointer; transition: opacity var(--duration-fast); }
 .docs-try-btn:hover { opacity: 0.85; }
-.docs-try-result { margin-top: 0.5rem; background: var(--bg-deep); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: var(--text-sm); color: rgba(255,255,255,0.7); overflow-x: auto; white-space: pre; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+.docs-try-result { margin-top: 0.5rem; width: 100%; background: var(--bg-deep); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: var(--text-sm); color: rgba(255,255,255,0.7); overflow-x: auto; white-space: pre; line-height: 1.6; max-height: 300px; overflow-y: auto; }
 
 /* Fault Simulator */
 .fault-sim-try {
@@ -5548,6 +5567,15 @@ body {
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.08);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06);
     --shadow-lg: 0 8px 30px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08);
+    --text-primary: #1a1a2e;
+    --text-secondary: #555566;
+    --text-muted: #777788;
+    --text-body: #333344;
+    --text-dim: #444455;
+    --surface-interactive: rgba(0,0,0,0.04);
+    --surface-interactive-hover: rgba(0,0,0,0.08);
+    --border-interactive: rgba(0,0,0,0.08);
+    --border-interactive-hover: rgba(0,0,0,0.15);
   }
 
   body::before {
@@ -5900,11 +5928,35 @@ body {
 .footer-time-egg { color: var(--color-teal); font-style: italic; }
 
 /* === XP Badge (header) === */
-.xp-badge { display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.7rem; border-radius: 20px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); text-decoration: none; font-size: var(--text-sm); transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out), box-shadow var(--duration-normal) var(--ease-in-out); flex-shrink: 0; white-space: nowrap; }
+.xp-badge { --mood-color: var(--color-teal); display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.7rem; border-radius: 20px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); text-decoration: none; font-size: var(--text-sm); transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out), box-shadow var(--duration-normal) var(--ease-in-out); flex-shrink: 0; white-space: nowrap; box-shadow: 0 0 8px color-mix(in srgb, var(--mood-color), transparent 70%); }
 .xp-badge:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.25); box-shadow: 0 0 12px rgba(0, 201, 167, 0.15); }
 .xp-badge-icon { font-size: var(--text-md); line-height: 1; }
 .xp-badge-rank { font-weight: 600; color: rgba(255, 255, 255, 0.9); }
 .xp-badge-xp { font-family: var(--font-mono); color: var(--color-teal); font-size: 0.72rem; }
+
+/* Login Reward Toast */
+.login-reward-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-2);
+  border: 1px solid var(--color-teal);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1.2rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-teal);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+  z-index: 9000;
+  pointer-events: none;
+}
+.login-reward-toast.login-reward-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 /* === Sound Toggle === */
 .sound-toggle-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: var(--radius-full); background: rgba(255, 255, 255, 0.06); cursor: pointer; font-size: 0.85rem; line-height: 1; transition: background var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out); flex-shrink: 0; color: rgba(255, 255, 255, 0.7); }

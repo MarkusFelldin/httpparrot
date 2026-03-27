@@ -716,6 +716,30 @@
                 })();
             }
         } catch(e) {}
+
+        /* Daily Login Reward Calendar */
+        try {
+            var LOGIN_KEY = 'httpparrot_login_calendar';
+            var rewards = [5, 10, 15, 20, 25, 30, 50];
+            var today = new Date().toISOString().slice(0, 10);
+            var cal = JSON.parse(localStorage.getItem(LOGIN_KEY) || 'null') || {lastClaimDate: '', dayOfWeek: 0, totalClaims: 0};
+            if (cal.lastClaimDate !== today) {
+                if (cal.dayOfWeek >= 7) cal.dayOfWeek = 0; /* reset cycle */
+                var reward = rewards[cal.dayOfWeek] || 5;
+                cal.lastClaimDate = today;
+                cal.dayOfWeek++;
+                cal.totalClaims++;
+                localStorage.setItem(LOGIN_KEY, JSON.stringify(cal));
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(reward, 'daily_login');
+                /* Show brief toast */
+                var toast = document.createElement('div');
+                toast.className = 'login-reward-toast';
+                toast.textContent = 'Daily visit bonus: +' + reward + ' XP!';
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('login-reward-visible'); }, 50);
+                setTimeout(function() { toast.classList.remove('login-reward-visible'); setTimeout(function() { toast.remove(); }, 500); }, 3000);
+            }
+        } catch(e) {}
     })();
     </script>
 

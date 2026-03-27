@@ -346,6 +346,26 @@
             var xpEl = document.getElementById('xp-badge-xp');
             if (rankEl) rankEl.textContent = info.rank;
             if (xpEl) xpEl.textContent = total + ' XP';
+            /* Mood ring: set glow color based on dominant category */
+            try {
+                var activity = getActivity();
+                var now = Date.now();
+                var week = 7 * 24 * 60 * 60 * 1000;
+                var cats = {1:0, 2:0, 3:0, 4:0, 5:0};
+                var moodColors = {1:'var(--color-cyan)',2:'var(--color-teal)',3:'var(--color-gold)',4:'var(--color-coral)',5:'var(--color-purple)'};
+                activity.forEach(function(a) {
+                    if (a.action === 'page_visit' && a.date && (now - new Date(a.date).getTime()) < week) {
+                        var code = (a.detail || '').toString();
+                        var cat = parseInt(code[0]);
+                        if (cats.hasOwnProperty(cat)) cats[cat] += a.xp || 1;
+                    }
+                });
+                var dominant = 2; /* default teal */
+                var maxXp = 0;
+                for (var c in cats) { if (cats[c] > maxXp) { maxXp = cats[c]; dominant = c; } }
+                var badge = document.getElementById('xp-badge');
+                if (badge) badge.style.setProperty('--mood-color', moodColors[dominant]);
+            } catch(e) {}
         }
 
         /* --- Feathers (Achievement Badges) --- */
@@ -368,6 +388,7 @@
             {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75},
             {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
             {id: 'photo_memory', name: 'Photographic Memory', desc: 'Complete the 404 memory card game', icon: '\uD83E\uDDE0', bonus: 100},
+            {id: 'loyal_parrot', name: 'Loyal Parrot', desc: 'Complete a full 7-day login cycle', icon: '\uD83D\uDC9A', bonus: 75},
             /* --- Meta-Feathers (achievements for earning other feathers) --- */
             {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
             {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
@@ -654,6 +675,7 @@
 
             /* Photographic Memory — completed the 404 memory card game */
             if (!has('photo_memory') && localStorage.getItem('httpparrot_memory_game_complete') === 'true') newlyEarned.push('photo_memory');
+            if (!has('loyal_parrot')) { try { var lc = JSON.parse(localStorage.getItem('httpparrot_login_calendar') || '{}'); if (lc.dayOfWeek >= 7 || lc.totalClaims >= 7) newlyEarned.push('loyal_parrot'); } catch(e) {} }
 
             /* --- Meta-Feather checks --- */
             var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];

@@ -1185,12 +1185,109 @@ class TestApiDocsEnhanced:
         assert 'docs-try-btn' in html
         assert 'Try it' in html
 
+    def test_api_docs_try_it_panel_count(self, client):
+        """API docs page has at least 6 try-it panels (echo, diff, search, check-url, return, unstable)."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        count = html.count('docs-try-it')
+        assert count >= 6, f"Expected at least 6 try-it panels, found {count}"
+
+    def test_api_docs_try_it_search_panel(self, client):
+        """API docs has a try-it panel with input for the search endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'try-search-q' in html
+        assert '/api/search' in html
+        assert 'docs-try-input' in html
+
+    def test_api_docs_try_it_check_url_panel(self, client):
+        """API docs has a try-it panel with URL input for the check-url endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'try-check-url' in html
+        assert '/api/check-url' in html
+
+    def test_api_docs_try_it_return_panel(self, client):
+        """API docs has a try-it panel with code input for the return endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'try-return-code' in html
+        assert '/return/' in html
+
+    def test_api_docs_try_it_unstable_panel(self, client):
+        """API docs has a try-it panel with slider for the unstable endpoint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'try-unstable-rate' in html
+        assert '/api/unstable' in html
+        assert 'docs-try-slider' in html
+
+    def test_api_docs_unstable_section(self, client):
+        """API docs page has the /api/unstable documentation."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'Unreliable endpoint' in html
+        assert 'failure_rate' in html
+
     def test_api_docs_copy_curl_buttons(self, client):
         """API docs page has copy-as-curl buttons."""
         resp = client.get('/api-docs')
         html = resp.data.decode()
         assert 'docs-copy-curl-btn' in html
         assert 'Copy curl' in html
+
+
+class TestDesignTokenUsage:
+    """Verify templates use CSS custom properties instead of hardcoded colors."""
+
+    def test_debug_uses_tokens(self, client):
+        """debug.html uses CSS custom properties instead of hardcoded colors."""
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'var(--text-primary)' in html
+        assert 'var(--text-secondary)' in html
+        assert 'var(--surface-interactive)' in html
+        # Should NOT contain the old hardcoded values in style blocks
+        # (they may still appear in JS strings so check only the <style> portion)
+        import re
+        style_match = re.search(r'<style[^>]*>(.*?)</style>', html, re.DOTALL)
+        if style_match:
+            style_block = style_match.group(1)
+            assert 'color: #f0f0f0' not in style_block
+            assert 'color: #a0a0b0' not in style_block
+
+    def test_practice_uses_tokens(self, client):
+        """practice.html uses CSS custom properties instead of hardcoded colors."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'var(--text-primary)' in html
+        assert 'var(--text-secondary)' in html
+        assert 'var(--surface-interactive)' in html
+
+    def test_review_uses_tokens(self, client):
+        """review.html uses CSS custom properties instead of hardcoded colors."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'var(--text-primary)' in html
+        assert 'var(--text-secondary)' in html
+        assert 'var(--surface-interactive)' in html
+
+    def test_paths_index_uses_tokens(self, client):
+        """paths_index.html uses CSS custom properties instead of hardcoded colors."""
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'var(--text-primary)' in html
+        assert 'var(--text-secondary)' in html
+
+    def test_css_defines_text_tokens(self, client):
+        """style.css defines the text color custom properties."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--text-primary:' in css
+        assert '--text-secondary:' in css
+        assert '--text-muted:' in css
+        assert '--surface-interactive:' in css
+        assert '--border-interactive:' in css
 
 
 class TestRedirectChain:
