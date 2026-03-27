@@ -1500,6 +1500,130 @@ body > main, body > .container-fluid { flex: 1; }
   color: rgba(249, 199, 79, 0.85);
 }
 
+/* HTTP line wrapper for sequential animation */
+.http-line {
+  display: block;
+  position: relative;
+}
+
+/* --- Animated HTTP Exchange Sequence Diagrams --- */
+
+/* Play / Reset button */
+.http-exchange-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-cyan);
+  background: rgba(72, 202, 228, 0.08);
+  border: 1px solid rgba(72, 202, 228, 0.2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.http-exchange-play-btn:hover {
+  background: rgba(72, 202, 228, 0.15);
+  border-color: rgba(72, 202, 228, 0.35);
+}
+.http-exchange-play-btn .play-icon::before { content: '\25B6'; }
+.http-exchange-play-btn.is-playing .play-icon::before { content: '\21BB'; }
+
+/* Keyframes */
+@keyframes http-slide-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes http-slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes http-arrow-trail {
+  0%   { opacity: 0; clip-path: inset(0 0 100% 0); }
+  50%  { opacity: 1; clip-path: inset(0 0 40% 0); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@keyframes http-line-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes http-line-sweep {
+  0%   { background-position: -100% 0; }
+  50%  { background-position: 0% 0; }
+  100% { background-position: 100% 0; }
+}
+
+/* Animated state — triggered by .http-exchange-animated */
+.http-exchange-animated .http-panel-request {
+  animation: http-slide-in-left var(--duration-slow) var(--ease-out) both;
+}
+.http-exchange-animated .http-arrow {
+  animation: http-arrow-trail 500ms var(--ease-out) 400ms both;
+}
+.http-exchange-animated .http-panel-response {
+  animation: http-slide-in-right var(--duration-slow) var(--ease-out) 700ms both;
+}
+
+/* Sequential line fade-in within animated exchange */
+.http-exchange-animated .http-panel-request .http-line {
+  opacity: 0;
+  animation: http-line-fade 300ms var(--ease-out) both;
+}
+.http-exchange-animated .http-panel-request .http-line:nth-child(1) { animation-delay: 100ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(2) { animation-delay: 200ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(3) { animation-delay: 300ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(4) { animation-delay: 400ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(5) { animation-delay: 500ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(6) { animation-delay: 600ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(7) { animation-delay: 700ms; }
+.http-exchange-animated .http-panel-request .http-line:nth-child(8) { animation-delay: 800ms; }
+
+.http-exchange-animated .http-panel-response .http-line {
+  opacity: 0;
+  animation: http-line-fade 300ms var(--ease-out) both;
+}
+.http-exchange-animated .http-panel-response .http-line:nth-child(1) { animation-delay: 800ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(2) { animation-delay: 900ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(3) { animation-delay: 1000ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(4) { animation-delay: 1100ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(5) { animation-delay: 1200ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(6) { animation-delay: 1300ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(7) { animation-delay: 1400ms; }
+.http-exchange-animated .http-panel-response .http-line:nth-child(8) { animation-delay: 1500ms; }
+
+/* Sweep highlight on each animated line */
+.http-exchange-animated .http-line {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 40%, transparent 80%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: http-line-fade 300ms var(--ease-out) both, http-line-sweep 600ms var(--ease-out) both;
+}
+
+/* Category-colored glow on the status line during animation */
+.http-exchange-animated .http-hl-status {
+  text-shadow: 0 0 8px rgba(45, 212, 168, 0.5), 0 0 20px rgba(45, 212, 168, 0.2);
+  transition: text-shadow var(--duration-slow) var(--ease-out);
+}
+
+/* --- Reduced motion: HTTP exchange animations --- */
+@media (prefers-reduced-motion: reduce) {
+  .http-exchange-play-btn { display: none !important; }
+  .http-exchange-animated .http-panel-request,
+  .http-exchange-animated .http-panel-response,
+  .http-exchange-animated .http-arrow,
+  .http-exchange-animated .http-line {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .http-exchange-animated .http-hl-status {
+    text-shadow: none !important;
+  }
+}
+
 /* Footer */
 .site-footer {
   margin-top: auto;
@@ -5656,4 +5780,198 @@ body {
   .rank-up-gold-particle { animation: none !important; display: none !important; }
   .xp-flash { animation: none !important; }
   .xp-float-number { animation: none !important; display: none !important; }
+}
+
+/* === Holiday Plumage — Seasonal Themes === */
+
+/* --- Winter (Dec 15 - Jan 5) --- */
+.season-winter .site-header-compact {
+  background-color: rgba(10, 18, 30, 0.9);
+  border-bottom-color: rgba(100, 150, 220, 0.15);
+}
+.season-winter .header-title {
+  background: linear-gradient(135deg, #a8d0f0, #c8e0ff, #7bb3e0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.season-winter::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  background-image:
+    radial-gradient(2px 2px at 10% 20%, rgba(255,255,255,0.8) 50%, transparent 50%),
+    radial-gradient(2px 2px at 30% 40%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.7) 50%, transparent 50%),
+    radial-gradient(2px 2px at 70% 30%, rgba(255,255,255,0.5) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 90% 50%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(2px 2px at 15% 60%, rgba(255,255,255,0.7) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 45% 70%, rgba(255,255,255,0.5) 50%, transparent 50%),
+    radial-gradient(2px 2px at 75% 80%, rgba(255,255,255,0.6) 50%, transparent 50%),
+    radial-gradient(1.5px 1.5px at 25% 85%, rgba(255,255,255,0.8) 50%, transparent 50%),
+    radial-gradient(2px 2px at 60% 90%, rgba(255,255,255,0.5) 50%, transparent 50%);
+  background-size: 100% 100%;
+  animation: snowfall 8s linear infinite;
+}
+@keyframes snowfall {
+  0% { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
+}
+
+/* --- Halloween (Oct 25 - Nov 1) --- */
+.season-halloween .site-header-compact {
+  background: linear-gradient(135deg, rgba(255,140,0,0.15), rgba(128,0,128,0.15)), rgba(14, 14, 16, 0.85);
+  border-bottom-color: rgba(255, 140, 0, 0.2);
+}
+.season-halloween .header-title {
+  background: linear-gradient(135deg, #ff8c00, #9b59b6, #ff6600);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.season-halloween .collection-card:hover,
+.season-halloween .card:hover {
+  filter: hue-rotate(15deg);
+}
+.halloween-ghost {
+  display: inline-block;
+  font-size: 1.2rem;
+  margin-left: 0.5rem;
+  animation: ghost-float 3s ease-in-out infinite;
+}
+@keyframes ghost-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+  25% { transform: translateY(-6px) rotate(-5deg); opacity: 1; }
+  75% { transform: translateY(-3px) rotate(5deg); opacity: 0.9; }
+}
+
+/* --- April Fools (Apr 1) --- */
+.april-fools-banner {
+  background: linear-gradient(135deg, var(--color-gold), var(--color-orange));
+  color: #1a1a1f;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  z-index: 999;
+  position: relative;
+  animation: april-pulse 2s ease-in-out infinite;
+}
+.april-fools-revert {
+  background: linear-gradient(135deg, var(--color-teal), var(--color-blue));
+  animation: none;
+}
+@keyframes april-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+/* --- Valentine's (Feb 14) --- */
+.season-valentine .site-header-compact {
+  border-bottom-color: rgba(255, 105, 135, 0.2);
+}
+.season-valentine .header-title {
+  background: linear-gradient(135deg, #ff6b81, #ff4d6d, #e91e63);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.season-valentine .btn-random,
+.season-valentine .nav-active,
+.season-valentine a:hover {
+  color: #ff6b81;
+}
+.valentine-heart {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  background: #ff4d6d;
+  clip-path: path('M6 1.5C3.5-1.5 0 0.5 0 3.5 0 7 6 11 6 11s6-4 6-7.5c0-3-3.5-5-6-2z');
+  pointer-events: none;
+  z-index: 10000;
+  animation: heart-burst 0.8s ease-out forwards;
+}
+@keyframes heart-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.3); opacity: 0; }
+}
+
+/* === Page: Security Audit === */
+.audit-form { margin-bottom: 1.5rem; }
+.audit-input-wrap {
+  display: flex; gap: 0.75rem;
+}
+.audit-url-input { flex: 1; padding: 0.75rem 1rem; font-size: var(--text-sm); }
+.audit-result-card {
+  background: rgba(26,26,31,0.8); border: 1px solid var(--border-subtle);
+  border-radius: 16px; overflow: hidden; padding: 1.5rem;
+}
+.audit-grade-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem; width: 140px; height: 140px;
+  border-radius: 50%; border: 4px solid;
+  background: rgba(255,255,255,0.03);
+}
+.audit-grade-letter {
+  font-size: 3rem; font-weight: 800; line-height: 1;
+}
+.audit-grade-score {
+  font-size: var(--text-xs); color: rgba(255,255,255,0.5); margin-top: 0.25rem;
+}
+.audit-check-card {
+  background: var(--surface-1); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+.audit-check-pass { border-left: 3px solid #2dd4a8; }
+.audit-check-fail { border-left: 3px solid #ff6b6b; }
+.audit-check-header {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;
+}
+.audit-check-label {
+  font-weight: 700; color: #fff; font-size: var(--text-sm); flex: 1;
+}
+.audit-check-points {
+  font-size: var(--text-xs); font-family: var(--font-mono);
+  color: rgba(255,255,255,0.5);
+}
+.audit-check-desc {
+  font-size: var(--text-sm); color: rgba(255,255,255,0.65); line-height: 1.5;
+  margin-bottom: 0.4rem;
+}
+.audit-fix-wrap {
+  background: rgba(255,107,107,0.06); border: 1px solid rgba(255,107,107,0.15);
+  border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.4rem;
+}
+.audit-fix-label {
+  font-size: var(--text-xs); font-weight: 700; color: #ff6b6b;
+  display: block; margin-bottom: 0.25rem; text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.audit-fix-code {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  color: rgba(255,255,255,0.8); word-break: break-all;
+}
+.audit-explainer-link {
+  display: inline-block; font-size: var(--text-xs); color: var(--color-teal);
+  text-decoration: none; margin-top: 0.25rem;
+}
+.audit-explainer-link:hover { text-decoration: underline; }
+@media (max-width: 600px) {
+  .audit-input-wrap { flex-direction: column; }
+  .audit-grade-badge { width: 110px; height: 110px; }
+  .audit-grade-letter { font-size: 2.25rem; }
+}
+
+/* --- Seasonal Reduced Motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .season-winter::before { animation: none !important; display: none !important; }
+  .halloween-ghost { animation: none !important; }
+  .april-fools-banner { animation: none !important; }
+  .valentine-heart { animation: none !important; display: none !important; }
 }

@@ -25,6 +25,7 @@ from http_examples import HTTP_EXAMPLES
 from scenarios import SCENARIOS
 from debug_exercises import DEBUG_EXERCISES
 from confusion_pairs import CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG, CONFUSION_PAIRS_BY_CODE
+from learning_paths import LEARNING_PATHS, LEARNING_PATHS_BY_ID
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -68,7 +69,8 @@ def highlight_http(text, panel_type='request'):
     """Add syntax-highlighting spans to HTTP request/response text.
 
     Wraps HTTP methods, status lines, and header names in styled spans
-    so CSS can colorize them without JavaScript.
+    so CSS can colorize them without JavaScript.  Each line is wrapped in
+    a ``<span class="http-line">`` so CSS can animate lines sequentially.
     """
     text = str(escape(text))
     # Highlight status lines first (response)
@@ -80,6 +82,11 @@ def highlight_http(text, panel_type='request'):
     # Highlight header names
     text = _HTTP_HEADER_RE.sub(
         r'<span class="http-hl-header">\1</span>\2', text)
+    # Wrap each line in a span for sequential animation
+    lines = text.split('\n')
+    text = '\n'.join(
+        f'<span class="http-line">{line}</span>' for line in lines
+    )
     return Markup(text)
 
 
@@ -780,6 +787,21 @@ def learn_pair(slug):
                            cat_bgs=_LEARN_CAT_BGS)
 
 
+@app.route('/paths')
+def paths_index():
+    """List all guided learning paths with progress summaries."""
+    return render_template('paths_index.html', paths=LEARNING_PATHS)
+
+
+@app.route('/paths/<path_id>')
+def path_detail(path_id):
+    """Show a single learning path with step checklist and progress."""
+    path = LEARNING_PATHS_BY_ID.get(path_id)
+    if not path:
+        abort(404)
+    return render_template('path_detail.html', path=path)
+
+
 @app.route('/tester')
 def tester():
     return render_template('tester.html')
@@ -860,6 +882,196 @@ def check_cors():
         'allows_credentials': isinstance(actual_creds, str) and actual_creds.lower() == 'true',
     }
     return jsonify(results)
+
+
+@app.route('/security-audit')
+def security_audit():
+    """Render the Response Header Security Audit page."""
+    return render_template('security_audit.html')
+
+
+# Security header scoring rubric
+_SECURITY_CHECKS = [
+    {
+        'id': 'hsts',
+        'header': 'Strict-Transport-Security',
+        'points': 10,
+        'label': 'Strict-Transport-Security',
+        'desc': 'Ensures browsers only connect via HTTPS, preventing protocol downgrade attacks.',
+        'fix': 'Strict-Transport-Security: max-age=31536000; includeSubDomains',
+    },
+    {
+        'id': 'csp',
+        'header': 'Content-Security-Policy',
+        'points': 15,
+        'label': 'Content-Security-Policy',
+        'desc': 'Controls which resources the browser can load, mitigating XSS and injection attacks.',
+        'fix': "Content-Security-Policy: default-src 'self'; script-src 'self'",
+    },
+    {
+        'id': 'xcto',
+        'header': 'X-Content-Type-Options',
+        'points': 5,
+        'label': 'X-Content-Type-Options: nosniff',
+        'desc': 'Prevents browsers from MIME-sniffing the response, enforcing the declared content type.',
+        'fix': 'X-Content-Type-Options: nosniff',
+    },
+    {
+        'id': 'xfo',
+        'header': 'X-Frame-Options',
+        'points': 5,
+        'label': 'X-Frame-Options',
+        'desc': 'Prevents the page from being embedded in iframes, defending against clickjacking.',
+        'fix': 'X-Frame-Options: DENY',
+    },
+    {
+        'id': 'referrer',
+        'header': 'Referrer-Policy',
+        'points': 5,
+        'label': 'Referrer-Policy',
+        'desc': 'Controls how much referrer information is sent with outgoing requests.',
+        'fix': 'Referrer-Policy: strict-origin-when-cross-origin',
+    },
+    {
+        'id': 'permissions',
+        'header': 'Permissions-Policy',
+        'points': 5,
+        'label': 'Permissions-Policy',
+        'desc': 'Restricts which browser features (camera, mic, geolocation) the page can access.',
+        'fix': 'Permissions-Policy: camera=(), microphone=(), geolocation=()',
+    },
+    {
+        'id': 'server',
+        'header': 'Server',
+        'points': 5,
+        'label': 'No Server header leaking info',
+        'desc': 'The Server header can reveal software and version, aiding attackers in targeting known vulnerabilities.',
+        'fix': 'Remove or genericize the Server header in your web server config.',
+    },
+    {
+        'id': 'powered',
+        'header': 'X-Powered-By',
+        'points': 5,
+        'label': 'No X-Powered-By leaking info',
+        'desc': 'X-Powered-By reveals backend technology (e.g., Express, PHP), making targeted attacks easier.',
+        'fix': 'Remove the X-Powered-By header (e.g., app.disable("x-powered-by") in Express).',
+    },
+    {
+        'id': 'cookie',
+        'header': 'Set-Cookie',
+        'points': 10,
+        'label': 'Set-Cookie security attributes',
+        'desc': 'Cookies should use Secure (HTTPS only), HttpOnly (no JS access), and SameSite to prevent CSRF.',
+        'fix': 'Set-Cookie: session=abc; Secure; HttpOnly; SameSite=Lax',
+    },
+    {
+        'id': 'cors_wildcard',
+        'header': 'Access-Control-Allow-Origin',
+        'points': 5,
+        'label': 'CORS not wildcard *',
+        'desc': 'Using * for Access-Control-Allow-Origin allows any origin to read responses, which may leak data.',
+        'fix': 'Access-Control-Allow-Origin: https://your-trusted-domain.com',
+    },
+]
+
+
+def _run_security_checks(headers):
+    """Run all security header checks against the provided headers dict.
+
+    Returns (score, max_score, checks_list).
+    """
+    checks = []
+    score = 0
+    max_score = 0
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+
+    for check in _SECURITY_CHECKS:
+        hdr = check['header'].lower()
+        val = lower_headers.get(hdr, '')
+        result = {'id': check['id'], 'header': check['label'],
+                  'points': check['points'], 'desc': check['desc'],
+                  'fix': check['fix']}
+        max_score += check['points']
+
+        if check['id'] == 'xcto':
+            passed = val.lower() == 'nosniff' if val else False
+        elif check['id'] == 'server':
+            passed = not val or val.strip().lower() in ('', 'server')
+        elif check['id'] == 'powered':
+            passed = not val
+        elif check['id'] == 'cookie':
+            set_cookies = [v for k, v in headers.items() if k.lower() == 'set-cookie']
+            if not set_cookies:
+                passed = True
+            else:
+                all_good = True
+                for cookie in set_cookies:
+                    cl = cookie.lower()
+                    if 'secure' not in cl or 'httponly' not in cl or 'samesite' not in cl:
+                        all_good = False
+                        break
+                passed = all_good
+        elif check['id'] == 'cors_wildcard':
+            passed = val != '*'
+        else:
+            passed = bool(val)
+
+        if passed:
+            score += check['points']
+            result['status'] = 'pass'
+        else:
+            result['status'] = 'fail'
+
+        checks.append(result)
+
+    return score, max_score, checks
+
+
+def _score_to_grade(score, max_score):
+    """Convert a numeric score to a letter grade."""
+    if max_score == 0:
+        return 'F'
+    pct = score / max_score * 100
+    if pct >= 95:
+        return 'A+'
+    elif pct >= 85:
+        return 'A'
+    elif pct >= 70:
+        return 'B'
+    elif pct >= 50:
+        return 'C'
+    elif pct >= 30:
+        return 'D'
+    return 'F'
+
+
+@app.route('/api/security-audit')
+def api_security_audit():
+    """Audit response headers of a URL against security best practices."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '').strip()
+    if not url:
+        return jsonify({"error": "Missing required parameter: url"}), 400
+    url = _ensure_scheme(url)
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        return jsonify({"error": "URL not allowed"}), 403
+    try:
+        resp = req.get(safe_url, allow_redirects=False, timeout=10, stream=True)
+        raw_headers = dict(resp.headers)
+        resp.close()
+    except req.RequestException:
+        return jsonify({"error": "Could not connect to the URL"}), 502
+    score, max_score, checks = _run_security_checks(raw_headers)
+    grade = _score_to_grade(score, max_score)
+    return jsonify({
+        "url": safe_url,
+        "grade": grade,
+        "score": score,
+        "max_score": max_score,
+        "checks": checks,
+    })
 
 
 @app.route('/api/search')
@@ -1379,14 +1591,17 @@ def sitemap():
     base = request.url_root.rstrip('/')
     pages = []
     for rule in ['/', '/quiz', '/daily', '/practice', '/debug',
-                 '/flowchart', '/compare', '/learn', '/tester', '/cheatsheet',
-                 '/headers', '/cors-checker', '/trace', '/collection',
-                 '/playground', '/curl-import', '/api-docs', '/profile']:
+                 '/flowchart', '/compare', '/learn', '/paths', '/tester',
+                 '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
+                 '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
+                 '/profile']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
     for pair in CONFUSION_PAIRS:
         pages.append({'loc': base + '/learn/' + pair['slug'], 'priority': '0.6'})
+    for lp in LEARNING_PATHS:
+        pages.append({'loc': base + '/paths/' + lp['id'], 'priority': '0.6'})
     xml = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for p in pages:
@@ -1413,6 +1628,7 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /api/check-cors\n"
+        "Disallow: /api/security-audit\n"
         "Disallow: /api/trace-redirects\n"
         "Disallow: /api/mock-response\n"
         "Disallow: /api/diff\n"

@@ -192,7 +192,11 @@
         <div class="detail-info">
             <div class="detail-section">
                 <h2>Example HTTP exchange</h2>
-                <div class="http-exchange">
+                <button class="http-exchange-play-btn" id="http-exchange-play" type="button" aria-label="Play HTTP exchange animation">
+                    <span class="play-icon" aria-hidden="true"></span>
+                    <span class="play-label">Play Animation</span>
+                </button>
+                <div class="http-exchange" id="http-exchange">
                     <div class="http-panel http-panel-request">
                         <div class="http-panel-label http-request-label">Request</div>
                         <pre class="http-block http-request">{{ http_example.request|highlight_http('request') }}</pre>
@@ -426,6 +430,47 @@
             localStorage.setItem('eli5', toggle.checked ? 'on' : 'off');
             apply(toggle.checked);
         });
+    })();
+    </script>
+    {% endif %}
+    {% if http_example %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var btn = document.getElementById('http-exchange-play');
+        var exchange = document.getElementById('http-exchange');
+        if (!btn || !exchange) return;
+        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        function play() {
+            exchange.classList.remove('http-exchange-animated');
+            void exchange.offsetWidth;
+            exchange.classList.add('http-exchange-animated');
+            btn.classList.add('is-playing');
+            btn.querySelector('.play-label').textContent = 'Reset';
+        }
+        function reset() {
+            exchange.classList.remove('http-exchange-animated');
+            btn.classList.remove('is-playing');
+            btn.querySelector('.play-label').textContent = 'Play Animation';
+        }
+        btn.addEventListener('click', function() {
+            if (exchange.classList.contains('http-exchange-animated')) {
+                reset();
+            } else {
+                play();
+            }
+        });
+        if (!reducedMotion && 'IntersectionObserver' in window) {
+            var obs = new IntersectionObserver(function(entries) {
+                entries.forEach(function(e) {
+                    if (e.isIntersecting && !exchange.getAttribute('data-auto-played')) {
+                        exchange.setAttribute('data-auto-played', 'true');
+                        play();
+                        obs.unobserve(exchange);
+                    }
+                });
+            }, {threshold: 0.3});
+            obs.observe(exchange);
+        }
     })();
     </script>
     {% endif %}

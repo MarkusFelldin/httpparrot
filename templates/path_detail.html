@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}{{ path.title }} - Learning Paths | HTTP Parrots{% endblock %}
+{% block subtitle %}{{ path.title }}{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="{{ path.description }}">
+{% endblock %}
+
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+.path-detail-container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+.path-detail-breadcrumb {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 1.5rem;
+}
+.path-detail-breadcrumb a {
+    color: #48cae4;
+    text-decoration: none;
+}
+.path-detail-breadcrumb a:hover { text-decoration: underline; }
+.path-detail-header {
+    margin-bottom: 2rem;
+}
+.path-detail-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+.path-detail-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0;
+}
+.path-difficulty {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+}
+.path-difficulty-beginner {
+    background: rgba(45,212,168,0.15);
+    color: #2dd4a8;
+}
+.path-difficulty-intermediate {
+    background: rgba(249,199,79,0.15);
+    color: #f9c74f;
+}
+.path-difficulty-advanced {
+    background: rgba(167,139,250,0.15);
+    color: #a78bfa;
+}
+.path-detail-desc {
+    color: #a0a0b0;
+    font-size: 1rem;
+    line-height: 1.55;
+    margin: 0;
+}
+/* Progress */
+.path-detail-progress {
+    margin-bottom: 2rem;
+}
+.path-detail-progress-bar {
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.path-detail-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00c9a7, #48cae4);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+}
+.path-detail-progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: #888;
+    margin-top: 0.4rem;
+}
+/* Steps */
+.path-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.path-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.path-step:last-child { border-bottom: none; }
+.path-step-check {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: transparent;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    cursor: pointer;
+    margin-top: 2px;
+}
+.path-step-check.done {
+    background: #2dd4a8;
+    border-color: #2dd4a8;
+    color: #fff;
+}
+.path-step-body {
+    flex: 1;
+    min-width: 0;
+}
+.path-step-label {
+    font-size: 1rem;
+    color: #f0f0f0;
+    font-weight: 500;
+}
+.path-step.completed .path-step-label {
+    color: #888;
+    text-decoration: line-through;
+}
+.path-step-type {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+.path-step-type-visit { background: rgba(72,202,228,0.15); color: #48cae4; }
+.path-step-type-practice { background: rgba(45,212,168,0.15); color: #2dd4a8; }
+.path-step-type-debug { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+.path-step-type-quiz { background: rgba(249,199,79,0.15); color: #f9c74f; }
+.path-step-type-learn { background: rgba(167,139,250,0.15); color: #a78bfa; }
+.path-step-link {
+    font-size: 0.82rem;
+    margin-top: 0.2rem;
+}
+.path-step-link a {
+    color: #48cae4;
+    text-decoration: none;
+}
+.path-step-link a:hover { text-decoration: underline; }
+/* Completion banner */
+.path-complete-banner {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+    margin-top: 2rem;
+    background: rgba(45,212,168,0.08);
+    border: 1px solid rgba(45,212,168,0.2);
+    border-radius: 16px;
+}
+.path-complete-banner.visible { display: block; }
+.path-complete-banner-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+.path-complete-banner-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #2dd4a8;
+    margin: 0 0 0.3rem;
+}
+.path-complete-banner-sub {
+    color: #a0a0b0;
+    font-size: 0.95rem;
+    margin: 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <main class="path-detail-container" id="main-content" role="main">
+        <nav class="path-detail-breadcrumb" aria-label="Breadcrumb">
+            <a href="/paths">Learning Paths</a> / <span>{{ path.title }}</span>
+        </nav>
+
+        <div class="path-detail-header">
+            <div class="path-detail-title-row">
+                <h1 class="path-detail-title">{{ path.title }}</h1>
+                <span class="path-difficulty path-difficulty-{{ path.difficulty }}">{{ path.difficulty }}</span>
+            </div>
+            <p class="path-detail-desc">{{ path.description }}</p>
+        </div>
+
+        <div class="path-detail-progress">
+            <div class="path-detail-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="{{ path.steps|length }}" aria-label="Path progress">
+                <div class="path-detail-progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="path-detail-progress-text">
+                <span id="progress-text">0 / {{ path.steps|length }} steps completed</span>
+                <span id="progress-pct">0%</span>
+            </div>
+        </div>
+
+        <ol class="path-steps" id="path-steps">
+            {% for step in path.steps %}
+            <li class="path-step" data-index="{{ loop.index0 }}">
+                <button class="path-step-check" data-index="{{ loop.index0 }}" aria-label="Mark step {{ loop.index }} as complete" title="Toggle complete">&#x2713;</button>
+                <div class="path-step-body">
+                    <span class="path-step-label">
+                        {{ step.label }}
+                        <span class="path-step-type path-step-type-{{ step.type }}">{{ step.type }}</span>
+                    </span>
+                    <div class="path-step-link">
+                        {% if step.type == 'visit' %}
+                            <a href="/{{ step.target }}">Go to {{ step.target }} page</a>
+                        {% elif step.type == 'practice' %}
+                            <a href="/practice">Open Practice</a>
+                        {% elif step.type == 'debug' %}
+                            <a href="/debug">Open Debug Exercises</a>
+                        {% elif step.type == 'quiz' %}
+                            <a href="/quiz">Open Quiz</a>
+                        {% elif step.type == 'learn' %}
+                            <a href="/learn/{{ step.target }}">Open Lesson</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ol>
+
+        <div class="path-complete-banner" id="complete-banner" role="status" aria-live="polite">
+            <span class="path-complete-banner-icon" aria-hidden="true">&#x1FAB6;</span>
+            <h2 class="path-complete-banner-title">Path Complete!</h2>
+            <p class="path-complete-banner-sub">You finished <strong>{{ path.title }}</strong>. +200 XP bonus awarded.</p>
+        </div>
+    </main>
+
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var PATH_ID = {{ path.id | tojson }};
+        var TOTAL = {{ path.steps | length }};
+        var STORAGE_KEY = 'httpparrot_path_' + PATH_ID;
+
+        function getDone() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+            catch(e) { return []; }
+        }
+        function setDone(list) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        }
+
+        function render() {
+            var done = getDone();
+            var count = 0;
+            var steps = document.querySelectorAll('.path-step');
+            steps.forEach(function(el) {
+                var idx = parseInt(el.getAttribute('data-index'), 10);
+                var check = el.querySelector('.path-step-check');
+                if (done.indexOf(idx) !== -1) {
+                    count++;
+                    el.classList.add('completed');
+                    if (check) check.classList.add('done');
+                } else {
+                    el.classList.remove('completed');
+                    if (check) check.classList.remove('done');
+                }
+            });
+            var pct = TOTAL > 0 ? Math.round(count / TOTAL * 100) : 0;
+            var fill = document.getElementById('progress-fill');
+            var text = document.getElementById('progress-text');
+            var pctEl = document.getElementById('progress-pct');
+            var bar = fill && fill.parentElement;
+            if (fill) fill.style.width = pct + '%';
+            if (text) text.textContent = count + ' / ' + TOTAL + ' steps completed';
+            if (pctEl) pctEl.textContent = pct + '%';
+            if (bar) bar.setAttribute('aria-valuenow', String(count));
+
+            var banner = document.getElementById('complete-banner');
+            if (count === TOTAL && TOTAL > 0) {
+                banner.classList.add('visible');
+                /* Award XP bonus once */
+                var bonusKey = 'httpparrot_path_bonus_' + PATH_ID;
+                if (!localStorage.getItem(bonusKey)) {
+                    localStorage.setItem(bonusKey, '1');
+                    if (typeof ParrotXP !== 'undefined' && ParrotXP.award) {
+                        ParrotXP.award(200, 'path_complete_' + PATH_ID);
+                    }
+                    /* Award feather badge */
+                    if (typeof ParrotXP !== 'undefined' && ParrotXP.awardFeather) {
+                        ParrotXP.awardFeather('path_complete');
+                    }
+                }
+            } else {
+                banner.classList.remove('visible');
+            }
+        }
+
+        document.getElementById('path-steps').addEventListener('click', function(e) {
+            var btn = e.target.closest('.path-step-check');
+            if (!btn) return;
+            var idx = parseInt(btn.getAttribute('data-index'), 10);
+            var done = getDone();
+            var pos = done.indexOf(idx);
+            if (pos === -1) {
+                done.push(idx);
+            } else {
+                done.splice(pos, 1);
+            }
+            setDone(done);
+            render();
+        });
+
+        render();
+    })();
+    </script>
+{% endblock %}

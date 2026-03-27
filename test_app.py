@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from index import app, _rate_limit, is_rate_limited, linkify_rfcs, resolve_and_validate
+from index import (app, _rate_limit, _run_security_checks, _score_to_grade,
+                   is_rate_limited, linkify_rfcs, resolve_and_validate)
 
 
 @pytest.fixture
@@ -2025,6 +2026,94 @@ class TestDetailPageAnimations:
         assert '.back-to-top.visible' in css
 
 
+class TestHTTPExchangeAnimation:
+    """Verify animated HTTP exchange sequence diagrams on detail pages."""
+
+    def test_play_button_present(self, client):
+        """Detail page with http_example should have a Play Animation button."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-exchange-play' in html
+        assert 'Play Animation' in html
+
+    def test_play_button_has_aria_label(self, client):
+        """Play button must have an accessible label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Play HTTP exchange animation"' in html
+
+    def test_http_exchange_has_id(self, client):
+        """The http-exchange div should have an id for JS targeting."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="http-exchange"' in html
+
+    def test_http_line_spans_in_output(self, client):
+        """highlight_http filter should wrap lines in http-line spans."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-line' in html
+
+    def test_animation_css_classes_exist(self, client):
+        """CSS should contain the animated exchange classes and keyframes."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated' in css
+        assert '@keyframes http-slide-in-left' in css
+        assert '@keyframes http-slide-in-right' in css
+        assert '@keyframes http-arrow-trail' in css
+        assert '@keyframes http-line-fade' in css
+        assert '@keyframes http-line-sweep' in css
+
+    def test_play_button_css_exists(self, client):
+        """CSS should style the play/reset button."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-play-btn' in css
+
+    def test_reduced_motion_hides_play_button(self, client):
+        """Under prefers-reduced-motion: reduce, play button is hidden."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'prefers-reduced-motion: reduce' in css
+        # The play button is display:none under reduced motion
+        assert '.http-exchange-play-btn' in css
+        # Animations are disabled
+        idx = css.index('Reduced motion: HTTP exchange')
+        section = css[idx:idx + 600]
+        assert 'display: none' in section
+        assert 'animation: none' in section
+
+    def test_intersection_observer_script_present(self, client):
+        """Detail page should have IntersectionObserver for auto-play."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'data-auto-played' in html
+
+    def test_status_line_glow_css(self, client):
+        """Animated status line should have a category-colored glow."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated .http-hl-status' in css
+        assert 'text-shadow' in css
+
+    def test_line_sweep_highlight_css(self, client):
+        """Animated lines should have a sweep background highlight."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated .http-line' in css
+        assert 'http-line-sweep' in css
+
+    def test_sequential_line_delay_css(self, client):
+        """CSS should have nth-child animation-delay rules for http-line."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-line:nth-child(1)' in css
+        assert '.http-line:nth-child(2)' in css
+        assert 'animation-delay' in css
+
+
 # --- Compare page enhancements ---
 
 class TestCompareEnhancements:
@@ -3256,7 +3345,7 @@ class TestSitemapCompleteness:
     EXPECTED_PAGES = [
         '/', '/quiz', '/daily', '/practice', '/debug', '/flowchart',
         '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
-        '/collection', '/playground', '/api-docs', '/profile',
+        '/security-audit', '/collection', '/playground', '/api-docs', '/profile',
     ]
 
     def test_sitemap_returns_xml(self, client):
@@ -3330,6 +3419,7 @@ class TestRobotsTxtFormat:
         expected_disallows = [
             'Disallow: /api/check-url',
             'Disallow: /api/check-cors',
+            'Disallow: /api/security-audit',
             'Disallow: /api/mock-response',
             'Disallow: /api/diff',
             'Disallow: /api/search',
@@ -3728,9 +3818,9 @@ class TestSecurityHeadersOnAllRoutes:
 
     ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/debug',
               '/flowchart', '/compare', '/tester', '/cheatsheet', '/headers',
-              '/cors-checker', '/collection', '/playground', '/api-docs',
-              '/profile', '/echo', '/return/200', '/redirect/0', '/feed.xml',
-              '/sitemap.xml', '/robots.txt']
+              '/cors-checker', '/security-audit', '/collection', '/playground',
+              '/api-docs', '/profile', '/echo', '/return/200', '/redirect/0',
+              '/feed.xml', '/sitemap.xml', '/robots.txt']
 
     def _check_headers(self, resp):
         assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
@@ -6168,3 +6258,834 @@ class TestCelebrationAnimations:
         assert 'spawnCelebrationConfetti: spawnCelebrationConfetti' in html
         assert 'showRankUpBanner: showRankUpBanner' in html
         assert 'checkXpMilestoneFlash: checkXpMilestoneFlash' in html
+
+
+class TestSeasonalThemes:
+    """Tests for Holiday Plumage seasonal theme system."""
+
+    def test_season_detection_script_in_base(self, client):
+        """Base template should include the season detection script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Holiday Plumage' in html
+        assert '_httpparrotSeason' in html
+
+    def test_season_detection_checks_winter(self, client):
+        """Season detection script should check for winter (Dec 15 - Jan 5)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-winter" in html
+        assert "m === 11 && d >= 15" in html
+        assert "m === 0 && d <= 5" in html
+
+    def test_season_detection_checks_halloween(self, client):
+        """Season detection script should check for halloween (Oct 25 - Nov 1)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-halloween" in html
+        assert "m === 9 && d >= 25" in html
+        assert "m === 10 && d <= 1" in html
+
+    def test_season_detection_checks_april_fools(self, client):
+        """Season detection script should check for April Fools (Apr 1)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-april-fools" in html
+        assert "m === 3 && d === 1" in html
+
+    def test_season_detection_checks_valentine(self, client):
+        """Season detection script should check for Valentine's (Feb 14)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-valentine" in html
+        assert "m === 1 && d === 14" in html
+
+    def test_season_egg_tracking_winter(self, client):
+        """Season script should track season_winter egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_winter'" in html
+
+    def test_season_egg_tracking_halloween(self, client):
+        """Season script should track season_halloween egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_halloween'" in html
+
+    def test_season_egg_tracking_april(self, client):
+        """Season script should track season_april egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_april'" in html
+
+    def test_season_egg_tracking_valentine(self, client):
+        """Season script should track season_valentine egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_valentine'" in html
+
+    def test_seasonal_egg_awards_50_xp(self, client):
+        """Seasonal eggs should award 50 XP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "award(50, 'seasonal_egg')" in html
+
+    def test_seasonal_egg_uses_localstorage(self, client):
+        """Seasonal egg tracking should use eggs_found localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs_found" in html
+
+    def test_season_effects_script_present(self, client):
+        """Seasonal effects script should be present in base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Holiday Plumage' in html
+        assert 'Seasonal Effects' in html
+
+    def test_halloween_ghost_in_footer_script(self, client):
+        """Halloween effect should add ghost emoji to footer."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'halloween-ghost' in html
+
+    def test_april_fools_banner_script(self, client):
+        """April Fools effect should create scramble banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'april-fools-banner' in html
+        assert 'All status codes are scrambled' in html
+
+    def test_april_fools_reverts_after_10_seconds(self, client):
+        """April Fools scramble should revert after 10 seconds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Just kidding!' in html
+        assert '10000' in html
+
+    def test_valentine_heart_confetti_function(self, client):
+        """Valentine's effect should create heart confetti function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '_valentineHeartConfetti' in html
+        assert 'valentine-heart' in html
+
+    def test_pending_xp_award_after_parrotxp_loads(self, client):
+        """Seasonal script should queue XP if ParrotXP not loaded yet."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '_seasonalEggPending' in html
+
+
+class TestSeasonalCSS:
+    """Tests for seasonal CSS classes and styles."""
+
+    def test_winter_css_header(self, client):
+        """Winter season should style the header with blue tint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter .site-header-compact' in css
+
+    def test_winter_css_snowfall(self, client):
+        """Winter season should have snowfall animation on body::before."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter::before' in css
+        assert '@keyframes snowfall' in css
+
+    def test_halloween_css_header(self, client):
+        """Halloween season should have orange/purple gradient on header."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-halloween .site-header-compact' in css
+
+    def test_halloween_css_hue_rotate(self, client):
+        """Halloween season should add hue-rotate on card hover."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-halloween .collection-card:hover' in css
+        assert 'hue-rotate' in css
+
+    def test_halloween_ghost_css(self, client):
+        """Halloween ghost should have float animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.halloween-ghost' in css
+        assert '@keyframes ghost-float' in css
+
+    def test_april_fools_banner_css(self, client):
+        """April Fools banner should have styling."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.april-fools-banner' in css
+        assert '.april-fools-revert' in css
+
+    def test_valentine_css_header(self, client):
+        """Valentine's season should tint the header pink."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-valentine .site-header-compact' in css
+
+    def test_valentine_heart_css(self, client):
+        """Valentine's should have heart confetti particles with clip-path."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.valentine-heart' in css
+        assert 'clip-path' in css
+        assert '@keyframes heart-burst' in css
+
+    def test_reduced_motion_disables_snowfall(self, client):
+        """Reduced motion should disable winter snowfall."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter::before { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_ghost(self, client):
+        """Reduced motion should disable ghost animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.halloween-ghost { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_april_fools(self, client):
+        """Reduced motion should disable April Fools pulse."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.april-fools-banner { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_hearts(self, client):
+        """Reduced motion should disable valentine heart animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.valentine-heart { animation: none !important; display: none !important; }' in css
+
+
+class TestSeasonalCollectionEggs:
+    """Tests for seasonal egg cards in collection page."""
+
+    def test_collection_has_winter_egg(self, client):
+        """Collection page should have season_winter egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_winter"' in html
+
+    def test_collection_has_halloween_egg(self, client):
+        """Collection page should have season_halloween egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_halloween"' in html
+
+    def test_collection_has_april_egg(self, client):
+        """Collection page should have season_april egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_april"' in html
+
+    def test_collection_has_valentine_egg(self, client):
+        """Collection page should have season_valentine egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_valentine"' in html
+
+    def test_collection_seasonal_egg_hints(self, client):
+        """Seasonal egg cards should have appropriate hint text."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'winter holidays' in html.lower()
+        assert 'trick or treat' in html.lower()
+        assert 'not everything is as it seems' in html.lower()
+        assert 'love is in the http' in html.lower()
+
+    def test_collection_preserves_existing_eggs(self, client):
+        """Collection page should still have all original egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+        assert 'data-egg="barrel_roll"' in html
+        assert 'data-egg="http_handshake"' in html
+
+
+# --- Learning Paths ---
+
+class TestLearningPathsData:
+    """Validate the learning_paths.py data structure."""
+
+    def test_all_paths_have_required_keys(self):
+        from learning_paths import LEARNING_PATHS
+        required = {'id', 'title', 'description', 'difficulty', 'steps'}
+        for path in LEARNING_PATHS:
+            assert required.issubset(path.keys()), f"Path {path.get('id')} missing keys"
+
+    def test_path_ids_are_unique(self):
+        from learning_paths import LEARNING_PATHS
+        ids = [p['id'] for p in LEARNING_PATHS]
+        assert len(ids) == len(set(ids)), "Duplicate path ids"
+
+    def test_path_difficulties_valid(self):
+        from learning_paths import LEARNING_PATHS
+        allowed = {'beginner', 'intermediate', 'advanced'}
+        for path in LEARNING_PATHS:
+            assert path['difficulty'] in allowed, f"Invalid difficulty: {path['difficulty']}"
+
+    def test_all_steps_have_required_keys(self):
+        from learning_paths import LEARNING_PATHS
+        for path in LEARNING_PATHS:
+            for i, step in enumerate(path['steps']):
+                assert 'type' in step, f"Step {i} in {path['id']} missing type"
+                assert 'target' in step, f"Step {i} in {path['id']} missing target"
+                assert 'label' in step, f"Step {i} in {path['id']} missing label"
+
+    def test_step_types_valid(self):
+        from learning_paths import LEARNING_PATHS
+        allowed = {'visit', 'practice', 'debug', 'quiz', 'learn'}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                assert step['type'] in allowed, f"Invalid step type: {step['type']}"
+
+    def test_visit_targets_are_valid_codes(self):
+        """Visit-type step targets must correspond to known status codes."""
+        from learning_paths import LEARNING_PATHS
+        from index import _name_cache
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'visit':
+                    assert step['target'] in _name_cache, \
+                        f"Unknown code {step['target']} in path {path['id']}"
+
+    def test_learn_targets_are_valid_slugs(self):
+        """Learn-type step targets must correspond to known confusion pair slugs."""
+        from learning_paths import LEARNING_PATHS
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'learn':
+                    assert step['target'] in CONFUSION_PAIRS_BY_SLUG, \
+                        f"Unknown slug {step['target']} in path {path['id']}"
+
+    def test_practice_targets_are_valid_ids(self):
+        """Practice-type step targets must correspond to known scenario ids."""
+        from learning_paths import LEARNING_PATHS
+        from scenarios import SCENARIOS
+        scenario_ids = {s['id'] for s in SCENARIOS}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'practice':
+                    assert step['target'] in scenario_ids, \
+                        f"Unknown scenario id {step['target']} in path {path['id']}"
+
+    def test_debug_targets_are_valid_ids(self):
+        """Debug-type step targets must correspond to known exercise ids."""
+        from learning_paths import LEARNING_PATHS
+        from debug_exercises import DEBUG_EXERCISES
+        debug_ids = {e['id'] for e in DEBUG_EXERCISES}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'debug':
+                    assert step['target'] in debug_ids, \
+                        f"Unknown debug id {step['target']} in path {path['id']}"
+
+    def test_three_paths_exist(self):
+        from learning_paths import LEARNING_PATHS
+        assert len(LEARNING_PATHS) == 3
+
+    def test_lookup_by_id(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert 'http-foundations' in LEARNING_PATHS_BY_ID
+        assert 'error-whisperer' in LEARNING_PATHS_BY_ID
+        assert 'redirect-master' in LEARNING_PATHS_BY_ID
+
+    def test_http_foundations_is_beginner(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['http-foundations']['difficulty'] == 'beginner'
+
+    def test_error_whisperer_is_intermediate(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['error-whisperer']['difficulty'] == 'intermediate'
+
+    def test_redirect_master_is_advanced(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['redirect-master']['difficulty'] == 'advanced'
+
+
+class TestPathsIndexRoute:
+    """Tests for /paths route."""
+
+    def test_paths_index_returns_200(self, client):
+        resp = client.get('/paths')
+        assert resp.status_code == 200
+
+    def test_paths_index_has_title(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'Learning Paths' in html
+
+    def test_paths_index_lists_all_paths(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'HTTP Foundations' in html
+        assert 'Error Whisperer' in html
+        assert 'Redirect Master' in html
+
+    def test_paths_index_has_difficulty_badges(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'path-difficulty-beginner' in html
+        assert 'path-difficulty-intermediate' in html
+        assert 'path-difficulty-advanced' in html
+
+    def test_paths_index_has_progress_bars(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'path-progress-bar' in html
+        assert 'progressbar' in html
+
+    def test_paths_index_links_to_details(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'href="/paths/http-foundations"' in html
+        assert 'href="/paths/error-whisperer"' in html
+        assert 'href="/paths/redirect-master"' in html
+
+    def test_paths_index_has_step_counts(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'steps' in html
+
+    def test_paths_index_has_descriptions(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'Start your HTTP journey' in html
+        assert 'Master the 4xx and 5xx' in html
+        assert 'Conquer the full family' in html
+
+
+class TestPathDetailRoute:
+    """Tests for /paths/<path_id> route."""
+
+    def test_path_detail_returns_200(self, client):
+        resp = client.get('/paths/http-foundations')
+        assert resp.status_code == 200
+
+    def test_path_detail_invalid_id_returns_404(self, client):
+        resp = client.get('/paths/nonexistent-path')
+        assert resp.status_code == 404
+
+    def test_path_detail_has_title(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'HTTP Foundations' in html
+
+    def test_path_detail_has_breadcrumb(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'breadcrumb' in html.lower() or 'Breadcrumb' in html
+        assert 'href="/paths"' in html
+
+    def test_path_detail_has_difficulty_badge(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-difficulty-beginner' in html
+
+    def test_path_detail_has_progress_bar(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'progress-fill' in html
+        assert 'progressbar' in html
+
+    def test_path_detail_has_steps(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-step' in html
+        assert 'path-step-check' in html
+
+    def test_path_detail_has_step_type_badges(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-step-type-visit' in html
+        assert 'path-step-type-practice' in html
+        assert 'path-step-type-learn' in html
+        assert 'path-step-type-quiz' in html
+
+    def test_path_detail_has_step_links(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'href="/200"' in html
+        assert 'href="/quiz"' in html
+        assert 'href="/learn/200-vs-204"' in html
+
+    def test_path_detail_has_completion_banner(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-complete-banner' in html
+        assert 'Path Complete' in html
+
+    def test_path_detail_has_xp_bonus_script(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path_complete' in html
+        assert '200' in html  # 200 XP bonus
+
+    def test_all_paths_render(self, client):
+        """Every configured path detail page should render without error."""
+        from learning_paths import LEARNING_PATHS
+        for path in LEARNING_PATHS:
+            resp = client.get(f'/paths/{path["id"]}')
+            assert resp.status_code == 200, f"/paths/{path['id']} returned {resp.status_code}"
+
+    def test_error_whisperer_has_debug_steps(self, client):
+        resp = client.get('/paths/error-whisperer')
+        html = resp.data.decode()
+        assert 'path-step-type-debug' in html
+        assert 'href="/debug"' in html
+
+    def test_redirect_master_has_learn_steps(self, client):
+        resp = client.get('/paths/redirect-master')
+        html = resp.data.decode()
+        assert 'href="/learn/301-vs-302"' in html
+        assert 'href="/learn/307-vs-308"' in html
+        assert 'href="/learn/302-vs-307"' in html
+
+
+class TestPathsNavLink:
+    """Tests for Paths link in navigation."""
+
+    def test_nav_has_paths_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/paths"' in html
+        assert '>Paths<' in html
+
+    def test_nav_paths_active_on_index(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        # The /paths nav link should have the active class
+        assert 'nav-active' in html
+
+    def test_nav_paths_active_on_detail(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestPathsSitemap:
+    """Tests for paths URLs in sitemap."""
+
+    def test_sitemap_includes_paths_index(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/paths</loc>' in xml or '/paths<' in xml
+
+    def test_sitemap_includes_path_details(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/paths/http-foundations' in xml
+        assert '/paths/error-whisperer' in xml
+        assert '/paths/redirect-master' in xml
+
+
+# --- Security Audit ---
+
+class TestSecurityAudit:
+    def test_security_audit_page_renders(self, client):
+        """Security audit page should return 200 with expected content."""
+        resp = client.get('/security-audit')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Security Audit' in html
+        assert 'audit-url' in html
+        assert 'audit-form' in html
+
+    def test_security_audit_has_nonce(self, client):
+        """Security audit script tag should have a nonce."""
+        resp = client.get('/security-audit')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_security_audit_nav_link(self, client):
+        """Navigation should contain a link to the security audit page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/security-audit"' in html
+
+    def test_security_audit_in_sitemap(self, client):
+        """Sitemap should include the security audit page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/security-audit' in resp.data
+
+    def test_security_audit_api_in_robots_txt(self, client):
+        """robots.txt should block /api/security-audit."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/security-audit' in resp.data
+
+
+class TestSecurityAuditAPI:
+    def test_api_missing_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/security-audit')
+        assert resp.status_code == 400
+        assert b'Missing required parameter' in resp.data
+
+    def test_api_blocked_url(self, client):
+        """API should return 403 for private/blocked URLs."""
+        resp = client.get('/api/security-audit?url=http://127.0.0.1/')
+        assert resp.status_code == 403
+        assert b'not allowed' in resp.data
+
+    def test_api_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/security-audit?url=http://127.0.0.1/')
+        resp = client.get('/api/security-audit?url=https://example.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_api_success_returns_grade(self, client):
+        """API should return a grade, score, and checks for a valid URL."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Strict-Transport-Security': 'max-age=31536000',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'grade' in data
+            assert 'score' in data
+            assert 'max_score' in data
+            assert 'checks' in data
+            assert isinstance(data['checks'], list)
+            assert len(data['checks']) == 10
+
+    def test_api_auto_prefix_scheme(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp) as mock_get:
+            resp = client.get('/api/security-audit?url=example.com')
+            assert resp.status_code == 200
+            call_args = mock_get.call_args
+            assert call_args[0][0] == 'https://example.com'
+
+    def test_api_connection_error(self, client):
+        """API should return 502 when connection fails."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', side_effect=requests.RequestException):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            assert resp.status_code == 502
+            assert b'Could not connect' in resp.data
+
+    def test_api_perfect_score(self, client):
+        """A site with all security headers should get A+ grade."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            data = resp.get_json()
+            assert data['grade'] == 'A+'
+            assert data['score'] == data['max_score']
+
+    def test_api_poor_score(self, client):
+        """A site with no security headers should get F grade."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Server': 'Apache/2.4.41 (Ubuntu)',
+            'X-Powered-By': 'PHP/7.4.3',
+            'Access-Control-Allow-Origin': '*',
+            'Set-Cookie': 'session=abc123',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            data = resp.get_json()
+            assert data['grade'] == 'F'
+            assert data['score'] == 0
+
+
+class TestSecurityAuditScoringLogic:
+    """Unit tests for the _run_security_checks and _score_to_grade functions."""
+
+    def test_all_headers_present_full_score(self):
+        """All security headers present should give full score."""
+        headers = {
+            'Strict-Transport-Security': 'max-age=31536000',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        score, max_score, checks = _run_security_checks(headers)
+        assert score == max_score
+        assert all(c['status'] == 'pass' for c in checks)
+
+    def test_no_headers_zero_score(self):
+        """No security headers should give zero score (except absence-based checks)."""
+        headers = {
+            'Server': 'nginx/1.18',
+            'X-Powered-By': 'Express',
+            'Access-Control-Allow-Origin': '*',
+            'Set-Cookie': 'sid=abc',
+        }
+        score, max_score, checks = _run_security_checks(headers)
+        assert score == 0
+        assert max_score == 70
+
+    def test_xcto_must_be_nosniff(self):
+        """X-Content-Type-Options must be exactly 'nosniff' to pass."""
+        headers = {'X-Content-Type-Options': 'nosniff'}
+        score, _, checks = _run_security_checks(headers)
+        xcto = next(c for c in checks if c['id'] == 'xcto')
+        assert xcto['status'] == 'pass'
+
+        headers_wrong = {'X-Content-Type-Options': 'something-else'}
+        _, _, checks_wrong = _run_security_checks(headers_wrong)
+        xcto_wrong = next(c for c in checks_wrong if c['id'] == 'xcto')
+        assert xcto_wrong['status'] == 'fail'
+
+    def test_server_header_absent_passes(self):
+        """Absent Server header should pass."""
+        _, _, checks = _run_security_checks({})
+        server = next(c for c in checks if c['id'] == 'server')
+        assert server['status'] == 'pass'
+
+    def test_server_header_leaking_fails(self):
+        """Server header with version info should fail."""
+        _, _, checks = _run_security_checks({'Server': 'Apache/2.4.41'})
+        server = next(c for c in checks if c['id'] == 'server')
+        assert server['status'] == 'fail'
+
+    def test_powered_by_absent_passes(self):
+        """Absent X-Powered-By header should pass."""
+        _, _, checks = _run_security_checks({})
+        powered = next(c for c in checks if c['id'] == 'powered')
+        assert powered['status'] == 'pass'
+
+    def test_powered_by_present_fails(self):
+        """Present X-Powered-By header should fail."""
+        _, _, checks = _run_security_checks({'X-Powered-By': 'Express'})
+        powered = next(c for c in checks if c['id'] == 'powered')
+        assert powered['status'] == 'fail'
+
+    def test_cookie_secure_httponly_samesite(self):
+        """Cookie with all three attributes should pass."""
+        headers = {'Set-Cookie': 'sid=abc; Secure; HttpOnly; SameSite=Lax'}
+        _, _, checks = _run_security_checks(headers)
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'pass'
+
+    def test_cookie_missing_attributes_fails(self):
+        """Cookie without security attributes should fail."""
+        headers = {'Set-Cookie': 'sid=abc'}
+        _, _, checks = _run_security_checks(headers)
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'fail'
+
+    def test_cookie_absent_passes(self):
+        """No cookies at all should pass."""
+        _, _, checks = _run_security_checks({})
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'pass'
+
+    def test_cors_wildcard_fails(self):
+        """CORS wildcard * should fail."""
+        _, _, checks = _run_security_checks({'Access-Control-Allow-Origin': '*'})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'fail'
+
+    def test_cors_specific_origin_passes(self):
+        """Specific CORS origin should pass."""
+        _, _, checks = _run_security_checks({'Access-Control-Allow-Origin': 'https://example.com'})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'pass'
+
+    def test_cors_absent_passes(self):
+        """Absent CORS header should pass."""
+        _, _, checks = _run_security_checks({})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'pass'
+
+    def test_case_insensitive_headers(self):
+        """Header checks should be case insensitive."""
+        headers = {
+            'strict-transport-security': 'max-age=31536000',
+            'content-security-policy': "default-src 'self'",
+            'x-content-type-options': 'nosniff',
+        }
+        score, _, checks = _run_security_checks(headers)
+        hsts = next(c for c in checks if c['id'] == 'hsts')
+        csp = next(c for c in checks if c['id'] == 'csp')
+        xcto = next(c for c in checks if c['id'] == 'xcto')
+        assert hsts['status'] == 'pass'
+        assert csp['status'] == 'pass'
+        assert xcto['status'] == 'pass'
+
+
+class TestScoreToGrade:
+    """Tests for the _score_to_grade conversion function."""
+
+    def test_grade_a_plus(self):
+        assert _score_to_grade(75, 75) == 'A+'
+        assert _score_to_grade(72, 75) == 'A+'
+
+    def test_grade_a(self):
+        assert _score_to_grade(64, 75) == 'A'
+
+    def test_grade_b(self):
+        assert _score_to_grade(53, 75) == 'B'
+
+    def test_grade_c(self):
+        assert _score_to_grade(38, 75) == 'C'
+
+    def test_grade_d(self):
+        assert _score_to_grade(23, 75) == 'D'
+
+    def test_grade_f(self):
+        assert _score_to_grade(10, 75) == 'F'
+        assert _score_to_grade(0, 75) == 'F'
+
+    def test_grade_zero_max(self):
+        assert _score_to_grade(0, 0) == 'F'
+
+    def test_each_check_has_required_fields(self):
+        """Every check result should have id, header, points, desc, fix, and status."""
+        _, _, checks = _run_security_checks({})
+        for check in checks:
+            assert 'id' in check
+            assert 'header' in check
+            assert 'points' in check
+            assert 'desc' in check
+            assert 'fix' in check
+            assert 'status' in check
+            assert check['status'] in ('pass', 'fail')
