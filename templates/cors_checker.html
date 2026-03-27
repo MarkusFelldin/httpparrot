@@ -15,10 +15,12 @@
                 <div class="cors-field">
                     <label class="cors-label" for="cors-url">Target URL</label>
                     <input type="text" class="headers-input cors-input-single" id="cors-url" placeholder="https://api.example.com/data" autocomplete="off">
+                    <div class="validation-error" id="cors-url-validation-error" role="alert" style="display:none;">URL is required</div>
                 </div>
                 <div class="cors-field">
                     <label class="cors-label" for="cors-origin">Origin</label>
                     <input type="text" class="headers-input cors-input-single" id="cors-origin" placeholder="https://mysite.com" autocomplete="off">
+                    <div class="validation-error" id="cors-origin-validation-error" role="alert" style="display:none;">Origin is required</div>
                 </div>
             </div>
             <button type="submit" class="tester-submit" id="cors-btn">Check CORS</button>
@@ -105,11 +107,31 @@
             parent.appendChild(section);
         }
 
+        document.getElementById('cors-url').addEventListener('input', function() {
+            document.getElementById('cors-url-validation-error').style.display = 'none';
+        });
+        document.getElementById('cors-origin').addEventListener('input', function() {
+            document.getElementById('cors-origin-validation-error').style.display = 'none';
+        });
+
         document.getElementById('cors-form').addEventListener('submit', function(e) {
             e.preventDefault();
             var url = document.getElementById('cors-url').value.trim();
             var origin = document.getElementById('cors-origin').value.trim();
-            if (!url || !origin) return;
+            var hasError = false;
+            if (!url) {
+                document.getElementById('cors-url-validation-error').style.display = '';
+                hasError = true;
+            } else {
+                document.getElementById('cors-url-validation-error').style.display = 'none';
+            }
+            if (!origin) {
+                document.getElementById('cors-origin-validation-error').style.display = '';
+                hasError = true;
+            } else {
+                document.getElementById('cors-origin-validation-error').style.display = 'none';
+            }
+            if (hasError) return;
 
             var results = document.getElementById('cors-results');
             var btn = document.getElementById('cors-btn');

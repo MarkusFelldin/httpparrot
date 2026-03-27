@@ -228,6 +228,13 @@ def inject_csp_nonce():
     return {'csp_nonce': nonce}
 
 
+@app.context_processor
+def inject_status_codes_json():
+    """Provide all status codes as a JSON array for the command palette search."""
+    codes_json = json.dumps([[sc.code, sc.name] for sc in status_code_list])
+    return {'status_codes_json': codes_json}
+
+
 @app.after_request
 def set_security_headers(response):
     """Attach security headers (CSP, HSTS, X-Frame-Options, etc.) to every response."""

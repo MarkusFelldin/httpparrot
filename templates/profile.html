@@ -25,6 +25,74 @@
             </div>
         </div>
 
+        <section class="profile-customize-section" aria-label="Customize your profile">
+            <h2>Customize</h2>
+            <div class="customize-subsection">
+                <h3 class="customize-label">Spirit Parrot</h3>
+                <p class="customize-desc">Pick the parrot that represents you. It will appear in your XP badge across the site.</p>
+                <div class="spirit-parrot-grid" id="spirit-parrot-grid" role="radiogroup" aria-label="Choose your spirit parrot">
+                    <button class="spirit-parrot-option" data-code="200" type="button" role="radio" aria-checked="false" aria-label="200 OK parrot">
+                        <img src="/static/200.jpg" alt="200 OK" loading="lazy" width="64" height="64">
+                        <span>200</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="201" type="button" role="radio" aria-checked="false" aria-label="201 Created parrot">
+                        <img src="/static/201.jpg" alt="201 Created" loading="lazy" width="64" height="64">
+                        <span>201</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="301" type="button" role="radio" aria-checked="false" aria-label="301 Moved Permanently parrot">
+                        <img src="/static/301.jpg" alt="301 Moved" loading="lazy" width="64" height="64">
+                        <span>301</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="404" type="button" role="radio" aria-checked="false" aria-label="404 Not Found parrot">
+                        <img src="/static/404.jpg" alt="404 Not Found" loading="lazy" width="64" height="64">
+                        <span>404</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="418" type="button" role="radio" aria-checked="false" aria-label="418 I'm a teapot parrot">
+                        <img src="/static/418.jpg" alt="418 Teapot" loading="lazy" width="64" height="64">
+                        <span>418</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="500" type="button" role="radio" aria-checked="false" aria-label="500 Internal Server Error parrot">
+                        <img src="/static/500.jpg" alt="500 Error" loading="lazy" width="64" height="64">
+                        <span>500</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="503" type="button" role="radio" aria-checked="false" aria-label="503 Service Unavailable parrot">
+                        <img src="/static/503.jpg" alt="503 Unavailable" loading="lazy" width="64" height="64">
+                        <span>503</span>
+                    </button>
+                    <button class="spirit-parrot-option" data-code="429" type="button" role="radio" aria-checked="false" aria-label="429 Too Many Requests parrot">
+                        <img src="/static/429.jpg" alt="429 Rate Limited" loading="lazy" width="64" height="64">
+                        <span>429</span>
+                    </button>
+                </div>
+            </div>
+            <div class="customize-subsection">
+                <h3 class="customize-label">Theme Accent</h3>
+                <p class="customize-desc">Choose your accent color. It personalizes highlights and accents across the site.</p>
+                <div class="accent-color-grid" id="accent-color-grid" role="radiogroup" aria-label="Choose accent color">
+                    <button class="accent-color-option" data-accent="teal" type="button" role="radio" aria-checked="false" aria-label="Teal accent">
+                        <span class="accent-color-swatch" style="background:#00c9a7"></span>
+                        <span>Teal</span>
+                    </button>
+                    <button class="accent-color-option" data-accent="purple" type="button" role="radio" aria-checked="false" aria-label="Purple accent">
+                        <span class="accent-color-swatch" style="background:#7b61ff"></span>
+                        <span>Purple</span>
+                    </button>
+                    <button class="accent-color-option" data-accent="blue" type="button" role="radio" aria-checked="false" aria-label="Blue accent">
+                        <span class="accent-color-swatch" style="background:#00b4d8"></span>
+                        <span>Blue</span>
+                    </button>
+                    <button class="accent-color-option" data-accent="gold" type="button" role="radio" aria-checked="false" aria-label="Gold accent">
+                        <span class="accent-color-swatch" style="background:#f9c74f"></span>
+                        <span>Gold</span>
+                    </button>
+                    <button class="accent-color-option" data-accent="coral" type="button" role="radio" aria-checked="false" aria-label="Coral accent">
+                        <span class="accent-color-swatch" style="background:#ff6b6b"></span>
+                        <span>Coral</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
         <section class="profile-stats-section" aria-label="Your statistics">
             <h2>Stats</h2>
             <div class="profile-stats-grid" id="profile-stats-grid">
@@ -626,6 +694,93 @@
             card.appendChild(bonusEl);
 
             feathersGrid.appendChild(card);
+        });
+    }
+})();
+
+/* --- Customize: Spirit Parrot & Theme Accent --- */
+(function() {
+    var AVATAR_EMOJIS = {
+        '200': '\uD83E\uDD9C', '201': '\uD83C\uDF89', '301': '\u27A1\uFE0F',
+        '404': '\uD83D\uDD75\uFE0F', '418': '\u2615', '500': '\uD83D\uDCA5',
+        '503': '\uD83D\uDEA7', '429': '\u23F0'
+    };
+    var ACCENT_MAP = {
+        'teal': '#00c9a7', 'purple': '#7b61ff', 'blue': '#00b4d8',
+        'gold': '#f9c74f', 'coral': '#ff6b6b'
+    };
+
+    /* Spirit Parrot selection */
+    var parrotGrid = document.getElementById('spirit-parrot-grid');
+    var savedAvatar = localStorage.getItem('httpparrot_avatar');
+    var savedCode = localStorage.getItem('httpparrot_avatar_code');
+
+    if (parrotGrid) {
+        var parrotBtns = parrotGrid.querySelectorAll('.spirit-parrot-option');
+        /* Mark saved selection */
+        if (savedCode) {
+            for (var i = 0; i < parrotBtns.length; i++) {
+                if (parrotBtns[i].getAttribute('data-code') === savedCode) {
+                    parrotBtns[i].classList.add('selected');
+                    parrotBtns[i].setAttribute('aria-checked', 'true');
+                }
+            }
+        }
+
+        parrotBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var code = btn.getAttribute('data-code');
+                var emoji = AVATAR_EMOJIS[code] || '\uD83E\uDD9C';
+                /* Update selection UI */
+                parrotBtns.forEach(function(b) {
+                    b.classList.remove('selected');
+                    b.setAttribute('aria-checked', 'false');
+                });
+                btn.classList.add('selected');
+                btn.setAttribute('aria-checked', 'true');
+                /* Save to localStorage */
+                localStorage.setItem('httpparrot_avatar', emoji);
+                localStorage.setItem('httpparrot_avatar_code', code);
+                /* Update XP badge icon immediately */
+                var badgeIcon = document.querySelector('.xp-badge-icon');
+                if (badgeIcon) badgeIcon.textContent = emoji;
+            });
+        });
+    }
+
+    /* Accent color selection */
+    var accentGrid = document.getElementById('accent-color-grid');
+    var savedAccent = localStorage.getItem('httpparrot_accent');
+
+    if (accentGrid) {
+        var accentBtns = accentGrid.querySelectorAll('.accent-color-option');
+        /* Mark saved selection */
+        if (savedAccent) {
+            for (var j = 0; j < accentBtns.length; j++) {
+                if (accentBtns[j].getAttribute('data-accent') === savedAccent) {
+                    accentBtns[j].classList.add('selected');
+                    accentBtns[j].setAttribute('aria-checked', 'true');
+                }
+            }
+        }
+
+        accentBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var accent = btn.getAttribute('data-accent');
+                /* Update selection UI */
+                accentBtns.forEach(function(b) {
+                    b.classList.remove('selected');
+                    b.setAttribute('aria-checked', 'false');
+                });
+                btn.classList.add('selected');
+                btn.setAttribute('aria-checked', 'true');
+                /* Save to localStorage */
+                localStorage.setItem('httpparrot_accent', accent);
+                /* Apply immediately */
+                if (ACCENT_MAP[accent]) {
+                    document.documentElement.style.setProperty('--color-accent', ACCENT_MAP[accent]);
+                }
+            });
         });
     }
 })();

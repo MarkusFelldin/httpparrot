@@ -70,7 +70,12 @@
 
         <div class="daily-already" id="daily-already" style="display:none;">
             <div class="daily-already-text">You already answered today's challenge! Come back tomorrow.</div>
-            <a href="/" class="btn-back" style="margin-top:0.75rem;display:inline-block;">Back to Home</a>
+            <div class="daily-suggested-actions">
+                <span class="daily-suggested-label">Keep practicing:</span>
+                <a href="/weekly" class="btn-back daily-suggested-link">Weekly Challenge</a>
+                <a href="/practice" class="btn-back daily-suggested-link">Practice</a>
+                <a href="/quiz" class="btn-back daily-suggested-link">Quiz</a>
+            </div>
         </div>
     </main>
 {% endblock %}

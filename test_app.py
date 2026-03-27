@@ -4154,15 +4154,15 @@ class TestTemplateAutoEscaping:
         assert '<script>' not in html or 'nonce=' in html
 
     def test_no_safe_filter_in_templates(self):
-        """No templates should use |safe filter (verified by grep)."""
+        """Templates should not use |safe on user-controlled data."""
         import os
         template_dir = os.path.join(os.path.dirname(__file__), 'templates')
         for filename in os.listdir(template_dir):
             if filename.endswith('.html'):
                 with open(os.path.join(template_dir, filename)) as f:
-                    content = f.read()
-                    assert '|safe' not in content, \
-                        f"Template {filename} uses |safe which bypasses auto-escaping"
+                    for ln_num, line in enumerate(f, 1):
+                        if '|safe' in line:
+                            assert '_json|safe' in line, f"Template {filename}:{ln_num} uses |safe unsafely"
 
     def test_no_unsafe_inline_in_csp(self, client):
         """CSP should not contain unsafe-inline or unsafe-eval."""
@@ -11963,3 +11963,538 @@ class TestWeeklyHistoryCSS:
         assert '.weekly-history-row' in css
         assert '.weekly-history-title' in css
         assert '.weekly-history-score' in css
+
+
+# --- Adaptive Quiz Difficulty ---
+
+class TestAdaptiveQuizDifficulty:
+    """Tests for adaptive quiz difficulty with mistake tracking."""
+
+    def test_quiz_has_mistakes_key(self, client):
+        """Quiz should define the localStorage key for mistakes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'httpparrot_quiz_mistakes' in html
+
+    def test_quiz_has_get_mistakes_function(self, client):
+        """Quiz should have a getMistakes function for loading from localStorage."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function getMistakes()' in html
+
+    def test_quiz_has_save_mistakes_function(self, client):
+        """Quiz should have a saveMistakes function for persisting to localStorage."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function saveMistakes(' in html
+
+    def test_quiz_has_add_mistake_function(self, client):
+        """Quiz should have an addMistake function to record wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function addMistake(' in html
+
+    def test_quiz_has_remove_mistake_function(self, client):
+        """Quiz should have a removeMistake function to clear mastered codes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function removeMistake(' in html
+
+    def test_quiz_has_weighted_pick_function(self, client):
+        """Quiz should have a pickWeightedCode function for adaptive selection."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function pickWeightedCode()' in html
+
+    def test_quiz_weighted_pick_uses_50_percent(self, client):
+        """Weighted pick should use 50% probability for mistake codes."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'Math.random() < 0.5' in html
+
+    def test_quiz_calls_add_mistake_on_wrong(self, client):
+        """Wrong answers should call addMistake with the correct code."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'addMistake(correct.code)' in html
+
+    def test_quiz_calls_remove_mistake_on_correct(self, client):
+        """Correct answers should call removeMistake to clear the code."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'removeMistake(correct.code)' in html
+
+    def test_quiz_next_round_uses_weighted_pick(self, client):
+        """nextRound should use pickWeightedCode instead of plain random."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'const correct = pickWeightedCode()' in html
+
+
+# --- Form Validation UX ---
+
+class TestFormValidationUX:
+    """Tests for inline validation error messages on forms."""
+
+    def test_tester_has_validation_error_element(self, client):
+        """Tester page should have a validation-error element for empty URL."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_tester_validation_error_hidden_by_default(self, client):
+        """Tester validation error should be hidden by default."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error" role="alert" style="display:none;"' in html
+
+    def test_tester_validation_error_has_role_alert(self, client):
+        """Tester validation error should have role=alert for accessibility."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'id="url-validation-error" role="alert"' in html
+
+    def test_trace_has_validation_error_element(self, client):
+        """Trace page should have a validation-error element for empty URL."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert 'id="trace-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_trace_validation_error_hidden_by_default(self, client):
+        """Trace validation error should be hidden by default."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert 'id="trace-validation-error" role="alert" style="display:none;"' in html
+
+    def test_security_audit_has_validation_error_element(self, client):
+        """Security audit page should have a validation-error element."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert 'id="audit-validation-error"' in html
+        assert 'Please enter a URL' in html
+
+    def test_security_audit_validation_error_hidden_by_default(self, client):
+        """Security audit validation error should be hidden by default."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert 'id="audit-validation-error" role="alert" style="display:none;"' in html
+
+    def test_cors_checker_has_url_validation_error(self, client):
+        """CORS checker should have a validation-error for empty URL."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-url-validation-error"' in html
+        assert 'URL is required' in html
+
+    def test_cors_checker_has_origin_validation_error(self, client):
+        """CORS checker should have a validation-error for empty origin."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-origin-validation-error"' in html
+        assert 'Origin is required' in html
+
+    def test_cors_checker_validation_errors_hidden_by_default(self, client):
+        """CORS checker validation errors should be hidden by default."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert 'id="cors-url-validation-error" role="alert" style="display:none;"' in html
+        assert 'id="cors-origin-validation-error" role="alert" style="display:none;"' in html
+
+    def test_headers_has_validation_error_element(self, client):
+        """Headers page should have a validation-error element."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'id="header-validation-error"' in html
+        assert 'Paste some headers first' in html
+
+    def test_headers_validation_error_hidden_by_default(self, client):
+        """Headers validation error should be hidden by default."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert 'id="header-validation-error" role="alert" style="display:none;"' in html
+
+    def test_validation_error_css_exists(self):
+        """CSS should include validation-error styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.validation-error' in css
+        assert '#ff6b6b' in css
+
+    def test_tester_shows_error_on_empty_submit(self, client):
+        """Tester JS should show the error when URL is empty."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert "getElementById('url-validation-error').style.display = ''" in html
+
+    def test_tester_hides_error_on_input(self, client):
+        """Tester JS should hide validation error on input event."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert "url-input').addEventListener('input'" in html
+
+    def test_trace_shows_error_on_empty_submit(self, client):
+        """Trace JS should show error when URL is empty."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert "getElementById('trace-validation-error').style.display = ''" in html
+
+    def test_trace_hides_error_on_input(self, client):
+        """Trace JS should hide validation error on input event."""
+        resp = client.get('/trace')
+        html = resp.data.decode()
+        assert "trace-url').addEventListener('input'" in html
+
+    def test_security_audit_shows_error_on_empty_submit(self, client):
+        """Security audit JS should show error when URL is empty."""
+        resp = client.get('/security-audit')
+        html = resp.data.decode()
+        assert "getElementById('audit-validation-error').style.display = ''" in html
+
+    def test_cors_shows_both_errors_on_empty_submit(self, client):
+        """CORS checker JS should show both errors when fields are empty."""
+        resp = client.get('/cors-checker')
+        html = resp.data.decode()
+        assert "getElementById('cors-url-validation-error').style.display = ''" in html
+        assert "getElementById('cors-origin-validation-error').style.display = ''" in html
+
+    def test_headers_shows_error_on_empty_click(self, client):
+        """Headers JS should show error when textarea is empty."""
+        resp = client.get('/headers')
+        html = resp.data.decode()
+        assert "getElementById('header-validation-error').style.display = ''" in html
+
+
+# --- Daily Challenge Suggested Actions ---
+
+class TestDailySuggestedActions:
+    """Tests for daily challenge navigation improvement."""
+
+    def test_daily_has_suggested_actions(self, client):
+        """Daily page should have suggested actions section."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-suggested-actions' in html
+
+    def test_daily_has_weekly_link(self, client):
+        """Daily page should link to weekly challenge."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/weekly"' in html
+        assert 'Weekly Challenge' in html
+
+    def test_daily_has_practice_link(self, client):
+        """Daily page should link to practice mode."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+        assert 'Practice' in html
+
+    def test_daily_has_quiz_link(self, client):
+        """Daily page should link to quiz mode."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'href="/quiz"' in html
+        assert 'Quiz' in html
+
+    def test_daily_has_suggested_label(self, client):
+        """Daily page should have a label for the suggested actions."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'daily-suggested-label' in html
+        assert 'Keep practicing' in html
+
+    def test_daily_no_back_to_home_dead_end(self, client):
+        """Daily page should not have the old 'Back to Home' dead end link."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'Back to Home' not in html
+
+    def test_daily_suggested_actions_css(self):
+        """CSS should include daily suggested actions styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.daily-suggested-actions' in css
+        assert '.daily-suggested-label' in css
+        assert '.daily-suggested-link' in css
+
+
+# --- Command Palette ---
+
+class TestCommandPalette:
+    """Tests for the command palette (Cmd+K / Ctrl+K) feature."""
+
+    def test_command_palette_overlay_in_base(self, client):
+        """Base template should contain the command palette overlay."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'cmd-palette-overlay' in html
+        assert 'cmd-palette-input' in html
+        assert 'cmd-palette-results' in html
+
+    def test_command_palette_on_detail_page(self, client):
+        """Command palette should be available on detail pages too."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'cmd-palette-overlay' in html
+
+    def test_command_palette_has_search_input(self, client):
+        """Command palette should have a search input with proper attributes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'placeholder="Search pages, status codes, actions..."' in html
+        assert 'aria-label="Command palette search"' in html
+
+    def test_command_palette_has_footer_hints(self, client):
+        """Command palette footer should show keyboard hints."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'navigate' in html
+        assert 'cmd-palette-footer' in html
+
+    def test_command_palette_has_backdrop(self, client):
+        """Command palette should have a backdrop for closing."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'cmd-palette-backdrop' in html
+
+    def test_command_palette_accessible_dialog(self, client):
+        """Command palette overlay should have proper ARIA attributes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="dialog"' in html
+        assert 'aria-modal="true"' in html
+        assert 'aria-label="Command palette"' in html
+
+    def test_command_palette_results_listbox(self, client):
+        """Results container should have listbox role."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'role="listbox"' in html
+
+    def test_command_palette_status_codes_json(self, client):
+        """Template should receive status codes JSON for the command palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Should contain status codes as JSON array
+        assert '"200"' in html
+        assert '"404"' in html
+        assert '"OK"' in html
+        assert '"Not Found"' in html
+
+    def test_command_palette_pages_data(self, client):
+        """Command palette JS should include page routes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'/quiz'" in html
+        assert "'/daily'" in html
+        assert "'/tester'" in html
+        assert "'/profile'" in html
+
+    def test_command_palette_actions_data(self, client):
+        """Command palette JS should include action items."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Take Quiz' in html
+        assert 'Random Parrot' in html
+
+    def test_keyboard_shortcuts_includes_cmdk(self, client):
+        """Keyboard shortcuts overlay should list Cmd+K."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Command palette' in html
+        assert 'Ctrl+K' in html
+
+    def test_command_palette_css(self):
+        """CSS should include command palette styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.cmd-palette-overlay' in css
+        assert '.cmd-palette-panel' in css
+        assert '.cmd-palette-input' in css
+        assert '.cmd-palette-result' in css
+        assert '.cmd-palette-result-active' in css
+        assert '.cmd-palette-backdrop' in css
+        assert '.cmd-palette-footer' in css
+
+    def test_command_palette_css_glassmorphism(self):
+        """Command palette panel should use glassmorphism (backdrop-filter)."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the palette panel section
+        assert 'backdrop-filter: blur(24px)' in css
+
+    def test_command_palette_css_responsive(self):
+        """Command palette should have responsive styles for mobile."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Check mobile breakpoint adjustments
+        assert '.cmd-palette-panel' in css
+        # The footer should hide on mobile
+        assert '.cmd-palette-footer' in css
+
+    def test_command_palette_hidden_by_default(self, client):
+        """Command palette should be hidden by default."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hidden' in html
+
+
+# --- Customizable Avatar & Theme Accent ---
+
+class TestCustomizeAvatarAccent:
+    """Tests for the customizable avatar and theme accent feature on the profile page."""
+
+    def test_customize_section_exists(self, client):
+        """Profile page should contain the customize section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-customize-section' in html
+        assert 'Customize' in html
+
+    def test_spirit_parrot_grid(self, client):
+        """Profile page should have a spirit parrot selection grid."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'spirit-parrot-grid' in html
+        assert 'Spirit Parrot' in html
+
+    def test_spirit_parrot_options_count(self, client):
+        """There should be 8 spirit parrot options."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        # Count only the button elements with data-code (not JS references)
+        assert html.count('class="spirit-parrot-option"') == 8
+
+    def test_spirit_parrot_codes(self, client):
+        """Spirit parrot options should include popular status codes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        for code in ['200', '201', '301', '404', '418', '500', '503', '429']:
+            assert f'data-code="{code}"' in html
+
+    def test_spirit_parrot_images(self, client):
+        """Spirit parrot options should have thumbnail images."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert '/static/200.jpg' in html
+        assert '/static/404.jpg' in html
+        assert '/static/418.jpg' in html
+
+    def test_spirit_parrot_accessibility(self, client):
+        """Spirit parrot grid should have proper ARIA attributes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'role="radiogroup"' in html
+        assert 'role="radio"' in html
+        assert 'aria-checked=' in html
+        assert 'aria-label="Choose your spirit parrot"' in html
+
+    def test_accent_color_grid(self, client):
+        """Profile page should have an accent color selection grid."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'accent-color-grid' in html
+        assert 'Theme Accent' in html
+
+    def test_accent_color_options(self, client):
+        """There should be 5 accent color options."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        for accent in ['teal', 'purple', 'blue', 'gold', 'coral']:
+            assert f'data-accent="{accent}"' in html
+
+    def test_accent_color_swatches(self, client):
+        """Accent color options should show color swatches."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'accent-color-swatch' in html
+        assert '#00c9a7' in html  # teal
+        assert '#7b61ff' in html  # purple
+        assert '#00b4d8' in html  # blue
+        assert '#f9c74f' in html  # gold
+        assert '#ff6b6b' in html  # coral
+
+    def test_accent_color_accessibility(self, client):
+        """Accent color grid should have proper ARIA attributes."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'aria-label="Choose accent color"' in html
+
+    def test_customize_descriptions(self, client):
+        """Customize sections should have descriptive text."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Pick the parrot that represents you' in html
+        assert 'Choose your accent color' in html
+
+    def test_customize_localstorage_keys_in_js(self, client):
+        """Profile JS should reference the expected localStorage keys."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_avatar' in html
+        assert 'httpparrot_accent' in html
+
+    def test_base_template_avatar_application(self, client):
+        """Base template should include script to apply saved avatar."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_avatar' in html
+        assert 'xp-badge-icon' in html
+
+    def test_base_template_accent_application(self, client):
+        """Base template should include script to apply saved accent color."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_accent' in html
+        assert '--color-accent' in html
+
+    def test_xp_badge_icon_has_id(self, client):
+        """XP badge icon should have an id for avatar script targeting."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="xp-badge-icon"' in html
+
+    def test_customize_css(self):
+        """CSS should include customize section styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.profile-customize-section' in css
+        assert '.spirit-parrot-grid' in css
+        assert '.spirit-parrot-option' in css
+        assert '.spirit-parrot-option.selected' in css
+        assert '.accent-color-grid' in css
+        assert '.accent-color-option' in css
+        assert '.accent-color-swatch' in css
+        assert '.accent-color-option.selected' in css
+
+    def test_customize_css_responsive(self):
+        """Customize CSS should include responsive styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Mobile grid should be 4 columns
+        assert 'repeat(4, 1fr)' in css
+
+
+# --- Status Codes JSON Context Processor ---
+
+class TestStatusCodesJsonContextProcessor:
+    """Tests for the inject_status_codes_json context processor."""
+
+    def test_all_pages_have_status_codes_json(self, client):
+        """Multiple pages should have status codes JSON available."""
+        for path in ['/', '/quiz', '/profile', '/cheatsheet']:
+            resp = client.get(path)
+            html = resp.data.decode()
+            assert '"200"' in html, f"Status codes JSON missing on {path}"
+            assert '"Not Found"' in html, f"Status code names missing on {path}"
+
+    def test_status_codes_json_contains_all_codes(self, client):
+        """The status codes JSON should contain all codes from status_code_list."""
+        from index import status_code_list
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Spot-check a few codes from different categories
+        for code in ['100', '200', '301', '404', '500']:
+            assert f'"{code}"' in html

@@ -13,6 +13,7 @@
         <div class="headers-input-wrap">
             <textarea class="headers-input" id="header-input" placeholder="Content-Type: application/json&#10;Cache-Control: max-age=3600&#10;X-Frame-Options: DENY" rows="8" aria-label="Paste HTTP headers here"></textarea>
             <button class="tester-submit" id="explain-btn">Explain</button>
+            <div class="validation-error" id="header-validation-error" role="alert" style="display:none;">Paste some headers first</div>
         </div>
         <div id="header-results" aria-live="polite"></div>
     </main>
@@ -129,13 +130,28 @@
             });
         }
 
+        document.getElementById('header-input').addEventListener('input', function() {
+            document.getElementById('header-validation-error').style.display = 'none';
+        });
+
         document.getElementById('explain-btn').addEventListener('click', function() {
-            var text = document.getElementById('header-input').value;
+            var text = document.getElementById('header-input').value.trim();
+            if (!text) {
+                document.getElementById('header-validation-error').style.display = '';
+                return;
+            }
+            document.getElementById('header-validation-error').style.display = 'none';
             explain(parseHeaders(text));
         });
         document.getElementById('header-input').addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && e.ctrlKey) {
-                explain(parseHeaders(this.value));
+                var text = this.value.trim();
+                if (!text) {
+                    document.getElementById('header-validation-error').style.display = '';
+                    return;
+                }
+                document.getElementById('header-validation-error').style.display = 'none';
+                explain(parseHeaders(text));
             }
         });
     })();

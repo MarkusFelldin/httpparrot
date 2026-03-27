@@ -16,6 +16,7 @@
                 <input type="text" class="headers-input audit-url-input" id="audit-url" placeholder="https://example.com" autocomplete="off">
                 <button type="submit" class="tester-submit" id="audit-btn">Audit</button>
             </div>
+            <div class="validation-error" id="audit-validation-error" role="alert" style="display:none;">Please enter a URL</div>
         </form>
         <div id="audit-results" aria-live="polite"></div>
     </main>
@@ -105,10 +106,18 @@
             });
         }
 
+        document.getElementById('audit-url').addEventListener('input', function() {
+            document.getElementById('audit-validation-error').style.display = 'none';
+        });
+
         document.getElementById('audit-form').addEventListener('submit', function(e) {
             e.preventDefault();
             var url = document.getElementById('audit-url').value.trim();
-            if (!url) return;
+            if (!url) {
+                document.getElementById('audit-validation-error').style.display = '';
+                return;
+            }
+            document.getElementById('audit-validation-error').style.display = 'none';
 
             var results = document.getElementById('audit-results');
             var btn = document.getElementById('audit-btn');
