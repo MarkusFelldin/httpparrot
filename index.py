@@ -628,6 +628,7 @@ def get_featured_parrot():
 
 @app.errorhandler(404)
 def page_not_found(e):
+    """Render the custom interactive 404 page."""
     return render_template('404.html'), 404
 
 
@@ -835,6 +836,7 @@ def debug_page():
 
 @app.route('/api-docs')
 def api_docs():
+    """Render the API documentation page with endpoint reference and integration guides."""
     return render_template('api_docs.html')
 
 
@@ -851,6 +853,7 @@ def cheatsheet():
 
 @app.route('/flowchart')
 def flowchart():
+    """Render the interactive decision tree for choosing the right status code."""
     return render_template('flowchart.html')
 
 
@@ -938,6 +941,7 @@ def path_detail(path_id):
 
 @app.route('/tester')
 def tester():
+    """Render the HTTP Tester page for checking URL status codes."""
     return render_template('tester.html')
 
 
@@ -1680,6 +1684,7 @@ def http_parrot(status_code):
 
 @app.route('/<status_code>.jpg')
 def http_parrot_image(status_code):
+    """Serve the parrot image for a given status code directly."""
     image = find_image(status_code)
     if not image:
         abort(404)
