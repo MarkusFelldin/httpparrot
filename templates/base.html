@@ -423,6 +423,10 @@
             {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
             {id: 'photo_memory', name: 'Photographic Memory', desc: 'Complete the 404 memory card game', icon: '\uD83E\uDDE0', bonus: 100},
             {id: 'loyal_parrot', name: 'Loyal Parrot', desc: 'Complete a full 7-day login cycle', icon: '\uD83D\uDC9A', bonus: 75},
+            {id: 'theme_master', name: 'Theme Master', desc: 'Score 5/5 on any weekly challenge', icon: '\uD83C\uDFA8', bonus: 100},
+            {id: 'explorer_10', name: 'Explorer 10', desc: 'Visit 10 different status codes', icon: '\uD83D\uDDFA\uFE0F', bonus: 25},
+            {id: 'explorer_25', name: 'Explorer 25', desc: 'Visit 25 different status codes', icon: '\uD83E\uDDED', bonus: 50},
+            {id: 'explorer_50', name: 'Explorer 50', desc: 'Visit 50 different status codes', icon: '\uD83C\uDF1F', bonus: 100},
             /* --- Meta-Feathers (achievements for earning other feathers) --- */
             {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
             {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
@@ -710,6 +714,14 @@
             /* Photographic Memory — completed the 404 memory card game */
             if (!has('photo_memory') && localStorage.getItem('httpparrot_memory_game_complete') === 'true') newlyEarned.push('photo_memory');
             if (!has('loyal_parrot')) { try { var lc = JSON.parse(localStorage.getItem('httpparrot_login_calendar') || '{}'); if (lc.dayOfWeek >= 7 || lc.totalClaims >= 7) newlyEarned.push('loyal_parrot'); } catch(e) {} }
+
+            /* Theme Master — score 5/5 on any weekly challenge */
+            if (!has('theme_master') && localStorage.getItem('httpparrot_weekly_champion') === 'true') newlyEarned.push('theme_master');
+
+            /* Explorer milestones — visit N different codes */
+            if (!has('explorer_10') && parrotdex.length >= 10) newlyEarned.push('explorer_10');
+            if (!has('explorer_25') && parrotdex.length >= 25) newlyEarned.push('explorer_25');
+            if (!has('explorer_50') && parrotdex.length >= 50) newlyEarned.push('explorer_50');
 
             /* --- Meta-Feather checks --- */
             var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];

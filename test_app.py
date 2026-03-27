@@ -4277,20 +4277,20 @@ class TestCommonMistakes:
 
     def test_mistakes_section_absent_on_page_without_data(self, client):
         """Pages without common_mistakes data should not show the section."""
-        resp = client.get('/100')
+        resp = client.get('/102')
         html = resp.get_data(as_text=True)
         assert 'mistakes-section' not in html
         assert 'mistake-card' not in html
 
-    def test_at_least_19_codes_have_common_mistakes(self):
-        """At least 19 status codes should have common_mistakes in STATUS_EXTRA."""
+    def test_at_least_40_codes_have_common_mistakes(self):
+        """At least 40 status codes should have common_mistakes in STATUS_EXTRA."""
         from status_extra import STATUS_EXTRA
         codes_with_mistakes = [
             code for code, data in STATUS_EXTRA.items()
             if 'common_mistakes' in data and len(data['common_mistakes']) > 0
         ]
-        assert len(codes_with_mistakes) >= 19, (
-            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 19"
+        assert len(codes_with_mistakes) >= 40, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 40"
         )
 
     def test_common_mistakes_structure(self):
@@ -4313,6 +4313,125 @@ class TestCommonMistakes:
         resp = client.get('/200')
         html = resp.get_data(as_text=True)
         assert '<details' in html and 'mistakes-summary' in html
+
+    def test_new_common_mistakes_codes_have_entries(self):
+        """Newly added common_mistakes codes should each have at least 2 entries."""
+        from status_extra import STATUS_EXTRA
+        new_codes = [
+            "100", "101", "202", "206", "207", "300", "303", "308",
+            "406", "408", "410", "412", "413", "414", "415", "416",
+            "418", "428", "431", "451", "501", "505", "511",
+        ]
+        for code in new_codes:
+            assert code in STATUS_EXTRA, f"Code {code} not in STATUS_EXTRA"
+            assert 'common_mistakes' in STATUS_EXTRA[code], (
+                f"Code {code} missing common_mistakes"
+            )
+            assert len(STATUS_EXTRA[code]['common_mistakes']) >= 2, (
+                f"Code {code} should have at least 2 common_mistakes entries"
+            )
+
+    def test_new_mistakes_render_on_page(self, client):
+        """Newly added common_mistakes should render on their detail pages."""
+        for code in ["202", "206", "308", "406", "415", "511"]:
+            resp = client.get(f'/{code}')
+            html = resp.get_data(as_text=True)
+            assert 'mistakes-section' in html, f"/{code} should have mistakes-section"
+            assert 'mistake-card' in html, f"/{code} should have mistake-card"
+
+    def test_common_mistakes_non_empty_strings(self):
+        """All mistake and consequence strings should be non-empty."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'common_mistakes' in data:
+                for i, entry in enumerate(data['common_mistakes']):
+                    assert len(entry['mistake'].strip()) > 0, (
+                        f"Empty mistake string in {code}[{i}]"
+                    )
+                    assert len(entry['consequence'].strip()) > 0, (
+                        f"Empty consequence string in {code}[{i}]"
+                    )
+
+
+# --- CSS Design Token Replacement ---
+
+class TestDesignTokenReplacement:
+    """Tests for replacing hardcoded rgba(26,26,31,...) with design tokens."""
+
+    def test_surface_1_light_token_defined(self, client):
+        """--surface-1-light token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-light:' in css
+
+    def test_surface_1_heavy_token_defined(self, client):
+        """--surface-1-heavy token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-heavy:' in css
+
+    def test_surface_1_solid_token_defined(self, client):
+        """--surface-1-solid token should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-1-solid:' in css
+
+    def test_no_hardcoded_surface_bg_in_main_css(self, client):
+        """Main CSS should not have hardcoded rgba(26,26,31,...) for background outside light theme and :root."""
+        with open('static/style.css', 'r') as f:
+            lines = f.readlines()
+        violations = []
+        in_light_theme = False
+        in_root = False
+        brace_depth = 0
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if ':root' in stripped:
+                in_root = True
+            if 'prefers-color-scheme: light' in stripped:
+                in_light_theme = True
+            if in_root or in_light_theme:
+                brace_depth += stripped.count('{') - stripped.count('}')
+                if brace_depth <= 0:
+                    in_root = False
+                    in_light_theme = False
+                    brace_depth = 0
+                continue
+            if 'background' in stripped and 'rgba(26,26,31,' in stripped:
+                violations.append(f"Line {i}: {stripped}")
+            if 'background' in stripped and 'rgba(26, 26, 31,' in stripped:
+                violations.append(f"Line {i}: {stripped}")
+        assert len(violations) == 0, (
+            f"Found {len(violations)} hardcoded rgba(26,26,31,...) backgrounds "
+            f"that should use tokens:\n" + "\n".join(violations)
+        )
+
+    def test_surface_tokens_used_in_css(self, client):
+        """The new surface tokens should actually be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-1-light)' in css
+        assert 'var(--surface-1-heavy)' in css
+        assert 'var(--surface-1-solid)' in css
+
+    def test_templates_use_surface_tokens(self, client):
+        """Template inline styles should use surface tokens, not hardcoded rgba."""
+        for page in ['/debug', '/practice']:
+            resp = client.get(page)
+            html = resp.data.decode()
+            assert 'rgba(26,26,31,0.95)' not in html, (
+                f"{page} should use var(--surface-1-solid) instead of hardcoded rgba"
+            )
+
+    def test_quiz_results_card_uses_token(self, client):
+        """Quiz results card should use surface-1-solid token."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.quiz-results-card' in css
+        # Find the rule and verify it uses the token
+        idx = css.index('.quiz-results-card')
+        rule = css[idx:idx+200]
+        assert 'var(--surface-1-solid)' in rule
 
 
 # --- Easter egg: Barrel Roll ---
@@ -9357,20 +9476,20 @@ class TestCaseStudies:
 
     def test_case_studies_absent_on_page_without_data(self, client):
         """Pages without case_studies data should not show the section."""
-        resp = client.get('/100')
+        resp = client.get('/305')
         html = resp.get_data(as_text=True)
         assert 'case-studies-section' not in html
         assert 'case-study-card' not in html
 
-    def test_at_least_40_codes_have_case_studies(self):
-        """At least 40 status codes should have case_studies in STATUS_EXTRA."""
+    def test_at_least_60_codes_have_case_studies(self):
+        """At least 60 status codes should have case_studies in STATUS_EXTRA."""
         from status_extra import STATUS_EXTRA
         codes_with_studies = [
             code for code, data in STATUS_EXTRA.items()
             if 'case_studies' in data and len(data['case_studies']) > 0
         ]
-        assert len(codes_with_studies) >= 40, (
-            f"Only {len(codes_with_studies)} codes have case_studies, need at least 40"
+        assert len(codes_with_studies) >= 60, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 60"
         )
 
     def test_case_studies_structure(self):
@@ -11585,3 +11704,262 @@ class TestFunFactsPool:
         assert 'Roy Fielding' in html
         assert 'HTTPS was introduced' in html
         assert 'Cookies were invented' in html
+
+
+# --- E5: Weekly Challenge Distinct Rewards ---
+
+class TestWeeklyHistory:
+    """Tests for weekly challenge history tracking and Theme Master feather."""
+
+    def test_weekly_has_history_section(self, client):
+        """Weekly page should contain the history container element."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'weekly-history' in html
+        assert 'weekly-history-list' in html
+        assert 'Past Challenges' in html
+
+    def test_weekly_history_js_storage_key(self, client):
+        """Weekly page JS should use httpparrot_weekly_history localStorage key."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'httpparrot_weekly_history' in html
+
+    def test_weekly_history_save_function(self, client):
+        """Weekly page JS should define saveHistory and getHistory functions."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'function saveHistory' in html
+        assert 'function getHistory' in html
+
+    def test_weekly_history_render_function(self, client):
+        """Weekly page JS should define renderHistory for displaying past scores."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'function renderHistory' in html
+        assert 'weekly-history-row' in html
+
+    def test_weekly_history_called_on_init(self, client):
+        """renderHistory should be called during initialization."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'renderHistory()' in html
+
+    def test_weekly_history_tracks_theme(self, client):
+        """History entries should include the theme name."""
+        resp = client.get('/weekly')
+        html = resp.get_data(as_text=True)
+        assert 'theme: THEME_NAME' in html
+
+
+class TestThemeMasterFeather:
+    """Tests for the Theme Master feather in base.html."""
+
+    def test_theme_master_in_feathers_array(self, client):
+        """FEATHERS array should contain theme_master."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'theme_master'" in html
+        assert 'Theme Master' in html
+
+    def test_theme_master_check_in_checkfeathers(self, client):
+        """checkFeathers should check for theme_master via weekly_champion flag."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('theme_master')" in html
+        assert 'httpparrot_weekly_champion' in html
+
+
+# --- E4: Parrotdex Completion Milestones ---
+
+class TestParrotdexMilestones:
+    """Tests for milestone badges and category progress in collection page."""
+
+    def test_collection_has_milestone_badges(self, client):
+        """Collection page should have milestone badge elements at 10, 25, 50, 72."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'milestone-10' in html
+        assert 'milestone-25' in html
+        assert 'milestone-50' in html
+        assert 'milestone-72' in html
+        assert 'collection-milestones' in html
+
+    def test_collection_has_category_progress(self, client):
+        """Collection page should have category progress bars for 1xx-5xx."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'category-progress' in html
+        assert 'cat-fill-1' in html
+        assert 'cat-fill-2' in html
+        assert 'cat-fill-3' in html
+        assert 'cat-fill-4' in html
+        assert 'cat-fill-5' in html
+
+    def test_collection_milestone_js_logic(self, client):
+        """Collection JS should contain milestone earned logic."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'milestone-earned' in html
+        assert 'catTotals' in html
+        assert 'catCollected' in html
+
+    def test_collection_category_bar_labels(self, client):
+        """Category bars should have correct labels."""
+        resp = client.get('/collection')
+        html = resp.get_data(as_text=True)
+        assert 'category-bar-label' in html
+        for cat in ['1xx', '2xx', '3xx', '4xx', '5xx']:
+            assert cat in html
+
+    def test_milestone_css_styles(self):
+        """CSS should include milestone badge styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.milestone-badge' in css
+        assert '.milestone-earned' in css
+        assert '.collection-milestones' in css
+
+    def test_category_bar_css_styles(self):
+        """CSS should include category progress bar styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.category-bar' in css
+        assert '.category-bar-fill' in css
+        assert '.category-bar-track' in css
+        assert '.collection-category-progress' in css
+
+
+class TestExplorerFeathers:
+    """Tests for Explorer 10/25/50 feathers."""
+
+    def test_explorer_feathers_in_array(self, client):
+        """FEATHERS array should contain explorer_10, explorer_25, explorer_50."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'explorer_10'" in html
+        assert "'explorer_25'" in html
+        assert "'explorer_50'" in html
+        assert 'Explorer 10' in html
+        assert 'Explorer 25' in html
+        assert 'Explorer 50' in html
+
+    def test_explorer_feather_checks(self, client):
+        """checkFeathers should check parrotdex length for explorer milestones."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('explorer_10')" in html
+        assert 'parrotdex.length >= 10' in html
+        assert 'parrotdex.length >= 25' in html
+        assert 'parrotdex.length >= 50' in html
+
+
+# --- FN1: Tester Truncation Warning ---
+
+class TestTesterTruncationWarning:
+    """Tests for the visible truncation warning in tester."""
+
+    def test_tester_has_truncation_warning_class(self, client):
+        """Tester page JS should create tester-truncation-warning element."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert 'tester-truncation-warning' in html
+        assert 'Response truncated at 10KB. Full response is larger.' in html
+
+    def test_tester_truncation_warning_has_role_alert(self, client):
+        """Truncation warning should have role=alert for accessibility."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert "role', 'alert'" in html
+
+    def test_tester_truncation_css(self):
+        """CSS should include truncation warning styles with yellow theme."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-truncation-warning' in css
+        assert '.tester-truncation-text' in css
+        assert '.tester-truncation-icon' in css
+
+    def test_tester_truncation_only_on_truncated(self, client):
+        """Truncation warning should only appear when data.truncated is true."""
+        resp = client.get('/tester')
+        html = resp.get_data(as_text=True)
+        assert 'if (data.truncated)' in html
+
+
+# --- ED5: Expanded Case Studies ---
+
+class TestExpandedCaseStudies:
+    """Tests for the expanded case studies (60+ codes)."""
+
+    def test_1xx_codes_have_case_studies(self):
+        """1xx codes 100, 101, 102, 103 should all have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['100', '101', '102', '103']:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_new_2xx_case_studies(self):
+        """205 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        assert 'case_studies' in STATUS_EXTRA['205']
+        assert len(STATUS_EXTRA['205']['case_studies']) >= 1
+
+    def test_new_3xx_case_studies(self):
+        """300 and 306 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['300', '306']:
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+
+    def test_new_4xx_case_studies(self):
+        """402, 407, 425, 444, 494, 498, 499 should have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['402', '407', '425', '444', '494', '498', '499']:
+            assert code in STATUS_EXTRA, f"Code {code} missing from STATUS_EXTRA"
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_new_5xx_case_studies(self):
+        """506 and 509 should now have case_studies."""
+        from status_extra import STATUS_EXTRA
+        for code in ['506', '509']:
+            assert 'case_studies' in STATUS_EXTRA[code], f"Code {code} missing case_studies"
+            assert len(STATUS_EXTRA[code]['case_studies']) >= 1
+
+    def test_total_case_studies_at_least_60(self):
+        """Total codes with case_studies should be at least 60."""
+        from status_extra import STATUS_EXTRA
+        codes_with_studies = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'case_studies' in data and len(data['case_studies']) > 0
+        ]
+        assert len(codes_with_studies) >= 60, (
+            f"Only {len(codes_with_studies)} codes have case_studies, need at least 60"
+        )
+
+    def test_all_new_case_studies_have_required_keys(self):
+        """Every case_studies entry should have api, scenario, and lesson."""
+        from status_extra import STATUS_EXTRA
+        for code in ['100', '101', '102', '103', '205', '300', '306', '402',
+                      '407', '425', '444', '494', '498', '499', '506', '509']:
+            if code in STATUS_EXTRA and 'case_studies' in STATUS_EXTRA[code]:
+                for entry in STATUS_EXTRA[code]['case_studies']:
+                    assert 'api' in entry, f"Missing 'api' in {code} case study"
+                    assert 'scenario' in entry, f"Missing 'scenario' in {code} case study"
+                    assert 'lesson' in entry, f"Missing 'lesson' in {code} case study"
+
+
+# --- Weekly History CSS ---
+
+class TestWeeklyHistoryCSS:
+    """Tests for weekly history CSS styles."""
+
+    def test_weekly_history_css(self):
+        """CSS should include weekly history styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.weekly-history' in css
+        assert '.weekly-history-row' in css
+        assert '.weekly-history-title' in css
+        assert '.weekly-history-score' in css

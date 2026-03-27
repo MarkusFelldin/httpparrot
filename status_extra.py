@@ -13,6 +13,14 @@ STATUS_EXTRA = {
             "go": "http.StatusContinue // 100",
         },
         "eli5": "Imagine texting someone a long message and they reply 'keep going, I'm listening' before you finish. The server is saying 'Yep, send me the rest!'",
+        "case_studies": [
+            {"api": "cURL / libcurl", "scenario": "cURL sends Expect: 100-continue by default for POST bodies larger than 1024 bytes, waiting for 100 before uploading", "lesson": "Some servers don't support 100 Continue — set a short timeout for the 100 response so uploads don't stall on legacy servers"},
+            {"api": "AWS S3", "scenario": "S3 uses Expect: 100-continue for PutObject — if the bucket policy rejects the upload, the client learns immediately without sending the full body", "lesson": "100 Continue saves bandwidth on large uploads to restrictive endpoints — the server can reject before the body is transferred"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Not setting a timeout for the 100 Continue response before sending the body", "consequence": "If the server does not support 100 Continue, the client waits forever. Set a short timeout and send the body anyway if no 100 arrives."},
+            {"mistake": "Sending Expect: 100-continue on small request bodies", "consequence": "The round trip waiting for 100 adds latency for no benefit. Only use Expect: 100-continue on large payloads where aborting early saves significant bandwidth."},
+        ],
     },
     "101": {
         "examples": [
@@ -26,6 +34,14 @@ STATUS_EXTRA = {
             "go": "// Use gorilla/websocket or nhooyr.io/websocket",
         },
         "eli5": "You're talking to your friend through a walkie-talkie, but you both agree to switch to a video call instead. The server is saying 'Sure, let's change how we're talking!'",
+        "case_studies": [
+            {"api": "Slack / Discord", "scenario": "Real-time messaging apps upgrade HTTP connections to WebSocket with 101, enabling bidirectional push without polling", "lesson": "WebSocket upgrades via 101 are essential for real-time apps — always handle upgrade failures gracefully and fall back to long-polling"},
+            {"api": "gRPC (HTTP/2 upgrade)", "scenario": "gRPC clients may use the Upgrade header to switch from HTTP/1.1 to HTTP/2, receiving 101 on success", "lesson": "Protocol upgrades with 101 only apply to HTTP/1.1 — HTTP/2 connections use ALPN at the TLS layer instead"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Not handling WebSocket upgrade failures gracefully", "consequence": "If the server rejects the upgrade, the client may hang or crash. Always implement a fallback to long-polling or server-sent events."},
+            {"mistake": "Attempting protocol upgrade over HTTP/2 connections", "consequence": "101 Switching Protocols only works with HTTP/1.1. HTTP/2 uses ALPN during the TLS handshake for protocol negotiation instead."},
+        ],
     },
     "102": {
         "examples": [
@@ -39,6 +55,10 @@ STATUS_EXTRA = {
             "go": "http.StatusProcessing // 102",
         },
         "eli5": "You asked your mom to bake a big cake. She pokes her head out of the kitchen and says 'Still working on it, don't go anywhere!' so you don't think she forgot.",
+        "case_studies": [
+            {"api": "Microsoft Exchange (WebDAV)", "scenario": "Recursive property searches on deep mailbox folder hierarchies return 102 as a keep-alive signal before the final 207 Multi-Status", "lesson": "102 Processing prevents clients from timing out on long-running WebDAV operations — essential for recursive PROPFIND on large collections"},
+            {"api": "Apache mod_dav", "scenario": "Large COPY or MOVE operations on WebDAV collections send 102 interim responses to keep the connection alive", "lesson": "Use 102 only for WebDAV — for REST APIs, prefer 202 Accepted with a polling endpoint for long-running tasks"},
+        ],
     },
     "103": {
         "examples": [
@@ -52,6 +72,10 @@ STATUS_EXTRA = {
             "go": "// Requires HTTP/2 server push support",
         },
         "eli5": "While a chef is still cooking your main course, the waiter brings you bread and water first so you're not just sitting there waiting. Early hints to get you started!",
+        "case_studies": [
+            {"api": "Cloudflare", "scenario": "Cloudflare sends 103 Early Hints with Link headers to preload CSS and fonts while the origin server generates the HTML response", "lesson": "103 Early Hints can cut page load times by 100-500ms by letting the browser start fetching critical assets before the full response arrives"},
+            {"api": "Shopify", "scenario": "Shopify uses 103 Early Hints to preload storefront CSS and JavaScript, reducing Largest Contentful Paint on merchant sites", "lesson": "Combine 103 with rel=preload for render-blocking resources — the browser starts downloading immediately without waiting for the HTML"},
+        ],
     },
     "200": {
         "examples": [
@@ -126,6 +150,16 @@ STATUS_EXTRA = {
             {"api": "Twilio", "scenario": "Sending an SMS returns 202 with a message SID — the message is queued, not yet delivered", "lesson": "Always return a job/resource ID with 202 so clients can poll for completion status"},
             {"api": "AWS S3 Glacier", "scenario": "Initiating a vault retrieval returns 202 — the data takes hours to restore", "lesson": "For long-running operations, 202 with a status URL is far better than blocking the client with a slow 200"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Treating 202 as if the operation already completed successfully",
+                "consequence": "The operation is only queued, not done. Clients must poll or use webhooks to confirm completion before acting on the result.",
+            },
+            {
+                "mistake": "Returning 202 without a way to check the job status (no Location header or job ID)",
+                "consequence": "Clients have no way to find out when the async task finishes. Always include a status URL or job identifier.",
+            },
+        ],
     },
     "203": {
         "examples": [
@@ -140,6 +174,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusNonAuthoritativeInfo)",
         },
         "eli5": "You asked your friend about yesterday's homework, but they heard it from someone else, not the teacher. The answer is probably right, but it's secondhand information!",
+        "case_studies": [
+            {"api": "CDN proxies (Cloudflare, Akamai)", "scenario": "CDN edge servers modify response headers (adding X-Cache, removing internal headers) and return 203 to signal the response was transformed", "lesson": "203 warns the client that metadata may have been altered — most clients treat it identically to 200, but security-sensitive apps should verify headers against the origin"},
+            {"api": "API gateway middleware", "scenario": "An API gateway strips internal debugging headers before forwarding to external clients, using 203 to indicate the response was modified", "lesson": "In practice, most proxies return 200 instead of 203 even when modifying responses — 203 is technically correct but rarely used"},
+        ],
     },
     "204": {
         "examples": [
@@ -181,6 +219,10 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusResetContent)",
         },
         "eli5": "You turn in your test and the teacher says 'Great, now erase everything on your desk and start fresh.' Time to clear the slate and reset!",
+        "case_studies": [
+            {"api": "HTML form-based apps", "scenario": "After a successful form POST, the server returns 205 to tell the browser to clear the form fields without navigating away", "lesson": "205 is rarely used in practice — most apps use 303 See Other to redirect after POST, but 205 is ideal for single-page form interactions"},
+            {"api": "RESTful search APIs", "scenario": "A POST to /api/filters/reset returns 205 to signal the client to clear cached filter state", "lesson": "Use 205 when the client needs to reset its view without fetching new content — it says 'clear your state' without providing a new document"},
+        ],
     },
     "206": {
         "examples": [
@@ -199,6 +241,16 @@ STATUS_EXTRA = {
             {"api": "YouTube / Netflix", "scenario": "Video streaming uses Range requests to fetch chunks, allowing seek without downloading the full file", "lesson": "Always return Content-Range and Accept-Ranges headers so clients know how to request subsequent chunks"},
             {"api": "AWS S3", "scenario": "Multipart downloads use Range headers to fetch large objects in parallel chunks", "lesson": "Splitting large downloads into ranges enables parallel fetching and seamless resume after network failures"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Returning 206 without a correct Content-Range header",
+                "consequence": "Clients cannot determine which part of the resource they received or how to request the next chunk. Download resume and seeking break completely.",
+            },
+            {
+                "mistake": "Returning 200 instead of 206 when the client sent a Range header",
+                "consequence": "The client expects a partial response but gets the full file. Download managers and video players will misinterpret the byte offsets.",
+            },
+        ],
     },
     "207": {
         "examples": [
@@ -216,6 +268,10 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Microsoft Graph API", "scenario": "Batch endpoint returns 207 with individual status codes for each sub-request in a $batch call", "lesson": "Clients must inspect each sub-response individually — a 207 top-level status does not mean all operations succeeded"},
             {"api": "CalDAV / CardDAV", "scenario": "Syncing multiple calendar events returns 207 with per-item status", "lesson": "Batch APIs should always include per-item error details so clients can retry only the failed items"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Assuming 207 means all sub-operations succeeded", "consequence": "207 only means the server processed multiple operations. Each sub-response has its own status code — some may be errors. Always check every item."},
+            {"mistake": "Not including per-item error details in the 207 response", "consequence": "Clients cannot tell which items failed or why. Include individual status codes and error messages for each sub-operation."},
         ],
     },
     "208": {
@@ -263,6 +319,14 @@ STATUS_EXTRA = {
             "go": 'w.WriteHeader(http.StatusMultipleChoices)',
         },
         "eli5": "You ask for a drink and the waiter says 'We have lemonade, orange juice, AND apple juice — which one do you want?' Multiple options, your pick!",
+        "case_studies": [
+            {"api": "Content negotiation (RFC 7231)", "scenario": "A multilingual website returns 300 with links to /page.en, /page.fr, and /page.de when the Accept-Language header is ambiguous", "lesson": "300 is rarely used in practice — most servers perform server-driven negotiation and return 200 with the best match instead of asking the client to choose"},
+            {"api": "REST API versioning", "scenario": "An API endpoint returns 300 with links to /v1/resource and /v2/resource when no version is specified in the request", "lesson": "Prefer explicit versioning in the URL or Accept header over 300 — most HTTP clients do not handle 300 responses gracefully"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Using 300 when the server should just pick the best representation via content negotiation", "consequence": "Most clients do not know how to handle 300. Use server-driven content negotiation (checking Accept headers) and return 200 with the best match instead."},
+            {"mistake": "Not including a Location header pointing to the preferred choice", "consequence": "RFC 7231 recommends including a Location header with the preferred option. Without it, clients must parse the body to find the choices."},
+        ],
     },
     "301": {
         "examples": [
@@ -336,6 +400,16 @@ STATUS_EXTRA = {
             {"api": "Stripe Checkout", "scenario": "After completing payment via POST, Stripe redirects to success_url with 303 to prevent double charges on refresh", "lesson": "Post/Redirect/Get (PRG) with 303 prevents duplicate form submissions — always redirect after a state-changing POST"},
             {"api": "OAuth 2.0 flows", "scenario": "Authorization server redirects back to the client callback with 303 after user consent", "lesson": "303 explicitly converts POST to GET, making it the correct choice for PRG patterns unlike the ambiguous 302"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Using 303 to redirect non-POST requests like GET or HEAD",
+                "consequence": "303 is designed for Post/Redirect/Get. For GET-to-GET redirects, use 302 or 307. Using 303 for GET is technically valid but confusing and unconventional.",
+            },
+            {
+                "mistake": "Using 302 instead of 303 after a POST form submission",
+                "consequence": "302 does not guarantee the browser will switch to GET. 303 explicitly says 'use GET to fetch the redirect target,' which is exactly what PRG needs.",
+            },
+        ],
     },
     "304": {
         "examples": [
@@ -390,6 +464,10 @@ STATUS_EXTRA = {
             "go": "// 306 Switch Proxy is deprecated and unused",
         },
         "eli5": "This is like an old phone number that's been disconnected and nobody uses anymore. It was reserved for something once, but now it just sits there collecting dust.",
+        "case_studies": [
+            {"api": "HTTP/1.1 spec (RFC 7231)", "scenario": "306 was defined in an earlier HTTP draft for Switch Proxy but was removed before the final RFC — it remains reserved to prevent reuse", "lesson": "306 is a historical curiosity — never return it in production code, but knowing it exists helps understand why the spec jumps from 305 to 307"},
+            {"api": "Security scanners (Nessus, Burp Suite)", "scenario": "Penetration testing tools flag 306 responses as anomalous since no legitimate server should return this deprecated code", "lesson": "If you see 306 in the wild, it likely indicates a misconfigured or custom server — investigate immediately as it suggests non-standard behavior"},
+        ],
     },
     "307": {
         "examples": [
@@ -435,6 +513,16 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Google APIs", "scenario": "Resumable uploads use 308 to redirect to the upload URI while preserving the PUT method and partial body", "lesson": "308 is the permanent equivalent of 307 — the client should update its bookmarks AND preserve the method"},
             {"api": "YouTube Data API", "scenario": "Resumable video uploads return 308 with Range header indicating bytes received so far", "lesson": "308 in Google's upload protocol means 'resume incomplete' — always check the Range header to know where to continue"},
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Using 301 instead of 308 when the redirect must preserve the HTTP method",
+                "consequence": "301 allows browsers to change POST to GET, losing the request body. 308 guarantees the method and body are preserved on permanent redirects.",
+            },
+            {
+                "mistake": "Confusing 308 with 307 — using 308 for temporary redirects",
+                "consequence": "308 is permanent; browsers and search engines cache it like 301. If the redirect might change, use 307 (temporary) instead.",
+            },
         ],
     },
     "400": {
@@ -506,6 +594,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Payment Required", http.StatusPaymentRequired)',
         },
         "eli5": "You walk into an arcade and try to play a game, but the machine says 'INSERT COIN.' You gotta pay first before you can play!",
+        "case_studies": [
+            {"api": "Stripe API", "scenario": "Stripe uses 402 when a payment fails during checkout — the response body contains detailed decline codes for the client to display", "lesson": "Include machine-readable decline codes and human-readable messages so the client can show appropriate next steps like 'try another card'"},
+            {"api": "SaaS APIs (Slack, GitHub)", "scenario": "GitHub returns 402 when a repository feature requires a paid plan upgrade", "lesson": "402 was originally reserved for future use but is now widely adopted for paywall and subscription enforcement — include an upgrade URL in the response"},
+        ],
     },
     "403": {
         "examples": [
@@ -606,6 +698,16 @@ STATUS_EXTRA = {
             {"api": "GitHub API", "scenario": "Requesting an unsupported media type via Accept header returns 406", "lesson": "Document your supported media types clearly — most APIs support application/json but may also offer XML, CSV, or protocol buffers"},
             {"api": "Content negotiation (RFC 7231)", "scenario": "A client sends Accept: application/xml to a JSON-only endpoint", "lesson": "Return a 406 with a body listing supported types so the client knows what formats are available"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Returning the response in a different content type anyway instead of returning 406",
+                "consequence": "Clients explicitly asked for a format they can parse. Ignoring the Accept header and returning a different type may cause parse failures.",
+            },
+            {
+                "mistake": "Not listing the supported content types in the 406 response body",
+                "consequence": "Clients receive 'Not Acceptable' but have no idea which formats ARE available. Include a list of supported media types.",
+            },
+        ],
     },
     "407": {
         "examples": [
@@ -619,6 +721,10 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Proxy-Authenticate", "Basic")\nhttp.Error(w, "Proxy Auth Required", 407)',
         },
         "eli5": "There's a security guard at the gate between you and the building. Even before you get to the front door, the guard says 'Show me YOUR ID first!' The middleman needs to know who you are.",
+        "case_studies": [
+            {"api": "Squid proxy", "scenario": "Corporate networks using Squid require NTLM or Basic proxy auth before any outbound HTTP traffic is allowed", "lesson": "407 is from the proxy, not the origin server — debug by checking proxy logs, not application logs"},
+            {"api": "Charles / Fiddler (debugging proxies)", "scenario": "Developer debugging proxies return 407 when configured with authentication, confusing developers who forget the proxy is intercepting", "lesson": "If you see 407 in development, check if a debugging proxy (Charles, Fiddler, mitmproxy) is running with auth enabled"},
+        ],
     },
     "408": {
         "examples": [
@@ -636,6 +742,16 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "AWS ELB", "scenario": "Load balancer closes idle connections after 60 seconds of inactivity with 408", "lesson": "Configure client-side keep-alive intervals shorter than the server/LB idle timeout to prevent surprise 408s"},
             {"api": "Cloudflare", "scenario": "Cloudflare returns 408 when the client takes too long to send the complete request headers or body", "lesson": "Slow clients on mobile networks often trigger 408s — consider increasing timeouts for upload-heavy endpoints"},
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Confusing 408 (Request Timeout) with 504 (Gateway Timeout)",
+                "consequence": "408 means the client was too slow sending the request. 504 means the upstream server was too slow responding. Different root cause, different fix.",
+            },
+            {
+                "mistake": "Not including Connection: close with 408 responses",
+                "consequence": "The server should close the connection after 408. Leaving it open can cause the client to send more requests on a stale connection.",
+            },
         ],
     },
     "409": {
@@ -683,6 +799,16 @@ STATUS_EXTRA = {
             {"api": "Twitter/X API", "scenario": "Deleted tweets return 410 Gone instead of 404 to signal permanent removal", "lesson": "Use 410 instead of 404 when a resource was deliberately deleted — search engines and clients will stop requesting it"},
             {"api": "Google APIs (deprecated endpoints)", "scenario": "Sunset API versions return 410 with a Sunset header pointing to the migration guide", "lesson": "Pair 410 with a response body explaining the replacement — clients need to know where to go next"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Using 410 for temporarily unavailable resources",
+                "consequence": "410 means gone forever. Search engines and clients will remove it from their indexes. Use 404 if the resource might come back.",
+            },
+            {
+                "mistake": "Not setting proper cache headers with 410 responses",
+                "consequence": "Without Cache-Control, some clients may keep re-checking the URL. Set a long cache TTL since the resource is permanently gone.",
+            },
+        ],
     },
     "411": {
         "examples": [
@@ -696,6 +822,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Length Required", http.StatusLengthRequired)',
         },
         "eli5": "You're sending a package but you forgot to write how heavy it is on the label. The post office says 'We need to know the size before we accept it!'",
+        "case_studies": [
+            {"api": "AWS S3 (older SDKs)", "scenario": "Older AWS SDK versions sent PUT requests with chunked encoding — S3 rejected them with 411 because it requires Content-Length for integrity verification", "lesson": "Always include Content-Length for PUT/POST requests to storage services — chunked encoding may not be supported by all intermediaries"},
+            {"api": "Nginx (proxy_request_buffering off)", "scenario": "When Nginx has request buffering disabled, upstream servers may reject requests without Content-Length, returning 411", "lesson": "If your reverse proxy strips Content-Length for streaming, ensure your backend can handle chunked encoding or re-enable buffering"},
+        ],
     },
     "412": {
         "examples": [
@@ -714,6 +844,16 @@ STATUS_EXTRA = {
             {"api": "GitHub API", "scenario": "Conditional update with If-Match fails because the resource was modified since last read — returns 412", "lesson": "412 is the backbone of optimistic concurrency — always return the current ETag so the client can retry with fresh data"},
             {"api": "AWS S3", "scenario": "PUT with If-None-Match: * returns 412 if the object already exists, preventing overwrites", "lesson": "Use If-None-Match: * with PUT to implement create-if-not-exists semantics without race conditions"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Using the wrong ETag format (forgetting quotes or using weak ETags with If-Match)",
+                "consequence": "If-Match requires strong ETags. Weak ETags (W/\"...\") are only for If-None-Match. Mismatched ETag formats cause unexpected 412 failures.",
+            },
+            {
+                "mistake": "Returning 412 without including the current ETag in the response",
+                "consequence": "The client knows their precondition failed but has no way to get the current version. Always include the latest ETag so they can retry.",
+            },
+        ],
     },
     "413": {
         "examples": [
@@ -728,6 +868,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)',
         },
         "eli5": "You tried to stuff a giant teddy bear into a tiny mailbox. The mailbox says 'That's way too big! Bring something smaller!'",
+        "common_mistakes": [
+            {"mistake": "Not telling the client what the size limit is in the error response", "consequence": "Clients know the body was too big but not how big is allowed. Include the maximum allowed size so they can resize and retry."},
+            {"mistake": "Returning 413 for requests that could be split into smaller chunks", "consequence": "Consider supporting chunked uploads or multipart uploads for large files instead of hard-rejecting with 413."},
+        ],
     },
     "414": {
         "examples": [
@@ -742,6 +886,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "URI Too Long", http.StatusRequestURITooLong)',
         },
         "eli5": "You wrote an address on an envelope that's so long it wraps around the whole package three times. The postal worker says 'This address is way too long, I can't read this!'",
+        "common_mistakes": [
+            {"mistake": "Putting large data payloads in query strings instead of using POST with a body", "consequence": "GET URLs have practical limits (~8KB). Use POST for large search queries, filter parameters, or data payloads to avoid 414 errors."},
+            {"mistake": "Encoding large JSON or base64 data directly in the URL", "consequence": "URLs are not designed for large data transfer. Use request body for payloads and pass only identifiers or short keys in the URL."},
+        ],
     },
     "415": {
         "examples": [
@@ -760,6 +908,16 @@ STATUS_EXTRA = {
             {"api": "Slack API", "scenario": "Sending form-urlencoded data to an endpoint expecting application/json returns 415", "lesson": "Always set the Content-Type header explicitly — many HTTP clients default to form encoding, not JSON"},
             {"api": "AWS API Gateway", "scenario": "Uploading a binary file without the correct Content-Type mapping returns 415", "lesson": "Configure binary media types in API Gateway when accepting file uploads — the default only allows text-based content types"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Not checking the Content-Type header at all and just trying to parse the body",
+                "consequence": "Parsing XML as JSON (or vice versa) causes cryptic errors deep in your code. Validate Content-Type early and return 415 immediately if unsupported.",
+            },
+            {
+                "mistake": "Accepting any Content-Type silently instead of validating it",
+                "consequence": "Clients may accidentally send the wrong format and get confusing 500 errors. An explicit 415 tells them exactly what to fix.",
+            },
+        ],
     },
     "416": {
         "examples": [
@@ -774,6 +932,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Range Not Satisfiable", http.StatusRequestedRangeNotSatisfiable)',
         },
         "eli5": "You asked for pages 500 through 600 of a book that only has 200 pages. The librarian says 'Those pages don't exist!'",
+        "common_mistakes": [
+            {"mistake": "Not including Content-Range: bytes */total_size in the 416 response", "consequence": "The client knows the range was invalid but not what the valid range is. Include the total file size so the client can adjust its request."},
+            {"mistake": "Returning 200 with the full file instead of 416 when the range is invalid", "consequence": "Download managers and video players expect 416 for out-of-range requests. Sending 200 with the full file wastes bandwidth and confuses range-aware clients."},
+        ],
     },
     "417": {
         "examples": [
@@ -804,6 +966,10 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Google (google.com/teapot)", "scenario": "Google once hosted an interactive teapot page at /teapot as a playful Easter egg implementing RFC 2324", "lesson": "RFC 2324 was an April Fools' joke, but 418 is now preserved in HTTP specs because removing it would break the internet's sense of humor"},
             {"api": "Node.js core", "scenario": "The Node.js HTTP module includes 418 in its STATUS_CODES map after a heated debate about removing it", "lesson": "Developer experience matters — sometimes keeping a harmless joke is better for community morale than strict spec compliance"},
+        ],
+        "common_mistakes": [
+            {"mistake": "Using 418 in production APIs as a real status code", "consequence": "418 is an April Fools joke from RFC 2324. Monitoring tools, proxies, and clients do not handle it properly. Use a real 4xx code instead."},
+            {"mistake": "Relying on 418 for rate limiting or bot blocking instead of 429", "consequence": "Some developers use 418 to confuse bots, but well-behaved clients and monitoring tools cannot interpret it. Use standard codes like 429 or 403."},
         ],
     },
     "419": {
@@ -914,6 +1080,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Too Early", 425)',
         },
         "eli5": "You tried to run into the classroom before the teacher even unlocked the door. 'Whoa, slow down! It's too early — wait until everything is properly set up!'",
+        "case_studies": [
+            {"api": "Cloudflare / TLS 1.3", "scenario": "TLS 1.3 0-RTT early data can be replayed by attackers — servers return 425 to reject state-changing requests sent in early data", "lesson": "Never allow POST, PUT, or DELETE in TLS 0-RTT early data — replay attacks could duplicate transactions like payments"},
+            {"api": "CDN edge servers", "scenario": "Edge servers reject early data for non-idempotent requests to prevent replay-based cache poisoning", "lesson": "Use 425 as a signal to retry the request after the full TLS handshake completes — the request itself is fine, just the timing was wrong"},
+        ],
     },
     "426": {
         "examples": [
@@ -945,6 +1115,16 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "GitHub API", "scenario": "Certain update operations require If-Match header — omitting it returns 428", "lesson": "Require conditional headers (If-Match, If-Unmodified-Since) on write endpoints to prevent accidental overwrites in concurrent environments"},
             {"api": "Kubernetes API", "scenario": "Updates to resources without a resourceVersion field are rejected with 428", "lesson": "428 forces clients into an optimistic concurrency pattern — read the latest version, then update with the version token"},
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Requiring conditional headers (428) on every endpoint, even simple reads",
+                "consequence": "Overusing 428 adds friction for API consumers. Reserve it for write endpoints where concurrent updates are a real risk.",
+            },
+            {
+                "mistake": "Returning 428 without explaining which precondition headers are required",
+                "consequence": "Clients know they need a precondition but not which one (If-Match? If-Unmodified-Since?). Document the required headers clearly.",
+            },
         ],
     },
     "429": {
@@ -993,6 +1173,16 @@ STATUS_EXTRA = {
             {"api": "Cloudflare / Nginx", "scenario": "Accumulated cookies from third-party trackers cause headers to exceed 8KB, triggering 431", "lesson": "Monitor total cookie size across your domains — cookie bloat from analytics and A/B testing is the most common cause of 431"},
             {"api": "AWS ALB", "scenario": "JWT tokens stored in cookies grow too large with embedded claims, exceeding the default 16KB header limit", "lesson": "Store large tokens server-side and use a session ID cookie instead — JWTs with many claims can easily exceed header limits"},
         ],
+        "common_mistakes": [
+            {
+                "mistake": "Not monitoring or limiting the size of cookies and custom headers your application sets",
+                "consequence": "Cookie bloat from analytics, A/B testing, and large JWTs accumulates over time. By the time users hit 431, it's hard to diagnose.",
+            },
+            {
+                "mistake": "Using the default server header size limit without tuning it for your use case",
+                "consequence": "The default limit (8KB on Nginx, 16KB on AWS ALB) may be too small for apps with many cookies. Tune it, but also fix the root cause of large headers.",
+            },
+        ],
     },
     "444": {
         "examples": [
@@ -1007,6 +1197,10 @@ STATUS_EXTRA = {
             "go": "// Nginx-specific; in Go you'd use conn.Close() or hijack the connection",
         },
         "eli5": "Someone knocks on your door, but when you open it, nobody's there — they already ran away. So you just close the door without saying anything. Conversation over!",
+        "case_studies": [
+            {"api": "Nginx", "scenario": "Nginx's return 444 directive silently drops connections from known bad IPs or malicious user agents without sending any response", "lesson": "444 saves bandwidth against scanners and bots — no response means no information leaked about your server"},
+            {"api": "Cloudflare WAF", "scenario": "Cloudflare uses connection-drop behavior similar to 444 when blocking DDoS traffic at the edge", "lesson": "Silent connection drops are effective against automated attacks but confusing for legitimate debugging — log dropped connections server-side"},
+        ],
     },
     "450": {
         "examples": [
@@ -1038,6 +1232,10 @@ STATUS_EXTRA = {
             {"api": "GitHub (DMCA takedowns)", "scenario": "Repositories removed due to DMCA notices return 451 with a link to the takedown request", "lesson": "Always include a Link header with rel=blocked-by pointing to the legal authority or notice — transparency matters"},
             {"api": "Reddit / Twitter", "scenario": "Content geo-blocked due to local laws returns 451 in regions where the content is restricted", "lesson": "451 was specifically designed to distinguish legal censorship from access control (403) — use it to promote transparency about government-mandated blocks"},
         ],
+        "common_mistakes": [
+            {"mistake": "Using 403 instead of 451 for legally mandated content blocks", "consequence": "403 hides the reason. 451 explicitly signals legal restrictions, promoting transparency and helping users understand the block is external, not a permission issue."},
+            {"mistake": "Not including a Link header with rel=blocked-by pointing to the legal authority", "consequence": "Users have no way to learn why the content is blocked or who ordered it. The Link header is how 451 communicates accountability."},
+        ],
     },
     "494": {
         "examples": [
@@ -1051,6 +1249,10 @@ STATUS_EXTRA = {
             "go": "// Nginx-specific; Go's default MaxHeaderBytes is 1MB",
         },
         "eli5": "One of the labels on your package is so huge it's bigger than the box itself. The post office says 'This single label is way too big — trim it down!'",
+        "case_studies": [
+            {"api": "Nginx", "scenario": "Nginx returns 494 when a single request header line exceeds large_client_header_buffers size limit", "lesson": "494 is Nginx-specific — if you see it in logs, increase large_client_header_buffers or investigate why a header is abnormally large"},
+            {"api": "WAF / Security appliances", "scenario": "Web application firewalls that proxy through Nginx may trigger 494 when injecting large security headers into forwarded requests", "lesson": "Check both client-sent and proxy-injected headers when debugging 494 — the oversized header may come from your own infrastructure"},
+        ],
     },
     "498": {
         "examples": [
@@ -1064,6 +1266,10 @@ STATUS_EXTRA = {
             "go": "// Non-standard; specific to ArcGIS Server",
         },
         "eli5": "Your movie ticket expired — the showing was an hour ago! You need to get a fresh, valid ticket before they'll let you in. The old one is no good anymore.",
+        "case_studies": [
+            {"api": "ArcGIS Server (Esri)", "scenario": "ArcGIS REST services return 498 when a token parameter is expired, revoked, or malformed", "lesson": "498 is Esri-specific — standard APIs should use 401 for token issues, but if you integrate with ArcGIS, handle 498 as a token refresh trigger"},
+            {"api": "ArcGIS Online", "scenario": "Hosted feature services return 498 when the OAuth token has expired during a long editing session", "lesson": "Implement proactive token refresh before expiry rather than waiting for 498 — check the token expiration claim and refresh with 30 seconds of buffer"},
+        ],
     },
     "499": {
         "examples": [
@@ -1078,6 +1284,10 @@ STATUS_EXTRA = {
             "go": "// Check r.Context().Done() to detect client disconnection",
         },
         "eli5": "You ordered food at a restaurant, but you got impatient and left before it was ready. The waiter comes back with your plate and says 'They already left!' Nobody to serve it to.",
+        "case_studies": [
+            {"api": "Nginx access logs", "scenario": "Nginx logs 499 when a user navigates away from a slow page before the backend finishes generating the response", "lesson": "High 499 rates in Nginx logs indicate slow backend responses — investigate backend latency, not Nginx configuration"},
+            {"api": "AWS ALB + Nginx", "scenario": "ALB idle timeout (60s default) closes connections to Nginx backends, which logs these as 499 client-closed-request", "lesson": "Set Nginx proxy_read_timeout higher than ALB idle timeout, or use keep-alive to prevent ALB from closing connections prematurely"},
+        ],
     },
     "500": {
         "examples": [
@@ -1123,6 +1333,16 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Nginx (minimal config)", "scenario": "A server that only handles GET and POST returns 501 for PATCH, PUT, or DELETE requests", "lesson": "501 means the server doesn't recognize the method at all — unlike 405, which means the method is known but not allowed for this resource"},
             {"api": "Legacy proxy servers", "scenario": "Older HTTP proxies return 501 when they encounter HTTP/2 or WebSocket upgrade requests they cannot process", "lesson": "Use 501 sparingly — in modern APIs, if you receive a valid HTTP method, return 405 with an Allow header instead"},
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Using 501 when the server had an internal error (confusing with 500)",
+                "consequence": "501 means the server does not support the functionality. 500 means it tried and broke. Using 501 for bugs misleads clients into thinking the feature does not exist.",
+            },
+            {
+                "mistake": "Returning 501 for a known HTTP method that the specific resource does not support",
+                "consequence": "That is 405 (Method Not Allowed). 501 means the server does not recognize the method at all, not that the resource does not accept it.",
+            },
         ],
     },
     "502": {
@@ -1225,6 +1445,10 @@ STATUS_EXTRA = {
             {"api": "Legacy corporate proxies", "scenario": "Enterprise proxy appliances that only support HTTP/1.0 return 505 when clients send HTTP/1.1 or HTTP/2 requests", "lesson": "505 is rare in modern systems — most servers support HTTP/1.1 and HTTP/2, but legacy infrastructure can still surprise you"},
             {"api": "Embedded IoT devices", "scenario": "Minimal HTTP servers on microcontrollers only implement HTTP/1.0 and reject newer protocol versions with 505", "lesson": "When building clients for constrained devices, always fall back gracefully to HTTP/1.0 if the server rejects your protocol version"},
         ],
+        "common_mistakes": [
+            {"mistake": "Confusing 505 with 426 (Upgrade Required)", "consequence": "426 means the server wants the client to switch to a newer protocol. 505 means the server cannot handle the protocol version the client used. Opposite directions."},
+            {"mistake": "Returning 505 when the issue is actually a misconfigured proxy", "consequence": "A proxy stripping HTTP/2 or downgrading the protocol version can trigger false 505s. Check the full request chain before blaming the client."},
+        ],
     },
     "506": {
         "examples": [
@@ -1238,6 +1462,10 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Variant Also Negotiates", 506)',
         },
         "eli5": "You asked your friend to pick a restaurant, and they said 'Ask my other friend,' who said 'Ask the first friend.' Now nobody can decide and everyone's going in circles!",
+        "case_studies": [
+            {"api": "Apache mod_negotiation", "scenario": "Misconfigured content negotiation where a .var type-map file references a variant that itself requires further negotiation, creating an infinite loop", "lesson": "506 indicates a server misconfiguration, not a client error — check your content negotiation type-maps for circular references"},
+            {"api": "Transparent Content Negotiation (RFC 2295)", "scenario": "A resource returns a choice response where the selected variant also has an Alternates header, triggering recursive negotiation", "lesson": "506 is extremely rare in modern APIs — if you encounter it, the server's content negotiation setup is broken and needs admin intervention"},
+        ],
     },
     "507": {
         "examples": [
@@ -1287,6 +1515,10 @@ STATUS_EXTRA = {
             "go": "// Non-standard; prefer 429 or 503 with Retry-After in standard APIs",
         },
         "eli5": "You used up all your monthly data on your phone plan. Your carrier says 'You've used too much bandwidth this month — come back next month or upgrade your plan!'",
+        "case_studies": [
+            {"api": "cPanel / WHM hosting", "scenario": "Shared hosting providers using cPanel return 509 when a site exceeds its monthly bandwidth allocation, effectively taking the site offline", "lesson": "509 is non-standard — use a CDN to offload bandwidth and monitor usage to avoid hitting hosting limits during traffic spikes"},
+            {"api": "Apache (non-standard)", "scenario": "Apache's mod_bw or hosting-specific modules return 509 to enforce per-site bandwidth quotas on shared servers", "lesson": "If you see 509, contact your hosting provider — the fix is usually a plan upgrade or CDN integration, not a code change"},
+        ],
     },
     "510": {
         "examples": [
@@ -1320,6 +1552,16 @@ STATUS_EXTRA = {
         "case_studies": [
             {"api": "Hotel / Airport Wi-Fi", "scenario": "Captive portals intercept HTTP requests and return 511 to trigger the browser's captive portal detection flow", "lesson": "511 should only be generated by the network, not by origin servers — it tells the client to authenticate with the network layer, not the application"},
             {"api": "Apple / Google captive portal detection", "scenario": "iOS and Android make background requests to known URLs — a 511 triggers the captive portal login UI automatically", "lesson": "Use 511 with a simple HTML login form in the body — avoid JavaScript-heavy pages that may not render in captive portal browsers"},
+        ],
+        "common_mistakes": [
+            {
+                "mistake": "Not implementing captive portal detection in mobile or desktop apps",
+                "consequence": "Apps fail with generic network errors instead of showing the captive portal login. Check for 511 and open a webview to let users authenticate.",
+            },
+            {
+                "mistake": "Returning 511 from application servers instead of the network layer",
+                "consequence": "511 should only come from captive portals and network intermediaries, not origin servers. Use 401 or 403 for app-level authentication.",
+            },
         ],
     },
     "530": {

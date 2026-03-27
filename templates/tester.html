@@ -213,7 +213,14 @@
                         pre.textContent = formattedBody;
                         bodyContent.appendChild(pre);
                         if (data.truncated) {
-                            bodyContent.appendChild(el('div', 'tester-body-truncated', 'Body truncated at 10 KB'));
+                            var truncWarn = el('div', 'tester-truncation-warning');
+                            truncWarn.setAttribute('role', 'alert');
+                            var truncIcon = el('span', 'tester-truncation-icon', '\u26A0\uFE0F');
+                            truncIcon.setAttribute('aria-hidden', 'true');
+                            var truncText = el('span', 'tester-truncation-text', 'Response truncated at 10KB. Full response is larger.');
+                            truncWarn.appendChild(truncIcon);
+                            truncWarn.appendChild(truncText);
+                            bodySection.insertBefore(truncWarn, bodyContent);
                         }
                         collapseBtn.addEventListener('click', function() {
                             var collapsed = bodyContent.classList.toggle('collapsed');

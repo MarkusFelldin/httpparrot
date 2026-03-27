@@ -13,6 +13,54 @@
                 <div class="collection-progress-bar" id="progress-bar"></div>
             </div>
         </div>
+
+        <div class="collection-milestones" id="collection-milestones" role="region" aria-label="Collection milestones">
+            <div class="milestone-badge" data-milestone="10" id="milestone-10">
+                <span class="milestone-icon" aria-hidden="true">&#x1F5FA;&#xFE0F;</span>
+                <span class="milestone-label">10 Codes</span>
+            </div>
+            <div class="milestone-badge" data-milestone="25" id="milestone-25">
+                <span class="milestone-icon" aria-hidden="true">&#x1F9ED;</span>
+                <span class="milestone-label">25 Codes</span>
+            </div>
+            <div class="milestone-badge" data-milestone="50" id="milestone-50">
+                <span class="milestone-icon" aria-hidden="true">&#x1F31F;</span>
+                <span class="milestone-label">50 Codes</span>
+            </div>
+            <div class="milestone-badge" data-milestone="72" id="milestone-72">
+                <span class="milestone-icon" aria-hidden="true">&#x1F3C6;</span>
+                <span class="milestone-label">All 72</span>
+            </div>
+        </div>
+
+        <div class="collection-category-progress" id="category-progress" role="region" aria-label="Category progress">
+            <div class="category-bar" data-cat="1">
+                <span class="category-bar-label">1xx</span>
+                <div class="category-bar-track"><div class="category-bar-fill" id="cat-fill-1"></div></div>
+                <span class="category-bar-count" id="cat-count-1">0/0</span>
+            </div>
+            <div class="category-bar" data-cat="2">
+                <span class="category-bar-label">2xx</span>
+                <div class="category-bar-track"><div class="category-bar-fill" id="cat-fill-2"></div></div>
+                <span class="category-bar-count" id="cat-count-2">0/0</span>
+            </div>
+            <div class="category-bar" data-cat="3">
+                <span class="category-bar-label">3xx</span>
+                <div class="category-bar-track"><div class="category-bar-fill" id="cat-fill-3"></div></div>
+                <span class="category-bar-count" id="cat-count-3">0/0</span>
+            </div>
+            <div class="category-bar" data-cat="4">
+                <span class="category-bar-label">4xx</span>
+                <div class="category-bar-track"><div class="category-bar-fill" id="cat-fill-4"></div></div>
+                <span class="category-bar-count" id="cat-count-4">0/0</span>
+            </div>
+            <div class="category-bar" data-cat="5">
+                <span class="category-bar-label">5xx</span>
+                <div class="category-bar-track"><div class="category-bar-fill" id="cat-fill-5"></div></div>
+                <span class="category-bar-count" id="cat-count-5">0/0</span>
+            </div>
+        </div>
+
         <div class="collection-grid" id="collection-grid">
             {% for code in all_codes %}
             <a href="/{{ code.code }}" class="collection-card" data-code="{{ code.code }}">
@@ -116,6 +164,37 @@
         document.getElementById('progress-bar').style.transform = 'scaleX(' + (count / cards.length) + ')';
         var progressEl = document.getElementById('progress-bar').parentElement;
         if (progressEl) progressEl.setAttribute('aria-valuenow', count);
+
+        /* Milestone badges */
+        var milestones = [10, 25, 50, 72];
+        for (var mi = 0; mi < milestones.length; mi++) {
+            var m = milestones[mi];
+            var badge = document.getElementById('milestone-' + m);
+            if (badge && count >= m) {
+                badge.classList.add('milestone-earned');
+            }
+        }
+
+        /* Category progress bars */
+        var catTotals = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+        var catCollected = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+        cards.forEach(function(card) {
+            var code = card.dataset.code;
+            var cat = parseInt(code.charAt(0));
+            if (catTotals.hasOwnProperty(cat)) {
+                catTotals[cat]++;
+                if (collected.indexOf(code) !== -1) catCollected[cat]++;
+            }
+        });
+        for (var c = 1; c <= 5; c++) {
+            var fill = document.getElementById('cat-fill-' + c);
+            var countEl = document.getElementById('cat-count-' + c);
+            if (fill && countEl) {
+                var pct = catTotals[c] > 0 ? (catCollected[c] / catTotals[c] * 100) : 0;
+                fill.style.width = pct + '%';
+                countEl.textContent = catCollected[c] + '/' + catTotals[c];
+            }
+        }
 
         var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
         var previouslyRendered = JSON.parse(localStorage.getItem('httpparrot_eggs_rendered') || '[]');
