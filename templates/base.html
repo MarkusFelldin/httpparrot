@@ -86,30 +86,45 @@
                     <span class="hamburger-line"></span>
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
-                    <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
-                    <a href="/personality" {% if request.path == '/personality' %}class="nav-active" aria-current="page"{% endif %}>Personality</a>
-                    <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
-                    <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug</a>
-                    <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
-                    <a href="/weekly" {% if request.path == '/weekly' %}class="nav-active" aria-current="page"{% endif %}>Weekly</a>
-                    <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
-                    <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
-                    <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Learn</a>
-                    <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Paths</a>
-                    <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
-                    <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
-                    <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
-                    <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Audit</a>
-                    <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
-                    <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
-                    <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
-                    <a href="/curl-import" {% if request.path == '/curl-import' %}class="nav-active" aria-current="page"{% endif %}>cURL Import</a>
-                    <a href="/fault-simulator" {% if request.path == '/fault-simulator' %}class="nav-active" aria-current="page"{% endif %}>Faults</a>
-                    <a href="/webhook-inspector" {% if request.path == '/webhook-inspector' %}class="nav-active" aria-current="page"{% endif %}>Webhooks</a>
-                    <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
-                    <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
-                    <a href="/review" {% if request.path == '/review' %}class="nav-active" aria-current="page"{% endif %}>Review</a>
-                    <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
+                            <a href="/daily" role="menuitem" {% if request.path == '/daily' %}aria-current="page"{% endif %}>Daily Challenge</a>
+                            <a href="/weekly" role="menuitem" {% if request.path == '/weekly' %}aria-current="page"{% endif %}>Weekly Challenge</a>
+                            <a href="/practice" role="menuitem" {% if request.path == '/practice' %}aria-current="page"{% endif %}>Practice</a>
+                            <a href="/debug" role="menuitem" {% if request.path == '/debug' %}aria-current="page"{% endif %}>Debug Exercises</a>
+                            <a href="/review" role="menuitem" {% if request.path == '/review' %}aria-current="page"{% endif %}>Review</a>
+                            <a href="/learn" role="menuitem" {% if request.path.startswith('/learn') %}aria-current="page"{% endif %}>Confusion Pairs</a>
+                            <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
+                            <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/tester" role="menuitem" {% if request.path == '/tester' %}aria-current="page"{% endif %}>URL Tester</a>
+                            <a href="/headers" role="menuitem" {% if request.path == '/headers' %}aria-current="page"{% endif %}>Header Explainer</a>
+                            <a href="/cors-checker" role="menuitem" {% if request.path == '/cors-checker' %}aria-current="page"{% endif %}>CORS Checker</a>
+                            <a href="/security-audit" role="menuitem" {% if request.path == '/security-audit' %}aria-current="page"{% endif %}>Security Audit</a>
+                            <a href="/trace" role="menuitem" {% if request.path == '/trace' %}aria-current="page"{% endif %}>Redirect Tracer</a>
+                            <a href="/playground" role="menuitem" {% if request.path == '/playground' %}aria-current="page"{% endif %}>Playground</a>
+                            <a href="/curl-import" role="menuitem" {% if request.path == '/curl-import' %}aria-current="page"{% endif %}>cURL Import</a>
+                            <a href="/fault-simulator" role="menuitem" {% if request.path == '/fault-simulator' %}aria-current="page"{% endif %}>Fault Simulator</a>
+                            <a href="/webhook-inspector" role="menuitem" {% if request.path == '/webhook-inspector' %}aria-current="page"{% endif %}>Webhooks</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/compare" role="menuitem" {% if request.path == '/compare' %}aria-current="page"{% endif %}>Compare</a>
+                            <a href="/personality" role="menuitem" {% if request.path == '/personality' %}aria-current="page"{% endif %}>Personality Quiz</a>
+                            <a href="/collection" role="menuitem" {% if request.path == '/collection' %}aria-current="page"{% endif %}>Parrotdex</a>
+                            <a href="/cheatsheet" role="menuitem" {% if request.path == '/cheatsheet' %}aria-current="page"{% endif %}>Cheat Sheet</a>
+                            <a href="/api-docs" role="menuitem" {% if request.path == '/api-docs' %}aria-current="page"{% endif %}>API Docs</a>
+                            <a href="/profile" role="menuitem" {% if request.path == '/profile' %}aria-current="page"{% endif %}>Profile</a>
+                        </div>
+                    </div>
                 </nav>
             </div>
             {% block header_right %}
@@ -131,29 +146,32 @@
         </div>
         <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
         <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" role="navigation">
+            <div class="mobile-nav-group-label">Learn</div>
             <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
-            <a href="/personality" {% if request.path == '/personality' %}class="nav-active" aria-current="page"{% endif %}>Personality</a>
+            <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily Challenge</a>
+            <a href="/weekly" {% if request.path == '/weekly' %}class="nav-active" aria-current="page"{% endif %}>Weekly Challenge</a>
             <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
-            <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug</a>
-            <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
-            <a href="/weekly" {% if request.path == '/weekly' %}class="nav-active" aria-current="page"{% endif %}>Weekly</a>
+            <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug Exercises</a>
+            <a href="/review" {% if request.path == '/review' %}class="nav-active" aria-current="page"{% endif %}>Review</a>
+            <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Confusion Pairs</a>
+            <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
-            <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
-            <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Learn</a>
-            <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Paths</a>
-            <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
-            <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
-            <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
-            <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Audit</a>
-            <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Trace</a>
-            <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
+            <div class="mobile-nav-group-label">Tools</div>
+            <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
+            <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
+            <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS Checker</a>
+            <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Security Audit</a>
+            <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Redirect Tracer</a>
             <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
             <a href="/curl-import" {% if request.path == '/curl-import' %}class="nav-active" aria-current="page"{% endif %}>cURL Import</a>
-            <a href="/fault-simulator" {% if request.path == '/fault-simulator' %}class="nav-active" aria-current="page"{% endif %}>Faults</a>
+            <a href="/fault-simulator" {% if request.path == '/fault-simulator' %}class="nav-active" aria-current="page"{% endif %}>Fault Simulator</a>
             <a href="/webhook-inspector" {% if request.path == '/webhook-inspector' %}class="nav-active" aria-current="page"{% endif %}>Webhooks</a>
+            <div class="mobile-nav-group-label">More</div>
+            <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+            <a href="/personality" {% if request.path == '/personality' %}class="nav-active" aria-current="page"{% endif %}>Personality Quiz</a>
+            <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
-            <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
-            <a href="/review" {% if request.path == '/review' %}class="nav-active" aria-current="page"{% endif %}>Review</a>
+            <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API Docs</a>
             <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
         </nav>
     </header>
@@ -229,6 +247,35 @@
                 closeMenu();
                 btn.focus();
             }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Nav dropdown menus */
+    (function() {
+        var triggers = document.querySelectorAll('.nav-dropdown-trigger');
+        function closeAll() {
+            triggers.forEach(function(t) {
+                t.setAttribute('aria-expanded', 'false');
+                var menu = t.nextElementSibling;
+                if (menu) menu.classList.remove('is-open');
+            });
+        }
+        triggers.forEach(function(trigger) {
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var menu = trigger.nextElementSibling;
+                var isOpen = menu.classList.contains('is-open');
+                closeAll();
+                if (!isOpen) {
+                    trigger.setAttribute('aria-expanded', 'true');
+                    menu.classList.add('is-open');
+                }
+            });
+        });
+        document.addEventListener('click', closeAll);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeAll();
         });
     })();
     </script>

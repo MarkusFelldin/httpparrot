@@ -6781,7 +6781,7 @@ class TestPathsNavLink:
         resp = client.get('/')
         html = resp.data.decode()
         assert 'href="/paths"' in html
-        assert '>Paths<' in html
+        assert 'Learning Paths' in html
 
     def test_nav_paths_active_on_index(self, client):
         resp = client.get('/paths')
@@ -7146,7 +7146,7 @@ class TestFaultSimulatorPage:
         resp = client.get('/')
         html = resp.data.decode()
         assert 'href="/fault-simulator"' in html
-        assert 'Faults' in html
+        assert 'Fault Simulator' in html
 
     def test_sitemap_contains_fault_simulator(self, client):
         resp = client.get('/sitemap.xml')
@@ -8578,7 +8578,7 @@ class TestWeeklyNav:
         """Nav should have Weekly text for the link."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert '>Weekly<' in html
+        assert 'Weekly Challenge' in html
 
     def test_weekly_nav_active_on_weekly_page(self, client):
         """Weekly page nav link should have active class."""
