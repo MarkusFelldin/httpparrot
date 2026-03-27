@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Redirect Tracer - HTTP Parrots{% endblock %}
+{% block subtitle %}Redirect Tracer{% endblock %}
+{% block meta %}
+    <meta name="description" content="Trace HTTP redirect chains step by step. See every hop, status code, response time, and security headers along the way.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>Redirect Tracer</h1>
+            <p>Follow a URL through every redirect hop and inspect each response</p>
+        </div>
+        <form class="trace-form" id="trace-form" aria-label="Redirect tracer">
+            <div class="trace-input-wrap">
+                <label for="trace-url" class="sr-only">URL to trace</label>
+                <input type="text" class="headers-input" id="trace-url" placeholder="example.com" autocomplete="off" aria-label="URL to trace">
+                <button type="submit" class="tester-submit" id="trace-btn">Trace</button>
+            </div>
+        </form>
+        <div id="trace-results" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var COLORS = {'1':'#48cae4','2':'#2dd4a8','3':'#f9c74f','4':'#ff6b6b','5':'#a78bfa'};
+
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        function categoryColor(code) {
+            return COLORS[String(code)[0]] || '#fff';
+        }
+
+        function renderHop(hop, index, isLast) {
+            var card = el('div', 'trace-hop');
+            if (hop.error) {
+                card.classList.add('trace-hop-error');
+                card.appendChild(el('div', 'trace-hop-index', 'Hop ' + (index + 1)));
+                card.appendChild(el('div', 'trace-hop-url', hop.url));
+                card.appendChild(el('div', 'trace-hop-error-msg', hop.error));
+                return card;
+            }
+            var color = categoryColor(hop.status_code);
+            card.style.borderColor = color + '30';
+            if (isLast) card.classList.add('trace-hop-final');
+
+            var header = el('div', 'trace-hop-header');
+            var badge = el('span', 'trace-hop-status', String(hop.status_code));
+            badge.style.background = color + '18';
+            badge.style.color = color;
+            header.appendChild(badge);
+            header.appendChild(el('span', 'trace-hop-time', hop.time_ms + 'ms'));
+            card.appendChild(header);
+
+            card.appendChild(el('div', 'trace-hop-url', hop.url));
+
+            if (hop.location) {
+                var loc = el('div', 'trace-hop-location');
+                loc.appendChild(el('span', 'trace-hop-label', 'Location: '));
+                loc.appendChild(el('span', 'trace-hop-loc-value', hop.location));
+                card.appendChild(loc);
+            }
+
+            if (hop.headers && Object.keys(hop.headers).length > 0) {
+                var hdrs = el('div', 'trace-hop-headers');
+                var table = document.createElement('table');
+                table.className = 'tester-headers-table';
+                Object.keys(hop.headers).forEach(function(k) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(el('td', 'tester-header-key', k));
+                    tr.appendChild(el('td', 'tester-header-val', hop.headers[k]));
+                    table.appendChild(tr);
+                });
+                hdrs.appendChild(table);
+                card.appendChild(hdrs);
+            }
+
+            if (isLast) {
+                var final = el('div', 'trace-hop-final-badge');
+                final.textContent = 'Final Destination';
+                final.style.color = color;
+                card.appendChild(final);
+            }
+
+            return card;
+        }
+
+        function renderArrow() {
+            var arrow = el('div', 'trace-arrow');
+            arrow.setAttribute('aria-hidden', 'true');
+            var ns = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('width', '24');
+            svg.setAttribute('height', '32');
+            svg.setAttribute('viewBox', '0 0 24 32');
+            var path = document.createElementNS(ns, 'path');
+            path.setAttribute('d', 'M12 0 L12 24 M6 18 L12 24 L18 18');
+            path.setAttribute('stroke', 'currentColor');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(path);
+            arrow.appendChild(svg);
+            return arrow;
+        }
+
+        document.getElementById('trace-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var url = document.getElementById('trace-url').value.trim();
+            if (!url) return;
+
+            var results = document.getElementById('trace-results');
+            var btn = document.getElementById('trace-btn');
+            while (results.firstChild) results.removeChild(results.firstChild);
+            results.appendChild(el('div', 'tester-loading', 'Tracing redirects...'));
+            btn.disabled = true;
+            btn.textContent = 'Tracing...';
+
+            fetch('/api/trace-redirects?url=' + encodeURIComponent(url))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    btn.disabled = false;
+                    btn.textContent = 'Trace';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+
+                    if (data.error) {
+                        results.appendChild(el('div', 'tester-error', data.error));
+                        return;
+                    }
+                    if (!Array.isArray(data) || data.length === 0) {
+                        results.appendChild(el('div', 'tester-error', 'No results returned'));
+                        return;
+                    }
+
+                    var chain = el('div', 'trace-chain');
+                    data.forEach(function(hop, i) {
+                        if (i > 0) chain.appendChild(renderArrow());
+                        var isLast = (i === data.length - 1) && !hop.error;
+                        chain.appendChild(renderHop(hop, i, isLast));
+                    });
+                    results.appendChild(chain);
+
+                    if (typeof ParrotXP !== 'undefined') {
+                        ParrotXP.award(5, 'trace_redirect');
+                    }
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Trace';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+                    results.appendChild(el('div', 'tester-error', 'Could not perform redirect trace'));
+                });
+        });
+    })();
+    </script>
+{% endblock %}

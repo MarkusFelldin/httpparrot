@@ -47,6 +47,54 @@
                     <span class="egg-icon">?</span>
                     <span class="egg-hint">Up up down down...</span>
                 </div>
+                <div class="egg-card" data-egg="barrel_roll">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Do a barrel roll in search...</span>
+                </div>
+                <div class="egg-card" data-egg="404_catch">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Catch the wandering parrot...</span>
+                </div>
+                <div class="egg-card" data-egg="time_404">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Visit at the right time (4:04)...</span>
+                </div>
+                <div class="egg-card" data-egg="time_200">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Visit at the right time (2:00)...</span>
+                </div>
+                <div class="egg-card" data-egg="time_5xx">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Visit at the right time (5:00 PM)...</span>
+                </div>
+                <div class="egg-card" data-egg="coffee">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">The teapot has a secret path...</span>
+                </div>
+                <div class="egg-card" data-egg="console_parrot">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Open DevTools and talk to the parrot...</span>
+                </div>
+                <div class="egg-card" data-egg="http_handshake">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Type the protocol name...</span>
+                </div>
+                <div class="egg-card" data-egg="season_winter">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Visit during the winter holidays...</span>
+                </div>
+                <div class="egg-card" data-egg="season_halloween">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Trick or treat with parrots...</span>
+                </div>
+                <div class="egg-card" data-egg="season_april">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Not everything is as it seems on this day...</span>
+                </div>
+                <div class="egg-card" data-egg="season_valentine">
+                    <span class="egg-icon">?</span>
+                    <span class="egg-hint">Love is in the HTTP headers...</span>
+                </div>
             </div>
         </div>
     </main>
@@ -70,12 +118,18 @@
         if (progressEl) progressEl.setAttribute('aria-valuenow', count);
 
         var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        var previouslyRendered = JSON.parse(localStorage.getItem('httpparrot_eggs_rendered') || '[]');
         document.querySelectorAll('.egg-card').forEach(function(card) {
             if (eggs.indexOf(card.dataset.egg) !== -1) {
                 card.classList.add('egg-found');
                 card.querySelector('.egg-icon').textContent = '\uD83C\uDF89';
+                if (previouslyRendered.indexOf(card.dataset.egg) === -1) {
+                    previouslyRendered.push(card.dataset.egg);
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
             }
         });
+        localStorage.setItem('httpparrot_eggs_rendered', JSON.stringify(previouslyRendered));
     })();
     </script>
 {% endblock %}

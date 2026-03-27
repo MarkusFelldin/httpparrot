@@ -1,0 +1,639 @@
+{% extends "base.html" %}
+
+{% block title %}Review - HTTP Parrots{% endblock %}
+{% block subtitle %}Spaced Repetition{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Review HTTP status codes with spaced repetition. A Leitner box system that schedules items for optimal long-term memory retention.">
+{% endblock %}
+
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+.review-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+.review-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.review-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0 0 0.5rem;
+}
+.review-header p {
+    color: #a0a0b0;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.review-stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.review-stat-item {
+    text-align: center;
+}
+.review-stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f0f0f0;
+    font-family: 'JetBrains Mono', monospace;
+}
+.review-stat-value.stat-due { color: #7b61ff; }
+.review-stat-value.stat-correct { color: #2dd4a8; }
+.review-stat-value.stat-wrong { color: #ff6b6b; }
+.review-stat-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.review-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.2s;
+}
+.review-card:hover {
+    border-color: rgba(255,255,255,0.12);
+}
+.review-card-type {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+.review-card-type.type-scenario {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+}
+.review-card-type.type-debug {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+}
+.review-card-type.type-confusion {
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+}
+.review-box-indicator {
+    font-size: 0.75rem;
+    color: #888;
+    float: right;
+    font-family: 'JetBrains Mono', monospace;
+}
+.review-question {
+    color: #d0d0e0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+}
+.review-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0;
+}
+.review-option-btn {
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: #c0c0d0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+    text-align: left;
+}
+.review-option-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.08);
+    color: #f0f0f0;
+    border-color: rgba(255,255,255,0.2);
+}
+.review-option-btn:disabled {
+    cursor: default;
+}
+.review-option-btn.correct {
+    background: rgba(0, 201, 167, 0.15);
+    border-color: rgba(0, 201, 167, 0.4);
+    color: #2dd4a8;
+}
+.review-option-btn.wrong {
+    background: rgba(233, 69, 96, 0.12);
+    border-color: rgba(233, 69, 96, 0.3);
+    color: #ff6b6b;
+}
+.review-option-btn.dimmed {
+    opacity: 0.4;
+}
+.review-explanation {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border-left: 3px solid #7b61ff;
+    display: none;
+}
+.review-explanation.visible {
+    display: block;
+}
+.review-explanation p {
+    margin: 0.4rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #b0b0c0;
+}
+.review-explanation p strong {
+    color: #f0f0f0;
+}
+.review-next-btn {
+    display: none;
+    margin: 1.5rem auto 0;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(123, 97, 255, 0.3);
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.15s;
+}
+.review-next-btn:hover {
+    background: rgba(123, 97, 255, 0.25);
+    border-color: rgba(123, 97, 255, 0.5);
+}
+.review-complete {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+.review-complete-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+.review-complete h2 {
+    color: #2dd4a8;
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem;
+}
+.review-complete p {
+    color: #a0a0b0;
+    font-size: 1rem;
+}
+.review-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+.review-empty h2 {
+    color: #f0f0f0;
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem;
+}
+.review-empty p {
+    color: #a0a0b0;
+    font-size: 1rem;
+}
+.review-start-btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(123, 97, 255, 0.3);
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+}
+.review-start-btn:hover {
+    background: rgba(123, 97, 255, 0.25);
+    border-color: rgba(123, 97, 255, 0.5);
+}
+@media (max-width: 600px) {
+    .review-options {
+        grid-template-columns: 1fr;
+    }
+    .review-stats-bar {
+        gap: 1rem;
+    }
+    .review-option-btn {
+        min-height: 44px;
+        padding: 0.75rem 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <main class="review-container" id="main-content" role="main">
+        <div class="review-header">
+            <h1>Spaced Repetition Review</h1>
+            <p>Items scheduled by a Leitner box system for long-term retention</p>
+        </div>
+
+        <div class="review-stats-bar" role="region" aria-label="Review session stats">
+            <div class="review-stat-item">
+                <div class="review-stat-value stat-due" id="review-due" aria-live="polite">0</div>
+                <div class="review-stat-label">Due Today</div>
+            </div>
+            <div class="review-stat-item">
+                <div class="review-stat-value stat-correct" id="review-correct" aria-live="polite">0</div>
+                <div class="review-stat-label">Correct</div>
+            </div>
+            <div class="review-stat-item">
+                <div class="review-stat-value stat-wrong" id="review-wrong" aria-live="polite">0</div>
+                <div class="review-stat-label">Wrong</div>
+            </div>
+            <div class="review-stat-item">
+                <div class="review-stat-value" id="review-remaining" aria-live="polite">0</div>
+                <div class="review-stat-label">Remaining</div>
+            </div>
+        </div>
+
+        <div id="review-area"></div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    /* --- Data from server --- */
+    var scenarios = {{ scenarios | tojson }};
+    var debugExercises = {{ debug_exercises | tojson }};
+    var confusionPairs = {{ confusion_pairs | tojson }};
+
+    /* --- Build canonical item pool --- */
+    var ALL_ITEMS = [];
+
+    scenarios.forEach(function(s) {
+        ALL_ITEMS.push({
+            id: 'scenario_' + s.id,
+            type: 'scenario',
+            question: s.description,
+            correct: s.correct,
+            options: s.options,
+            explanations: s.explanations
+        });
+    });
+
+    debugExercises.forEach(function(d) {
+        /* Turn each debug exercise into a "what is the primary bug?" question */
+        var bugDescs = d.bugs.map(function(b) { return b.description; });
+        var distractors = ['No bugs \u2014 this response is correct',
+                           'Missing Content-Type header',
+                           'Should use HTTP/2 instead'];
+        var opts = bugDescs.slice(0, 1);
+        distractors.forEach(function(dist) {
+            if (opts.length < 4 && bugDescs.indexOf(dist) === -1) opts.push(dist);
+        });
+        /* Pad with more generic distractors if needed */
+        var extraDist = ['Status code is deprecated', 'Missing Date header'];
+        extraDist.forEach(function(dist) {
+            if (opts.length < 4 && bugDescs.indexOf(dist) === -1 && opts.indexOf(dist) === -1) opts.push(dist);
+        });
+        /* Shuffle options */
+        for (var i = opts.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = opts[i]; opts[i] = opts[j]; opts[j] = t;
+        }
+        var expObj = {};
+        opts.forEach(function(o) {
+            if (o === bugDescs[0]) {
+                expObj[o] = 'Correct! ' + d.bugs[0].explanation;
+            } else {
+                expObj[o] = 'Not the primary issue here.';
+            }
+        });
+        ALL_ITEMS.push({
+            id: 'debug_' + d.id,
+            type: 'debug',
+            question: d.title + ': ' + d.description,
+            correct: bugDescs[0],
+            options: opts,
+            explanations: expObj
+        });
+    });
+
+    confusionPairs.forEach(function(cp) {
+        cp.quiz.forEach(function(q, qi) {
+            ALL_ITEMS.push({
+                id: 'confusion_' + cp.slug + '_' + qi,
+                type: 'confusion',
+                question: cp.title + ' \u2014 ' + q.scenario,
+                correct: q.correct,
+                options: [q.correct, q.wrong],
+                explanations: (function() {
+                    var e = {};
+                    e[q.correct] = 'Correct! This is ' + q.correct + '.';
+                    e[q.wrong] = 'Not quite \u2014 the answer is ' + q.correct + '.';
+                    return e;
+                })()
+            });
+        });
+    });
+
+    /* --- Leitner Box System --- */
+    var STORAGE_KEY = 'httpparrot_review';
+    var BOX_INTERVALS = {1: 1, 2: 3, 3: 7, 4: 14, 5: 30};
+
+    function todayStr() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function addDays(dateStr, days) {
+        var d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return d.toISOString().slice(0, 10);
+    }
+
+    function loadReviewData() {
+        try {
+            var data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            if (data && data.items) return data;
+        } catch(e) {}
+        return {items: {}, total_reviews: 0};
+    }
+
+    function saveReviewData(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function initItems(data) {
+        var today = todayStr();
+        ALL_ITEMS.forEach(function(item) {
+            if (!data.items[item.id]) {
+                data.items[item.id] = {
+                    box_level: 1,
+                    next_review: today,
+                    last_answer: null
+                };
+            }
+        });
+        saveReviewData(data);
+        return data;
+    }
+
+    function getDueItems(data) {
+        var today = todayStr();
+        var due = [];
+        for (var key in data.items) {
+            if (data.items[key].next_review <= today) {
+                due.push(key);
+            }
+        }
+        return due;
+    }
+
+    function recordAnswer(data, itemId, isCorrect) {
+        var entry = data.items[itemId];
+        if (!entry) return data;
+        var today = todayStr();
+        if (isCorrect) {
+            entry.box_level = Math.min(5, entry.box_level + 1);
+        } else {
+            entry.box_level = 1;
+        }
+        entry.next_review = addDays(today, BOX_INTERVALS[entry.box_level]);
+        entry.last_answer = isCorrect ? 'correct' : 'wrong';
+        data.total_reviews = (data.total_reviews || 0) + 1;
+        saveReviewData(data);
+        return data;
+    }
+
+    function findItemById(id) {
+        for (var i = 0; i < ALL_ITEMS.length; i++) {
+            if (ALL_ITEMS[i].id === id) return ALL_ITEMS[i];
+        }
+        return null;
+    }
+
+    /* --- UI --- */
+    var reviewData = loadReviewData();
+    reviewData = initItems(reviewData);
+    var dueQueue = getDueItems(reviewData);
+
+    /* Shuffle queue */
+    for (var i = dueQueue.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = dueQueue[i]; dueQueue[i] = dueQueue[j]; dueQueue[j] = tmp;
+    }
+
+    var sessionCorrect = 0;
+    var sessionWrong = 0;
+    var currentIndex = 0;
+    var totalDue = dueQueue.length;
+
+    function updateStats() {
+        document.getElementById('review-due').textContent = totalDue;
+        document.getElementById('review-correct').textContent = sessionCorrect;
+        document.getElementById('review-wrong').textContent = sessionWrong;
+        document.getElementById('review-remaining').textContent = Math.max(0, dueQueue.length - currentIndex);
+    }
+
+    function clearElement(el) {
+        while (el.firstChild) el.removeChild(el.firstChild);
+    }
+
+    function showComplete() {
+        var area = document.getElementById('review-area');
+        clearElement(area);
+        var div = document.createElement('div');
+        div.className = 'review-complete';
+        div.setAttribute('role', 'status');
+        var icon = document.createElement('div');
+        icon.className = 'review-complete-icon';
+        icon.textContent = '\uD83C\uDF89';
+        div.appendChild(icon);
+        var h2 = document.createElement('h2');
+        h2.textContent = 'Review Complete!';
+        div.appendChild(h2);
+        var p = document.createElement('p');
+        p.textContent = 'You answered ' + sessionCorrect + ' correct and ' + sessionWrong + ' wrong out of ' + totalDue + ' items.';
+        div.appendChild(p);
+        var link = document.createElement('a');
+        link.href = '/review';
+        link.className = 'review-start-btn';
+        link.textContent = 'Check Again';
+        link.style.marginTop = '1.5rem';
+        div.appendChild(link);
+        area.appendChild(div);
+    }
+
+    function showEmpty() {
+        var area = document.getElementById('review-area');
+        clearElement(area);
+        var div = document.createElement('div');
+        div.className = 'review-empty';
+        var h2 = document.createElement('h2');
+        h2.textContent = 'No items due for review';
+        div.appendChild(h2);
+        var p = document.createElement('p');
+        p.textContent = 'All caught up! Come back tomorrow to keep your memory sharp.';
+        div.appendChild(p);
+        var link = document.createElement('a');
+        link.href = '/practice';
+        link.className = 'review-start-btn';
+        link.textContent = 'Practice new scenarios';
+        div.appendChild(link);
+        area.appendChild(div);
+    }
+
+    function showItem(idx) {
+        if (idx >= dueQueue.length) {
+            showComplete();
+            return;
+        }
+        var itemId = dueQueue[idx];
+        var item = findItemById(itemId);
+        if (!item) {
+            currentIndex++;
+            showItem(currentIndex);
+            return;
+        }
+
+        var entry = reviewData.items[itemId];
+        var area = document.getElementById('review-area');
+        clearElement(area);
+
+        var card = document.createElement('div');
+        card.className = 'review-card';
+
+        /* Type badge + box indicator */
+        var typeBadge = document.createElement('span');
+        var typeLabels = {scenario: 'Scenario', debug: 'Debug', confusion: 'Confusion Pair'};
+        typeBadge.className = 'review-card-type type-' + item.type;
+        typeBadge.textContent = typeLabels[item.type] || item.type;
+        card.appendChild(typeBadge);
+
+        var boxInd = document.createElement('span');
+        boxInd.className = 'review-box-indicator';
+        boxInd.textContent = 'Box ' + entry.box_level;
+        card.appendChild(boxInd);
+
+        /* Question */
+        var q = document.createElement('div');
+        q.className = 'review-question';
+        q.textContent = item.question;
+        card.appendChild(q);
+
+        /* Options */
+        var opts = document.createElement('div');
+        opts.className = 'review-options';
+        opts.setAttribute('role', 'group');
+        opts.setAttribute('aria-label', 'Answer choices');
+
+        var answered = false;
+
+        item.options.forEach(function(opt) {
+            var btn = document.createElement('button');
+            btn.className = 'review-option-btn';
+            btn.textContent = opt;
+            btn.setAttribute('data-option', opt);
+            btn.addEventListener('click', function() {
+                if (answered) return;
+                answered = true;
+                var isCorrect = (opt === item.correct);
+
+                var siblings = opts.querySelectorAll('.review-option-btn');
+                siblings.forEach(function(sib) {
+                    sib.disabled = true;
+                    var sibOpt = sib.getAttribute('data-option');
+                    if (sibOpt === item.correct) {
+                        sib.classList.add('correct');
+                    } else if (sibOpt === opt) {
+                        sib.classList.add('wrong');
+                    } else {
+                        sib.classList.add('dimmed');
+                    }
+                });
+
+                if (isCorrect) {
+                    sessionCorrect++;
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(15, 'review_correct');
+                } else {
+                    sessionWrong++;
+                }
+
+                reviewData = recordAnswer(reviewData, itemId, isCorrect);
+
+                /* Show explanation */
+                var expDiv = card.querySelector('.review-explanation');
+                if (expDiv) expDiv.classList.add('visible');
+
+                /* Show next button */
+                var nextBtn = card.querySelector('.review-next-btn');
+                if (nextBtn) nextBtn.style.display = 'block';
+
+                updateStats();
+            });
+            opts.appendChild(btn);
+        });
+        card.appendChild(opts);
+
+        /* Explanation area */
+        var expDiv = document.createElement('div');
+        expDiv.className = 'review-explanation';
+        if (item.explanations) {
+            for (var code in item.explanations) {
+                var pEl = document.createElement('p');
+                var strong = document.createElement('strong');
+                strong.textContent = code + ': ';
+                pEl.appendChild(strong);
+                pEl.appendChild(document.createTextNode(item.explanations[code]));
+                expDiv.appendChild(pEl);
+            }
+        }
+        card.appendChild(expDiv);
+
+        /* Next button */
+        var nextBtn = document.createElement('button');
+        nextBtn.className = 'review-next-btn';
+        nextBtn.textContent = 'Next Item';
+        nextBtn.addEventListener('click', function() {
+            currentIndex++;
+            showItem(currentIndex);
+        });
+        card.appendChild(nextBtn);
+
+        area.appendChild(card);
+        updateStats();
+    }
+
+    /* Keyboard shortcut for next */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            var nextBtn = document.querySelector('.review-next-btn');
+            if (nextBtn && nextBtn.style.display === 'block') {
+                nextBtn.click();
+            }
+        }
+    });
+
+    /* Start */
+    updateStats();
+    if (totalDue === 0) {
+        showEmpty();
+    } else {
+        showItem(0);
+    }
+})();
+</script>
+{% endblock %}

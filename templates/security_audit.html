@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Security Audit - HTTP Parrots{% endblock %}
+{% block subtitle %}Security Audit{% endblock %}
+{% block meta %}
+    <meta name="description" content="Audit any URL's response headers against security best practices. Get a letter grade, per-header pass/fail results, and fix suggestions.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>Response Header Security Audit</h1>
+            <p>Check any URL against security header best practices</p>
+        </div>
+        <form class="audit-form" id="audit-form" aria-label="Security audit">
+            <div class="audit-input-wrap">
+                <label class="visually-hidden" for="audit-url">URL to audit</label>
+                <input type="text" class="headers-input audit-url-input" id="audit-url" placeholder="https://example.com" autocomplete="off">
+                <button type="submit" class="tester-submit" id="audit-btn">Audit</button>
+            </div>
+        </form>
+        <div id="audit-results" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        var GRADE_COLORS = {
+            'A+': '#2dd4a8', 'A': '#2dd4a8', 'B': '#00b4d8',
+            'C': '#f9c74f', 'D': '#f4a261', 'F': '#ff6b6b'
+        };
+
+        var HEADER_EXPLAINER_MAP = {
+            'hsts': 'strict-transport-security',
+            'csp': 'content-security-policy',
+            'xcto': 'x-content-type-options',
+            'xfo': 'x-frame-options',
+            'referrer': 'referrer-policy',
+            'permissions': 'permissions-policy',
+            'server': 'server',
+            'powered': 'x-powered-by',
+            'cookie': 'set-cookie',
+            'cors_wildcard': 'access-control-allow-origin'
+        };
+
+        function renderGrade(parent, data) {
+            var badge = el('div', 'audit-grade-badge');
+            badge.style.borderColor = GRADE_COLORS[data.grade] || '#fff';
+            badge.style.color = GRADE_COLORS[data.grade] || '#fff';
+
+            var letter = el('span', 'audit-grade-letter', data.grade);
+            badge.appendChild(letter);
+
+            var scoreText = el('span', 'audit-grade-score', data.score + ' / ' + data.max_score + ' points');
+            badge.appendChild(scoreText);
+
+            parent.appendChild(badge);
+        }
+
+        function renderChecks(parent, checks) {
+            checks.forEach(function(check) {
+                var card = el('div', 'audit-check-card');
+                var isPass = check.status === 'pass';
+                card.classList.add(isPass ? 'audit-check-pass' : 'audit-check-fail');
+
+                var headerRow = el('div', 'audit-check-header');
+                var statusBadge = el('span', isPass ? 'cors-pass' : 'cors-fail', isPass ? 'PASS' : 'FAIL');
+                headerRow.appendChild(statusBadge);
+
+                var label = el('span', 'audit-check-label', check.header);
+                headerRow.appendChild(label);
+
+                var points = el('span', 'audit-check-points', (isPass ? '+' : '0/') + check.points + ' pts');
+                headerRow.appendChild(points);
+
+                card.appendChild(headerRow);
+
+                var desc = el('div', 'audit-check-desc', check.desc);
+                card.appendChild(desc);
+
+                if (!isPass) {
+                    var fixWrap = el('div', 'audit-fix-wrap');
+                    var fixLabel = el('span', 'audit-fix-label', 'How to fix:');
+                    fixWrap.appendChild(fixLabel);
+                    var fixCode = el('code', 'audit-fix-code', check.fix);
+                    fixWrap.appendChild(fixCode);
+                    card.appendChild(fixWrap);
+                }
+
+                var explainerKey = HEADER_EXPLAINER_MAP[check.id];
+                if (explainerKey) {
+                    var link = document.createElement('a');
+                    link.href = '/headers';
+                    link.className = 'audit-explainer-link';
+                    link.textContent = 'Learn more in Header Explainer';
+                    card.appendChild(link);
+                }
+
+                parent.appendChild(card);
+            });
+        }
+
+        document.getElementById('audit-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var url = document.getElementById('audit-url').value.trim();
+            if (!url) return;
+
+            var results = document.getElementById('audit-results');
+            var btn = document.getElementById('audit-btn');
+            while (results.firstChild) results.removeChild(results.firstChild);
+            results.appendChild(el('div', 'tester-loading', 'Auditing headers...'));
+            btn.disabled = true;
+            btn.textContent = 'Auditing...';
+
+            fetch('/api/security-audit?url=' + encodeURIComponent(url))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    btn.disabled = false;
+                    btn.textContent = 'Audit';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+
+                    if (data.error) {
+                        results.appendChild(el('div', 'tester-error', data.error));
+                        return;
+                    }
+                    var card = el('div', 'audit-result-card');
+                    renderGrade(card, data);
+                    renderChecks(card, data.checks);
+                    results.appendChild(card);
+
+                    /* Award XP for completing an audit */
+                    if (window.ParrotXP && window.ParrotXP.award) {
+                        window.ParrotXP.award(10, 'security_audit');
+                    }
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Audit';
+                    while (results.firstChild) results.removeChild(results.firstChild);
+                    results.appendChild(el('div', 'tester-error', 'Could not perform security audit'));
+                });
+        });
+    })();
+    </script>
+{% endblock %}

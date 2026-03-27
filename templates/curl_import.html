@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+{% block title %}cURL Import - HTTP Parrots{% endblock %}
+{% block subtitle %}cURL Import{% endblock %}
+{% block meta %}
+    <meta name="description" content="Paste a cURL command and parse it into method, URL, headers, body, and auth. Export as Python, JavaScript, Go, or cleaned cURL.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main" style="max-width:960px;">
+        <div class="headers-hero">
+            <h1>cURL Import</h1>
+            <p>Paste a cURL command to parse and convert it</p>
+        </div>
+
+        <!-- Input -->
+        <div class="playground-section" style="margin-bottom:1.5rem;">
+            <label class="cors-label" for="curl-input">Paste your cURL command</label>
+            <textarea id="curl-input" class="headers-input playground-body" rows="6" placeholder="curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{&quot;key&quot;:&quot;value&quot;}'"></textarea>
+            <div style="margin-top:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+                <button type="button" class="tester-submit" id="curl-parse-btn">Parse</button>
+                <button type="button" class="pg-copy-btn" id="curl-clear-btn" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.1);padding:0.6rem 1.2rem;border-radius:8px;cursor:pointer;">Clear</button>
+            </div>
+        </div>
+
+        <!-- Parsed Breakdown -->
+        <div id="curl-parsed" style="display:none;">
+            <div class="tester-result" style="margin-bottom:1.5rem;">
+                <div style="padding:1.5rem 2rem;">
+                    <h2 style="font-size:1.1rem;font-weight:600;margin:0 0 1rem;color:rgba(255,255,255,0.9);">Parsed Request</h2>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+                        <span id="curl-method-badge" class="curl-method-badge"></span>
+                        <code id="curl-url" style="font-family:'JetBrains Mono',monospace;font-size:0.9rem;color:rgba(255,255,255,0.8);word-break:break-all;"></code>
+                    </div>
+
+                    <!-- Auth detection -->
+                    <div id="curl-auth-section" style="display:none;margin-bottom:1rem;">
+                        <span class="cors-label" style="margin-bottom:0.25rem;display:block;">Authentication</span>
+                        <div id="curl-auth-info" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:0.6rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:rgba(255,255,255,0.7);"></div>
+                    </div>
+
+                    <!-- Headers table -->
+                    <div id="curl-headers-section" style="display:none;margin-bottom:1rem;">
+                        <span class="cors-label" style="margin-bottom:0.25rem;display:block;">Headers</span>
+                        <table id="curl-headers-table" class="tester-headers-table" style="width:100%;"></table>
+                    </div>
+
+                    <!-- Body -->
+                    <div id="curl-body-section" style="display:none;">
+                        <span class="cors-label" style="margin-bottom:0.25rem;display:block;">Body</span>
+                        <pre id="curl-body-display" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:0.75rem 1rem;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:rgba(255,255,255,0.7);white-space:pre-wrap;word-break:break-all;margin:0;overflow-x:auto;"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Export Tabs -->
+            <div class="tester-result" style="margin-bottom:1.5rem;">
+                <div style="padding:1.5rem 2rem;">
+                    <h2 style="font-size:1.1rem;font-weight:600;margin:0 0 1rem;color:rgba(255,255,255,0.9);">Code Export</h2>
+                    <div class="curl-tab-bar" role="tablist" aria-label="Code export language">
+                        <button type="button" class="curl-tab curl-tab-active" role="tab" aria-selected="true" data-tab="curl">cURL</button>
+                        <button type="button" class="curl-tab" role="tab" aria-selected="false" data-tab="python">Python</button>
+                        <button type="button" class="curl-tab" role="tab" aria-selected="false" data-tab="javascript">JavaScript</button>
+                        <button type="button" class="curl-tab" role="tab" aria-selected="false" data-tab="go">Go</button>
+                    </div>
+                    <div class="curl-tab-content" style="position:relative;">
+                        <pre id="curl-export-code" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:0 0 6px 6px;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:rgba(255,255,255,0.8);white-space:pre-wrap;word-break:break-all;margin:0;overflow-x:auto;min-height:3rem;"></pre>
+                        <button type="button" class="pg-copy-btn curl-copy-btn" id="curl-copy-btn" aria-label="Copy code to clipboard" style="position:absolute;top:0.5rem;right:0.5rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);padding:0.35rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Send to Echo -->
+            <div style="text-align:center;margin-bottom:2rem;">
+                <button type="button" class="tester-submit" id="curl-echo-btn">Send to Echo</button>
+            </div>
+
+            <!-- Echo response -->
+            <div id="curl-echo-result" aria-live="polite"></div>
+        </div>
+
+        <!-- Error -->
+        <div id="curl-error" style="display:none;" class="tester-error" role="alert"></div>
+    </main>
+
+    <style>
+        .curl-method-badge {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .curl-method-get { background: rgba(76, 175, 80, 0.15); color: #66bb6a; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .curl-method-post { background: rgba(33, 150, 243, 0.15); color: #42a5f5; border: 1px solid rgba(33, 150, 243, 0.3); }
+        .curl-method-put { background: rgba(255, 152, 0, 0.15); color: #ffa726; border: 1px solid rgba(255, 152, 0, 0.3); }
+        .curl-method-delete { background: rgba(244, 67, 54, 0.15); color: #ef5350; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .curl-method-patch { background: rgba(156, 39, 176, 0.15); color: #ab47bc; border: 1px solid rgba(156, 39, 176, 0.3); }
+        .curl-method-head { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); border: 1px solid rgba(255, 255, 255, 0.15); }
+        .curl-method-options { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.7); border: 1px solid rgba(255, 255, 255, 0.15); }
+        .curl-tab-bar {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+        }
+        .curl-tab {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            padding: 0.6rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .curl-tab:hover { color: rgba(255, 255, 255, 0.8); }
+        .curl-tab-active {
+            color: #42a5f5;
+            border-bottom-color: #42a5f5;
+        }
+    </style>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        'use strict';
+
+        /* --- cURL Parser --- */
+        function parseCurl(input) {
+            // Normalize multiline (backslash + newline continuation)
+            var cmd = input.replace(/\\\s*\n/g, ' ').trim();
+
+            // Strip leading 'curl' keyword
+            if (!/^curl\s/i.test(cmd)) {
+                throw new Error('Input must start with "curl"');
+            }
+            cmd = cmd.replace(/^curl\s+/i, '');
+
+            var method = null;
+            var url = null;
+            var headers = [];
+            var body = null;
+            var user = null;
+
+            // Tokenize respecting single and double quotes
+            var tokens = tokenize(cmd);
+
+            for (var i = 0; i < tokens.length; i++) {
+                var tok = tokens[i];
+
+                if (tok === '-X' || tok === '--request') {
+                    method = (tokens[++i] || 'GET').toUpperCase();
+                } else if (tok === '-H' || tok === '--header') {
+                    var hval = tokens[++i] || '';
+                    var colon = hval.indexOf(':');
+                    if (colon > 0) {
+                        headers.push([hval.substring(0, colon).trim(), hval.substring(colon + 1).trim()]);
+                    }
+                } else if (tok === '-d' || tok === '--data' || tok === '--data-raw' || tok === '--data-binary') {
+                    body = tokens[++i] || '';
+                } else if (tok === '-u' || tok === '--user') {
+                    user = tokens[++i] || '';
+                } else if (tok.indexOf('-') !== 0 && !url) {
+                    url = tok;
+                }
+            }
+
+            // Infer method
+            if (!method) {
+                method = body ? 'POST' : 'GET';
+            }
+
+            if (!url) {
+                throw new Error('No URL found in cURL command');
+            }
+
+            // Detect auth
+            var auth = null;
+            if (user) {
+                auth = { type: 'Basic', value: user };
+            }
+            for (var j = 0; j < headers.length; j++) {
+                if (headers[j][0].toLowerCase() === 'authorization') {
+                    var val = headers[j][1];
+                    if (/^Bearer\s/i.test(val)) {
+                        auth = { type: 'Bearer', value: val.replace(/^Bearer\s+/i, '') };
+                    } else if (/^Basic\s/i.test(val)) {
+                        auth = { type: 'Basic', value: val.replace(/^Basic\s+/i, '') };
+                    } else {
+                        auth = { type: 'Other', value: val };
+                    }
+                }
+            }
+
+            return { method: method, url: url, headers: headers, body: body, auth: auth, user: user };
+        }
+
+        function tokenize(str) {
+            var tokens = [];
+            var i = 0;
+            var len = str.length;
+            while (i < len) {
+                // Skip whitespace
+                while (i < len && /\s/.test(str[i])) i++;
+                if (i >= len) break;
+
+                var ch = str[i];
+                if (ch === "'" || ch === '"') {
+                    // Quoted string
+                    var quote = ch;
+                    i++;
+                    var start = i;
+                    var val = '';
+                    while (i < len && str[i] !== quote) {
+                        if (str[i] === '\\' && quote === '"' && i + 1 < len) {
+                            val += str[i + 1];
+                            i += 2;
+                        } else {
+                            val += str[i];
+                            i++;
+                        }
+                    }
+                    if (i < len) i++; // skip closing quote
+                    tokens.push(val);
+                } else {
+                    // Unquoted token
+                    var start2 = i;
+                    while (i < len && !/\s/.test(str[i])) i++;
+                    tokens.push(str.substring(start2, i));
+                }
+            }
+            return tokens;
+        }
+
+        /* --- Code Generators --- */
+        function generateCurl(req) {
+            var parts = ['curl'];
+            if (req.method !== 'GET') {
+                parts.push('-X ' + req.method);
+            }
+            parts.push("'" + req.url + "'");
+            for (var i = 0; i < req.headers.length; i++) {
+                parts.push("-H '" + req.headers[i][0] + ': ' + req.headers[i][1] + "'");
+            }
+            if (req.user) {
+                parts.push("-u '" + req.user + "'");
+            }
+            if (req.body) {
+                parts.push("-d '" + req.body.replace(/'/g, "'\\''") + "'");
+            }
+            return parts.join(' \\\n  ');
+        }
+
+        function generatePython(req) {
+            var lines = ['import requests', ''];
+            var hasHeaders = req.headers.length > 0;
+            var hasBody = !!req.body;
+
+            if (hasHeaders) {
+                lines.push('headers = {');
+                for (var i = 0; i < req.headers.length; i++) {
+                    lines.push("    '" + req.headers[i][0] + "': '" + req.headers[i][1] + "',");
+                }
+                lines.push('}');
+                lines.push('');
+            }
+
+            if (hasBody) {
+                // Try to detect JSON
+                var bodyStr;
+                try {
+                    var parsed = JSON.parse(req.body);
+                    bodyStr = 'json=' + JSON.stringify(parsed);
+                } catch(e) {
+                    bodyStr = "data='" + req.body.replace(/'/g, "\\'") + "'";
+                }
+                lines.push('response = requests.' + req.method.toLowerCase() + '(');
+                lines.push("    '" + req.url + "',");
+                if (hasHeaders) lines.push('    headers=headers,');
+                lines.push('    ' + bodyStr + ',');
+                lines.push(')');
+            } else {
+                lines.push('response = requests.' + req.method.toLowerCase() + '(');
+                lines.push("    '" + req.url + "',");
+                if (hasHeaders) lines.push('    headers=headers,');
+                lines.push(')');
+            }
+
+            lines.push('');
+            lines.push('print(response.status_code)');
+            lines.push('print(response.text)');
+            return lines.join('\n');
+        }
+
+        function generateJavaScript(req) {
+            var lines = [];
+            var opts = {};
+            opts.method = req.method;
+
+            var hasHeaders = req.headers.length > 0;
+            if (hasHeaders) {
+                lines.push('const headers = {');
+                for (var i = 0; i < req.headers.length; i++) {
+                    lines.push("  '" + req.headers[i][0] + "': '" + req.headers[i][1] + "',");
+                }
+                lines.push('};');
+                lines.push('');
+            }
+
+            lines.push("fetch('" + req.url + "', {");
+            lines.push("  method: '" + req.method + "',");
+            if (hasHeaders) lines.push('  headers,');
+            if (req.body) {
+                lines.push("  body: " + JSON.stringify(req.body) + ",");
+            }
+            lines.push('})');
+            lines.push('  .then(res => res.json())');
+            lines.push('  .then(data => console.log(data))');
+            lines.push("  .catch(err => console.error('Error:', err));");
+            return lines.join('\n');
+        }
+
+        function generateGo(req) {
+            var lines = [];
+            lines.push('package main');
+            lines.push('');
+            lines.push('import (');
+            lines.push('\t"fmt"');
+            lines.push('\t"io"');
+            lines.push('\t"net/http"');
+            if (req.body) {
+                lines.push('\t"strings"');
+            }
+            lines.push(')');
+            lines.push('');
+            lines.push('func main() {');
+
+            if (req.body) {
+                lines.push('\tbody := strings.NewReader(`' + req.body + '`)');
+                lines.push('\treq, err := http.NewRequest("' + req.method + '", "' + req.url + '", body)');
+            } else {
+                lines.push('\treq, err := http.NewRequest("' + req.method + '", "' + req.url + '", nil)');
+            }
+            lines.push('\tif err != nil {');
+            lines.push('\t\tpanic(err)');
+            lines.push('\t}');
+
+            for (var i = 0; i < req.headers.length; i++) {
+                lines.push('\treq.Header.Set("' + req.headers[i][0] + '", "' + req.headers[i][1] + '")');
+            }
+
+            lines.push('');
+            lines.push('\tclient := &http.Client{}');
+            lines.push('\tresp, err := client.Do(req)');
+            lines.push('\tif err != nil {');
+            lines.push('\t\tpanic(err)');
+            lines.push('\t}');
+            lines.push('\tdefer resp.Body.Close()');
+            lines.push('');
+            lines.push('\tresBody, _ := io.ReadAll(resp.Body)');
+            lines.push('\tfmt.Println(resp.StatusCode)');
+            lines.push('\tfmt.Println(string(resBody))');
+            lines.push('}');
+            return lines.join('\n');
+        }
+
+        var generators = {
+            curl: generateCurl,
+            python: generatePython,
+            javascript: generateJavaScript,
+            go: generateGo
+        };
+
+        /* --- DOM references --- */
+        var inputEl = document.getElementById('curl-input');
+        var parsedPanel = document.getElementById('curl-parsed');
+        var errorPanel = document.getElementById('curl-error');
+        var methodBadge = document.getElementById('curl-method-badge');
+        var urlEl = document.getElementById('curl-url');
+        var authSection = document.getElementById('curl-auth-section');
+        var authInfo = document.getElementById('curl-auth-info');
+        var headersSection = document.getElementById('curl-headers-section');
+        var headersTable = document.getElementById('curl-headers-table');
+        var bodySection = document.getElementById('curl-body-section');
+        var bodyDisplay = document.getElementById('curl-body-display');
+        var exportCode = document.getElementById('curl-export-code');
+        var echoResult = document.getElementById('curl-echo-result');
+
+        var currentReq = null;
+        var activeTab = 'curl';
+
+        /* --- Parse button --- */
+        document.getElementById('curl-parse-btn').addEventListener('click', function() {
+            var raw = inputEl.value.trim();
+            errorPanel.style.display = 'none';
+            parsedPanel.style.display = 'none';
+
+            if (!raw) {
+                errorPanel.textContent = 'Please paste a cURL command first.';
+                errorPanel.style.display = 'block';
+                return;
+            }
+
+            try {
+                currentReq = parseCurl(raw);
+            } catch (e) {
+                errorPanel.textContent = e.message || 'Could not parse cURL command.';
+                errorPanel.style.display = 'block';
+                return;
+            }
+
+            renderParsed(currentReq);
+            parsedPanel.style.display = 'block';
+        });
+
+        /* --- Clear button --- */
+        document.getElementById('curl-clear-btn').addEventListener('click', function() {
+            inputEl.value = '';
+            parsedPanel.style.display = 'none';
+            errorPanel.style.display = 'none';
+            currentReq = null;
+        });
+
+        /* --- Render parsed request --- */
+        function renderParsed(req) {
+            // Method badge
+            methodBadge.textContent = req.method;
+            methodBadge.className = 'curl-method-badge curl-method-' + req.method.toLowerCase();
+
+            // URL
+            urlEl.textContent = req.url;
+
+            // Auth
+            if (req.auth) {
+                authSection.style.display = 'block';
+                authInfo.textContent = req.auth.type + ': ' + req.auth.value;
+            } else {
+                authSection.style.display = 'none';
+            }
+
+            // Headers
+            if (req.headers.length > 0) {
+                headersSection.style.display = 'block';
+                while (headersTable.firstChild) headersTable.removeChild(headersTable.firstChild);
+                for (var i = 0; i < req.headers.length; i++) {
+                    var tr = document.createElement('tr');
+                    var tdK = document.createElement('td');
+                    tdK.className = 'tester-header-key';
+                    tdK.textContent = req.headers[i][0];
+                    var tdV = document.createElement('td');
+                    tdV.className = 'tester-header-val';
+                    tdV.textContent = req.headers[i][1];
+                    tr.appendChild(tdK);
+                    tr.appendChild(tdV);
+                    headersTable.appendChild(tr);
+                }
+            } else {
+                headersSection.style.display = 'none';
+            }
+
+            // Body
+            if (req.body) {
+                bodySection.style.display = 'block';
+                // Try to pretty-print JSON
+                try {
+                    bodyDisplay.textContent = JSON.stringify(JSON.parse(req.body), null, 2);
+                } catch(e) {
+                    bodyDisplay.textContent = req.body;
+                }
+            } else {
+                bodySection.style.display = 'none';
+            }
+
+            // Export code
+            updateExport();
+        }
+
+        function updateExport() {
+            if (!currentReq) return;
+            var gen = generators[activeTab];
+            if (gen) {
+                exportCode.textContent = gen(currentReq);
+            }
+        }
+
+        /* --- Tab switching --- */
+        var tabs = document.querySelectorAll('.curl-tab');
+        for (var t = 0; t < tabs.length; t++) {
+            tabs[t].addEventListener('click', function() {
+                for (var j = 0; j < tabs.length; j++) {
+                    tabs[j].classList.remove('curl-tab-active');
+                    tabs[j].setAttribute('aria-selected', 'false');
+                }
+                this.classList.add('curl-tab-active');
+                this.setAttribute('aria-selected', 'true');
+                activeTab = this.getAttribute('data-tab');
+                updateExport();
+            });
+        }
+
+        /* --- Copy button --- */
+        document.getElementById('curl-copy-btn').addEventListener('click', function() {
+            var text = exportCode.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    var btn = document.getElementById('curl-copy-btn');
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+                });
+            }
+        });
+
+        /* --- Send to Echo --- */
+        document.getElementById('curl-echo-btn').addEventListener('click', function() {
+            if (!currentReq) return;
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            var fetchOpts = {
+                method: currentReq.method,
+                headers: {}
+            };
+            for (var i = 0; i < currentReq.headers.length; i++) {
+                var hName = currentReq.headers[i][0].toLowerCase();
+                // Skip host header (browser sets it)
+                if (hName !== 'host') {
+                    fetchOpts.headers[currentReq.headers[i][0]] = currentReq.headers[i][1];
+                }
+            }
+            if (currentReq.body && currentReq.method !== 'GET' && currentReq.method !== 'HEAD') {
+                fetchOpts.body = currentReq.body;
+            }
+
+            fetch('/echo', fetchOpts).then(function(resp) {
+                return resp.text().then(function(text) {
+                    btn.disabled = false;
+                    btn.textContent = 'Send to Echo';
+
+                    var card = document.createElement('div');
+                    card.className = 'tester-result';
+                    card.style.marginBottom = '1.5rem';
+
+                    var header = document.createElement('div');
+                    header.style.padding = '1.5rem 2rem';
+
+                    var title = document.createElement('h3');
+                    title.style.cssText = 'font-size:1rem;font-weight:600;margin:0 0 0.75rem;color:rgba(255,255,255,0.9);';
+                    title.textContent = 'Echo Response (' + resp.status + ')';
+                    header.appendChild(title);
+
+                    var pre = document.createElement('pre');
+                    pre.style.cssText = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:1rem;font-family:"JetBrains Mono",monospace;font-size:0.85rem;color:rgba(255,255,255,0.8);white-space:pre-wrap;word-break:break-all;margin:0;overflow-x:auto;';
+                    try {
+                        pre.textContent = JSON.stringify(JSON.parse(text), null, 2);
+                    } catch(e) {
+                        pre.textContent = text;
+                    }
+                    header.appendChild(pre);
+                    card.appendChild(header);
+
+                    while (echoResult.firstChild) echoResult.removeChild(echoResult.firstChild);
+                    echoResult.appendChild(card);
+                });
+            }).catch(function() {
+                btn.disabled = false;
+                btn.textContent = 'Send to Echo';
+                while (echoResult.firstChild) echoResult.removeChild(echoResult.firstChild);
+                var errDiv = document.createElement('div');
+                errDiv.className = 'tester-error';
+                errDiv.textContent = 'Could not send request to /echo';
+                echoResult.appendChild(errDiv);
+            });
+        });
+    })();
+    </script>
+{% endblock %}

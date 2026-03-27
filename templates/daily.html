@@ -19,6 +19,24 @@
                 <div class="score-value" id="streak-count" aria-live="polite">0</div>
                 <div class="score-label">Day Streak</div>
             </div>
+            <div class="score-item streak-freeze-indicator" id="streak-freeze-indicator" title="Streak Freezes Available">
+                <div class="score-value" id="freeze-count" aria-live="polite">0</div>
+                <div class="score-label"><span aria-hidden="true">&#x2744;&#xFE0F;</span> Freezes</div>
+            </div>
+        </div>
+
+        <div class="streak-freeze-message" id="streak-freeze-msg" style="display:none;" role="status" aria-live="polite">
+            <span aria-hidden="true">&#x2744;&#xFE0F;</span> Streak freeze used! Your streak is safe.
+        </div>
+
+        <div class="milestone-overlay" id="milestone-overlay" style="display:none;" role="dialog" aria-label="Milestone celebration">
+            <div class="milestone-content">
+                <div class="milestone-number" id="milestone-number"></div>
+                <div class="milestone-congrats" id="milestone-congrats"></div>
+                <div class="milestone-xp" id="milestone-xp"></div>
+                <button class="btn-back milestone-share" id="milestone-share">Share</button>
+                <button class="btn-back milestone-dismiss" id="milestone-dismiss">Dismiss</button>
+            </div>
         </div>
 
         <div class="daily-scenario" id="daily-scenario">
@@ -64,13 +82,22 @@
         var CORRECT_CODE = {{ correct_code | tojson }};
         var CORRECT_NAME = {{ correct_name | tojson }};
         var STORAGE_KEY = 'httpparrot_daily';
+        var dailyLoadTime = Date.now();
+
+        var MILESTONES = {7: 100, 14: 200, 30: 500, 50: 1000, 100: 2000};
+        var FREEZE_MILESTONES = [7, 14];
 
         function getState() {
             try {
                 var raw = localStorage.getItem(STORAGE_KEY);
-                if (raw) return JSON.parse(raw);
+                if (raw) {
+                    var s = JSON.parse(raw);
+                    if (typeof s.freezesAvailable === 'undefined') s.freezesAvailable = 0;
+                    if (!Array.isArray(s.milestonesHit)) s.milestonesHit = [];
+                    return s;
+                }
             } catch(e) {}
-            return { lastDay: 0, streak: 0, answered: false, wasCorrect: false };
+            return { lastDay: 0, streak: 0, answered: false, wasCorrect: false, freezesAvailable: 0, milestonesHit: [] };
         }
 
         function saveState(state) {
@@ -146,6 +173,60 @@
             }
         }
 
+        function updateFreezeDisplay(freezes) {
+            document.getElementById('freeze-count').textContent = freezes;
+            var indicator = document.getElementById('streak-freeze-indicator');
+            if (freezes > 0) indicator.classList.add('has-freezes');
+            else indicator.classList.remove('has-freezes');
+        }
+
+        function showFreezeMessage() {
+            var msg = document.getElementById('streak-freeze-msg');
+            msg.style.display = '';
+            setTimeout(function() { msg.style.display = 'none'; }, 4000);
+        }
+
+        function checkMilestoneRewards(state) {
+            var keys = Object.keys(MILESTONES);
+            for (var i = 0; i < keys.length; i++) {
+                var m = parseInt(keys[i]);
+                if (state.streak >= m && state.milestonesHit.indexOf(m) === -1) {
+                    state.milestonesHit.push(m);
+                    var bonusXp = MILESTONES[m];
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(bonusXp, 'milestone_' + m);
+                    if (FREEZE_MILESTONES.indexOf(m) !== -1) {
+                        state.freezesAvailable++;
+                    }
+                    showMilestoneCelebration(m, bonusXp);
+                }
+            }
+        }
+
+        function showMilestoneCelebration(days, bonusXp) {
+            var overlay = document.getElementById('milestone-overlay');
+            document.getElementById('milestone-number').textContent = days + '-Day Streak!';
+            document.getElementById('milestone-congrats').textContent = 'Congratulations! You reached a ' + days + '-day streak!';
+            document.getElementById('milestone-xp').textContent = '+' + bonusXp + ' Bonus XP';
+            overlay.style.display = '';
+
+            spawnConfetti(document.getElementById('milestone-number'));
+
+            var shareBtn = document.getElementById('milestone-share');
+            shareBtn.onclick = function() {
+                var text = 'I hit a ' + days + '-day streak on HTTP Parrots! httpparrots.com/daily';
+                navigator.clipboard.writeText(text).then(function() {
+                    shareBtn.textContent = 'Copied!';
+                    setTimeout(function() { shareBtn.textContent = 'Share'; }, 2000);
+                }).catch(function() {});
+            };
+
+            var dismissBtn = document.getElementById('milestone-dismiss');
+            dismissBtn.onclick = function() { overlay.style.display = 'none'; };
+            overlay.onclick = function(e) { if (e.target === overlay) overlay.style.display = 'none'; };
+
+            setTimeout(function() { overlay.style.display = 'none'; }, 5000);
+        }
+
         // Init
         var state = getState();
 
@@ -153,13 +234,21 @@
         if (state.lastDay === DAY_NUMBER - 1 && state.wasCorrect) {
             // streak carries forward
         } else if (state.lastDay !== DAY_NUMBER) {
-            // missed a day or first time — reset streak unless continuing today
+            // missed a day or first time — check for streak freeze
             if (state.lastDay < DAY_NUMBER - 1) {
-                state.streak = 0;
+                if (state.freezesAvailable > 0 && state.streak > 0) {
+                    state.freezesAvailable--;
+                    localStorage.setItem('httpparrot_freeze_used', 'true');
+                    showFreezeMessage();
+                    // streak preserved
+                } else {
+                    state.streak = 0;
+                }
             }
         }
 
         updateStreakDisplay(state.streak);
+        updateFreezeDisplay(state.freezesAvailable);
 
         // If already answered today, show the result
         if (state.lastDay === DAY_NUMBER && state.answered) {
@@ -187,6 +276,11 @@
                 if (wasCorrect) {
                     state.streak++;
                     spawnConfetti(btn);
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(50, 'daily_correct');
+                    if ((Date.now() - dailyLoadTime) <= 5000) {
+                        localStorage.setItem('httpparrot_speed_demon', 'true');
+                    }
+                    checkMilestoneRewards(state);
                 } else {
                     state.streak = 0;
                 }
@@ -194,6 +288,8 @@
                 state.answered = true;
                 state.wasCorrect = wasCorrect;
                 saveState(state);
+
+                updateFreezeDisplay(state.freezesAvailable);
 
                 disableButtons(idx);
                 updateStreakDisplay(state.streak);
@@ -207,9 +303,11 @@
                 if (wasCorrect) {
                     fb.textContent = 'Correct!';
                     fb.className = 'quiz-feedback right';
+                    if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
                 } else {
                     fb.textContent = 'Nope! It was ' + CORRECT_CODE + ' ' + CORRECT_NAME;
                     fb.className = 'quiz-feedback nope';
+                    if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
                 }
 
                 showResult(wasCorrect, state.streak);

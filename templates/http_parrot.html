@@ -64,7 +64,7 @@
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx">
             {% if image %}
             <div class="img">
-                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high">
+                <img src="/static/{{ image }}" alt="{{ status_code }} {{ description }}" width="600" height="500" fetchpriority="high" style="view-transition-name: parrot-{{ status_code }}">
             </div>
             {% else %}
             <div class="img detail-img-empty">
@@ -192,7 +192,11 @@
         <div class="detail-info">
             <div class="detail-section">
                 <h2>Example HTTP exchange</h2>
-                <div class="http-exchange">
+                <button class="http-exchange-play-btn" id="http-exchange-play" type="button" aria-label="Play HTTP exchange animation">
+                    <span class="play-icon" aria-hidden="true"></span>
+                    <span class="play-label">Play Animation</span>
+                </button>
+                <div class="http-exchange" id="http-exchange">
                     <div class="http-panel http-panel-request">
                         <div class="http-panel-label http-request-label">Request</div>
                         <pre class="http-block http-request">{{ http_example.request|highlight_http('request') }}</pre>
@@ -213,13 +217,39 @@
                 <h2>Commonly confused with</h2>
                 <div class="related-codes">
                     {% for code, diff in related %}
-                    <a href="/{{ code }}" class="related-code-card">
-                        <span class="related-code-num category-{{ code[0] }}xx">{{ code }}</span>
-                        <span class="related-code-diff">{{ diff }}</span>
-                    </a>
+                    <div class="related-code-wrap">
+                        <a href="/{{ code }}" class="related-code-card">
+                            <span class="related-code-num category-{{ code[0] }}xx">{{ code }}</span>
+                            <span class="related-code-diff">{{ diff }}</span>
+                        </a>
+                        {% if learn_links and code in learn_links %}
+                        <a href="/learn/{{ learn_links[code] }}" class="related-learn-link">Learn the difference &rarr;</a>
+                        {% endif %}
+                    </div>
                     {% endfor %}
                 </div>
             </div>
+        </div>
+        {% endif %}
+
+        {% if extra and extra.common_mistakes %}
+        <div class="detail-info mistakes-section">
+            <details open>
+                <summary class="detail-section mistakes-summary">
+                    <h2>Common Mistakes</h2>
+                </summary>
+                <div class="mistakes-list">
+                    {% for item in extra.common_mistakes %}
+                    <div class="mistake-card">
+                        <div class="mistake-icon" aria-hidden="true">&#9888;</div>
+                        <div class="mistake-body">
+                            <p class="mistake-text">{{ item.mistake }}</p>
+                            <p class="mistake-consequence">{{ item.consequence }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
         </div>
         {% endif %}
 
@@ -238,6 +268,7 @@
         </nav>
 
         <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
+        {% if status_code == '418' %}<!-- try /coffee -->{% endif %}
     </main>
 {% endblock %}
 
@@ -376,6 +407,7 @@
         if (collected.indexOf(code) === -1) {
             collected.push(code);
             localStorage.setItem('parrotdex', JSON.stringify(collected));
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(5, 'page_visit');
         }
     })();
     </script>
@@ -398,6 +430,47 @@
             localStorage.setItem('eli5', toggle.checked ? 'on' : 'off');
             apply(toggle.checked);
         });
+    })();
+    </script>
+    {% endif %}
+    {% if http_example %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var btn = document.getElementById('http-exchange-play');
+        var exchange = document.getElementById('http-exchange');
+        if (!btn || !exchange) return;
+        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        function play() {
+            exchange.classList.remove('http-exchange-animated');
+            void exchange.offsetWidth;
+            exchange.classList.add('http-exchange-animated');
+            btn.classList.add('is-playing');
+            btn.querySelector('.play-label').textContent = 'Reset';
+        }
+        function reset() {
+            exchange.classList.remove('http-exchange-animated');
+            btn.classList.remove('is-playing');
+            btn.querySelector('.play-label').textContent = 'Play Animation';
+        }
+        btn.addEventListener('click', function() {
+            if (exchange.classList.contains('http-exchange-animated')) {
+                reset();
+            } else {
+                play();
+            }
+        });
+        if (!reducedMotion && 'IntersectionObserver' in window) {
+            var obs = new IntersectionObserver(function(entries) {
+                entries.forEach(function(e) {
+                    if (e.isIntersecting && !exchange.getAttribute('data-auto-played')) {
+                        exchange.setAttribute('data-auto-played', 'true');
+                        play();
+                        obs.unobserve(exchange);
+                    }
+                });
+            }, {threshold: 0.3});
+            obs.observe(exchange);
+        }
     })();
     </script>
     {% endif %}

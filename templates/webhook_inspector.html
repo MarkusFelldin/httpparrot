@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Webhook Inspector - HTTP Parrots{% endblock %}
+{% block subtitle %}Webhook Inspector{% endblock %}
+{% block meta %}
+    <meta name="description" content="Create temporary request bins to inspect incoming webhooks. Capture and inspect HTTP requests in real time.">
+{% endblock %}
+{% block content %}
+    <main class="headers-container" id="main-content" role="main">
+        <div class="headers-hero">
+            <h1>Webhook Inspector</h1>
+            <p>Create a temporary URL to capture and inspect incoming HTTP requests</p>
+        </div>
+        <div class="trace-form" id="webhook-controls">
+            <button type="button" class="tester-submit" id="create-bin-btn">Create New Bin</button>
+        </div>
+        <div id="bin-info" style="display:none;" aria-live="polite">
+            <div class="trace-hop" style="margin-bottom:1.5rem;">
+                <div class="trace-hop-header">
+                    <span class="trace-hop-status" style="background:#2dd4a818;color:#2dd4a8;">Hook URL</span>
+                    <button type="button" class="tester-submit" id="copy-url-btn" style="padding:0.3rem 0.8rem;font-size:0.85rem;">Copy URL</button>
+                </div>
+                <div id="hook-url" class="trace-hop-url" style="word-break:break-all;font-family:'JetBrains Mono',monospace;margin-top:0.5rem;"></div>
+                <div style="margin-top:0.5rem;opacity:0.6;font-size:0.85rem;">
+                    Bin expires in 1 hour. Max 50 captured requests.
+                </div>
+            </div>
+        </div>
+        <div id="request-log" aria-live="polite"></div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var METHOD_COLORS = {
+            'GET':'#2dd4a8','POST':'#48cae4','PUT':'#f9c74f',
+            'PATCH':'#a78bfa','DELETE':'#ff6b6b','HEAD':'#888','OPTIONS':'#888'
+        };
+        var binId = null;
+        var pollTimer = null;
+
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text) e.textContent = text;
+            return e;
+        }
+
+        function clearNode(node) {
+            while (node.firstChild) node.removeChild(node.firstChild);
+        }
+
+        function renderRequest(req) {
+            var card = el('div', 'trace-hop');
+            var color = METHOD_COLORS[req.method] || '#888';
+            card.style.borderColor = color + '30';
+
+            var header = el('div', 'trace-hop-header');
+            var badge = el('span', 'trace-hop-status', req.method);
+            badge.style.background = color + '18';
+            badge.style.color = color;
+            header.appendChild(badge);
+            var ts = el('span', 'trace-hop-time', new Date(req.timestamp).toLocaleTimeString());
+            header.appendChild(ts);
+            card.appendChild(header);
+
+            card.appendChild(el('div', 'trace-hop-url', req.url));
+
+            if (req.query && Object.keys(req.query).length > 0) {
+                var qSection = el('div', 'trace-hop-headers');
+                qSection.appendChild(el('div', 'trace-hop-label', 'Query Parameters'));
+                var qt = document.createElement('table');
+                qt.className = 'tester-headers-table';
+                Object.keys(req.query).forEach(function(k) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(el('td', 'tester-header-key', k));
+                    tr.appendChild(el('td', 'tester-header-val', req.query[k]));
+                    qt.appendChild(tr);
+                });
+                qSection.appendChild(qt);
+                card.appendChild(qSection);
+            }
+
+            if (req.headers && Object.keys(req.headers).length > 0) {
+                var hSection = el('div', 'trace-hop-headers');
+                hSection.appendChild(el('div', 'trace-hop-label', 'Headers'));
+                var ht = document.createElement('table');
+                ht.className = 'tester-headers-table';
+                Object.keys(req.headers).forEach(function(k) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(el('td', 'tester-header-key', k));
+                    tr.appendChild(el('td', 'tester-header-val', req.headers[k]));
+                    ht.appendChild(tr);
+                });
+                hSection.appendChild(ht);
+                card.appendChild(hSection);
+            }
+
+            if (req.body) {
+                var bSection = el('div', 'trace-hop-headers');
+                bSection.appendChild(el('div', 'trace-hop-label', 'Body'));
+                var pre = el('pre', '', req.body);
+                pre.style.cssText = 'margin:0.5rem 0 0;white-space:pre-wrap;word-break:break-all;font-family:"JetBrains Mono",monospace;font-size:0.85rem;background:rgba(255,255,255,0.03);padding:0.5rem;border-radius:6px;';
+                bSection.appendChild(pre);
+                card.appendChild(bSection);
+            }
+
+            return card;
+        }
+
+        function pollBin() {
+            if (!binId) return;
+            fetch('/api/bin/' + binId)
+                .then(function(r) {
+                    if (!r.ok) {
+                        clearInterval(pollTimer);
+                        var log = document.getElementById('request-log');
+                        clearNode(log);
+                        log.appendChild(el('div', 'tester-error', 'Bin expired or not found.'));
+                        return Promise.reject('gone');
+                    }
+                    return r.json();
+                })
+                .then(function(data) {
+                    if (!data) return;
+                    var log = document.getElementById('request-log');
+                    clearNode(log);
+                    if (!Array.isArray(data) || data.length === 0) {
+                        log.appendChild(el('div', 'tester-loading', 'Waiting for requests... Send a request to the hook URL above.'));
+                        return;
+                    }
+                    var heading = el('div', '', '');
+                    heading.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;';
+                    heading.appendChild(el('strong', '', 'Captured Requests (' + data.length + ')'));
+                    log.appendChild(heading);
+                    for (var i = data.length - 1; i >= 0; i--) {
+                        log.appendChild(renderRequest(data[i]));
+                    }
+                })
+                .catch(function() {});
+        }
+
+        document.getElementById('create-bin-btn').addEventListener('click', function() {
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            if (pollTimer) clearInterval(pollTimer);
+
+            fetch('/api/bin/create', { method: 'POST' })
+                .then(function(r) {
+                    if (r.status === 429) {
+                        throw new Error('Rate limit exceeded. Try again later.');
+                    }
+                    return r.json();
+                })
+                .then(function(data) {
+                    btn.disabled = false;
+                    btn.textContent = 'Create New Bin';
+                    if (data.error) {
+                        var log = document.getElementById('request-log');
+                        clearNode(log);
+                        log.appendChild(el('div', 'tester-error', data.error));
+                        return;
+                    }
+                    binId = data.bin_id;
+                    document.getElementById('hook-url').textContent = data.url;
+                    document.getElementById('bin-info').style.display = 'block';
+                    var log = document.getElementById('request-log');
+                    clearNode(log);
+                    log.appendChild(
+                        el('div', 'tester-loading', 'Waiting for requests... Send a request to the hook URL above.')
+                    );
+                    pollTimer = setInterval(pollBin, 3000);
+                })
+                .catch(function(err) {
+                    btn.disabled = false;
+                    btn.textContent = 'Create New Bin';
+                    var log = document.getElementById('request-log');
+                    clearNode(log);
+                    log.appendChild(el('div', 'tester-error', err.message || 'Could not create bin'));
+                });
+        });
+
+        document.getElementById('copy-url-btn').addEventListener('click', function() {
+            var url = document.getElementById('hook-url').textContent;
+            if (!url) return;
+            var btn = this;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(function() {
+                    btn.textContent = 'Copied!';
+                    setTimeout(function() { btn.textContent = 'Copy URL'; }, 2000);
+                });
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = url;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                btn.textContent = 'Copied!';
+                setTimeout(function() { btn.textContent = 'Copy URL'; }, 2000);
+            }
+        });
+    })();
+    </script>
+{% endblock %}

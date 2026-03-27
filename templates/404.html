@@ -34,4 +34,57 @@
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var parrot = document.querySelector('.error-wandering-parrot');
+        if (!parrot) return;
+        var catches = 0;
+        var maxCatches = 5;
+        var baseSpeed = 0.6;
+
+        parrot.style.cursor = 'pointer';
+        parrot.setAttribute('role', 'button');
+        parrot.setAttribute('aria-label', 'Catch the wandering parrot');
+        parrot.setAttribute('tabindex', '0');
+
+        function flyToRandom() {
+            var vw = Math.random() * 80 + 5;
+            var vh = Math.random() * 60 + 10;
+            var speed = baseSpeed - (catches * 0.08);
+            if (speed < 0.15) speed = 0.15;
+            parrot.style.transition = 'left ' + speed + 's ease-out, top ' + speed + 's ease-out';
+            parrot.style.animation = 'none';
+            parrot.style.position = 'absolute';
+            parrot.style.left = vw + '%';
+            parrot.style.top = vh + '%';
+        }
+
+        function handleCatch(e) {
+            e.preventDefault();
+            catches++;
+            flyToRandom();
+            if (catches >= maxCatches) {
+                var msg = document.getElementById('error-fun-message');
+                if (msg) {
+                    msg.textContent = "You caught me! Here's a secret: try /418";
+                    msg.style.color = '#33d17a';
+                }
+                parrot.removeEventListener('click', handleCatch);
+                parrot.removeEventListener('keydown', handleCatchKey);
+                parrot.style.cursor = 'default';
+                parrot.removeAttribute('role');
+                parrot.removeAttribute('tabindex');
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('404_catch') === -1) { eggs.push('404_catch'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+            }
+        }
+
+        function handleCatchKey(e) {
+            if (e.key === 'Enter' || e.key === ' ') handleCatch(e);
+        }
+
+        parrot.addEventListener('click', handleCatch);
+        parrot.addEventListener('keydown', handleCatchKey);
+    })();
+    </script>
 {% endblock %}

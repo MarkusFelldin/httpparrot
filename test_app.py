@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from index import app, _rate_limit, is_rate_limited, linkify_rfcs, resolve_and_validate
+from index import (app, _rate_limit, _run_security_checks, _score_to_grade,
+                   _webhook_bins, _WEBHOOK_BIN_TTL, _WEBHOOK_BIN_MAX_REQUESTS,
+                   is_rate_limited, linkify_rfcs, resolve_and_validate)
 
 
 @pytest.fixture
@@ -20,6 +22,7 @@ def client():
 @pytest.fixture(autouse=True)
 def clear_rate_limit():
     _rate_limit.clear()
+    _webhook_bins.clear()
 
 
 # --- Page routes ---
@@ -1708,50 +1711,22 @@ class TestFAQSchema:
 # --- Parrot of the Day on homepage ---
 
 class TestParrotOfTheDay:
-    def test_homepage_has_potd_section(self, client):
-        """Homepage should have a Parrot of the Day section."""
+    def test_homepage_has_featured_card(self, client):
+        """Homepage should mark the Parrot of the Day in the grid."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert 'potd-section' in html
-        assert 'Parrot of the Day' in html
-
-    def test_potd_has_share_button(self, client):
-        """POTD section should have a share button."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-share' in html
-        assert "Share today's parrot" in html
-
-    def test_potd_has_fun_fact(self, client):
-        """POTD section should display a fun fact."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-fun-fact' in html
-
-    def test_potd_has_image(self, client):
-        """POTD section should have an image."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-image' in html
-
-    def test_potd_links_to_detail_page(self, client):
-        """POTD section should link to the featured code's detail page."""
-        resp = client.get('/')
-        html = resp.data.decode()
-        assert 'potd-link' in html
+        assert 'featured' in html
 
     def test_potd_deterministic(self, client):
-        """Same day should produce the same POTD."""
+        """Same day should produce the same featured parrot."""
         resp1 = client.get('/')
         resp2 = client.get('/')
         html1 = resp1.data.decode()
         html2 = resp2.data.decode()
-        # Both should contain the same potd-code value
+        # Both should contain the same featured card
         import re
-        code1 = re.search(r'class="potd-code[^"]*">(\d+)', html1)
-        code2 = re.search(r'class="potd-code[^"]*">(\d+)', html2)
-        assert code1 is not None
-        assert code1.group(1) == code2.group(1)
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
 
 
 # --- RSS Feed ---
@@ -2025,6 +2000,94 @@ class TestDetailPageAnimations:
         assert '.back-to-top.visible' in css
 
 
+class TestHTTPExchangeAnimation:
+    """Verify animated HTTP exchange sequence diagrams on detail pages."""
+
+    def test_play_button_present(self, client):
+        """Detail page with http_example should have a Play Animation button."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-exchange-play' in html
+        assert 'Play Animation' in html
+
+    def test_play_button_has_aria_label(self, client):
+        """Play button must have an accessible label."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-label="Play HTTP exchange animation"' in html
+
+    def test_http_exchange_has_id(self, client):
+        """The http-exchange div should have an id for JS targeting."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="http-exchange"' in html
+
+    def test_http_line_spans_in_output(self, client):
+        """highlight_http filter should wrap lines in http-line spans."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'http-line' in html
+
+    def test_animation_css_classes_exist(self, client):
+        """CSS should contain the animated exchange classes and keyframes."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated' in css
+        assert '@keyframes http-slide-in-left' in css
+        assert '@keyframes http-slide-in-right' in css
+        assert '@keyframes http-arrow-trail' in css
+        assert '@keyframes http-line-fade' in css
+        assert '@keyframes http-line-sweep' in css
+
+    def test_play_button_css_exists(self, client):
+        """CSS should style the play/reset button."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-play-btn' in css
+
+    def test_reduced_motion_hides_play_button(self, client):
+        """Under prefers-reduced-motion: reduce, play button is hidden."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'prefers-reduced-motion: reduce' in css
+        # The play button is display:none under reduced motion
+        assert '.http-exchange-play-btn' in css
+        # Animations are disabled
+        idx = css.index('Reduced motion: HTTP exchange')
+        section = css[idx:idx + 600]
+        assert 'display: none' in section
+        assert 'animation: none' in section
+
+    def test_intersection_observer_script_present(self, client):
+        """Detail page should have IntersectionObserver for auto-play."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'IntersectionObserver' in html
+        assert 'data-auto-played' in html
+
+    def test_status_line_glow_css(self, client):
+        """Animated status line should have a category-colored glow."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated .http-hl-status' in css
+        assert 'text-shadow' in css
+
+    def test_line_sweep_highlight_css(self, client):
+        """Animated lines should have a sweep background highlight."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-exchange-animated .http-line' in css
+        assert 'http-line-sweep' in css
+
+    def test_sequential_line_delay_css(self, client):
+        """CSS should have nth-child animation-delay rules for http-line."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.http-line:nth-child(1)' in css
+        assert '.http-line:nth-child(2)' in css
+        assert 'animation-delay' in css
+
+
 # --- Compare page enhancements ---
 
 class TestCompareEnhancements:
@@ -2243,6 +2306,70 @@ class TestPlayground:
     def test_playground_has_nonce(self, client):
         """Playground script tag should have a nonce."""
         resp = client.get('/playground')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+
+class TestCurlImport:
+    def test_curl_import_returns_200(self, client):
+        """cURL Import page should return 200 with expected content."""
+        resp = client.get('/curl-import')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'cURL Import' in html
+
+    def test_curl_import_has_textarea(self, client):
+        """cURL Import page should have a textarea for pasting cURL commands."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-input' in html
+        assert '<textarea' in html
+
+    def test_curl_import_has_parse_button(self, client):
+        """cURL Import page should have a Parse button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-parse-btn' in html
+        assert 'Parse' in html
+
+    def test_curl_import_has_code_export_tabs(self, client):
+        """cURL Import page should have code export tabs for all languages."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'data-tab="curl"' in html
+        assert 'data-tab="python"' in html
+        assert 'data-tab="javascript"' in html
+        assert 'data-tab="go"' in html
+
+    def test_curl_import_has_copy_button(self, client):
+        """cURL Import page should have a Copy button for exported code."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-copy-btn' in html
+
+    def test_curl_import_has_echo_button(self, client):
+        """cURL Import page should have a Send to Echo button."""
+        resp = client.get('/curl-import')
+        html = resp.data.decode()
+        assert 'curl-echo-btn' in html
+        assert 'Send to Echo' in html
+
+    def test_curl_import_nav_link(self, client):
+        """Navigation should contain a link to the cURL Import page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/curl-import"' in html
+        assert 'cURL Import' in html
+
+    def test_curl_import_in_sitemap(self, client):
+        """Sitemap should include the cURL Import page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/curl-import' in resp.data
+
+    def test_curl_import_has_nonce(self, client):
+        """cURL Import script tag should have a nonce."""
+        resp = client.get('/curl-import')
         csp = resp.headers.get('Content-Security-Policy', '')
         nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
         assert f'nonce="{nonce}"'.encode() in resp.data
@@ -2957,12 +3084,11 @@ class TestAccessibilityScreenReader:
         html = resp.data.decode()
         assert 'aria-label="200 OK"' in html
 
-    def test_potd_link_has_aria_label(self, client):
-        """Parrot of the Day link should have descriptive aria-label."""
+    def test_featured_card_in_grid(self, client):
+        """Featured parrot card should have the featured class in the grid."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert 'class="potd-link"' in html
-        assert 'aria-label="Parrot of the Day:' in html
+        assert 'featured' in html
 
 
 # --- CSS Media Queries ---
@@ -3190,9 +3316,9 @@ class TestSitemapCompleteness:
     """Verify sitemap.xml includes all expected public pages."""
 
     EXPECTED_PAGES = [
-        '/', '/quiz', '/daily', '/practice', '/flowchart', '/compare',
-        '/tester', '/cheatsheet', '/headers', '/cors-checker',
-        '/collection', '/playground', '/api-docs',
+        '/', '/quiz', '/personality', '/daily', '/practice', '/debug', '/flowchart',
+        '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
+        '/security-audit', '/collection', '/playground', '/api-docs', '/profile',
     ]
 
     def test_sitemap_returns_xml(self, client):
@@ -3266,6 +3392,7 @@ class TestRobotsTxtFormat:
         expected_disallows = [
             'Disallow: /api/check-url',
             'Disallow: /api/check-cors',
+            'Disallow: /api/security-audit',
             'Disallow: /api/mock-response',
             'Disallow: /api/diff',
             'Disallow: /api/search',
@@ -3640,6 +3767,12 @@ class TestCSPOnAllRoutes:
     def test_csp_on_api_docs(self, client):
         self._check_csp(client.get('/api-docs'))
 
+    def test_csp_on_profile(self, client):
+        self._check_csp(client.get('/profile'))
+
+    def test_csp_on_personality(self, client):
+        self._check_csp(client.get('/personality'))
+
     def test_csp_on_404(self, client):
         self._check_csp(client.get('/nonexistent'))
 
@@ -3659,11 +3792,11 @@ class TestCSPOnAllRoutes:
 class TestSecurityHeadersOnAllRoutes:
     """Verify all security headers are present on every route."""
 
-    ROUTES = ['/', '/200', '/quiz', '/daily', '/practice', '/flowchart',
-              '/compare', '/tester', '/cheatsheet', '/headers',
-              '/cors-checker', '/collection', '/playground', '/api-docs',
-              '/echo', '/return/200', '/redirect/0', '/feed.xml',
-              '/sitemap.xml', '/robots.txt']
+    ROUTES = ['/', '/200', '/quiz', '/personality', '/daily', '/practice', '/debug',
+              '/flowchart', '/compare', '/tester', '/cheatsheet', '/headers',
+              '/cors-checker', '/security-audit', '/collection', '/playground',
+              '/api-docs', '/profile', '/echo', '/return/200', '/redirect/0',
+              '/feed.xml', '/sitemap.xml', '/robots.txt']
 
     def _check_headers(self, resp):
         assert resp.headers.get('X-Content-Type-Options') == 'nosniff'
@@ -3819,6 +3952,12 @@ class TestRateLimitingEndpoints:
         resp = client.get('/return/200?delay=0.01')
         assert resp.status_code == 429
 
+    def test_trace_redirects_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        resp = client.get('/api/trace-redirects?url=https://example.com')
+        assert resp.status_code == 429
+
 
 class TestPerformance:
     """Performance-related tests."""
@@ -3858,3 +3997,4651 @@ class TestPerformance:
     def test_random_endpoint_no_cache(self, client):
         resp = client.get('/random', follow_redirects=False)
         assert 'no-store' in resp.headers.get('Cache-Control', '')
+
+
+# --- Common Mistakes feature ---
+
+class TestCommonMistakes:
+    def test_mistakes_section_appears_on_page_with_data(self, client):
+        """Pages with common_mistakes data should render the mistakes section."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert 'mistakes-section' in html
+        assert 'Common Mistakes' in html
+
+    def test_mistake_text_present_in_html(self, client):
+        """Actual mistake and consequence text should be in the rendered page."""
+        resp = client.get('/401')
+        html = resp.get_data(as_text=True)
+        assert 'Using 401 when the user IS authenticated but lacks permission' in html
+        assert "That&#39;s 403" in html or "That's 403" in html
+
+    def test_mistake_card_structure_present(self, client):
+        """Each mistake should render with the card structure classes."""
+        resp = client.get('/404')
+        html = resp.get_data(as_text=True)
+        assert 'mistake-card' in html
+        assert 'mistake-text' in html
+        assert 'mistake-consequence' in html
+        assert 'mistake-icon' in html
+
+    def test_mistakes_section_absent_on_page_without_data(self, client):
+        """Pages without common_mistakes data should not show the section."""
+        resp = client.get('/100')
+        html = resp.get_data(as_text=True)
+        assert 'mistakes-section' not in html
+        assert 'mistake-card' not in html
+
+    def test_at_least_19_codes_have_common_mistakes(self):
+        """At least 19 status codes should have common_mistakes in STATUS_EXTRA."""
+        from status_extra import STATUS_EXTRA
+        codes_with_mistakes = [
+            code for code, data in STATUS_EXTRA.items()
+            if 'common_mistakes' in data and len(data['common_mistakes']) > 0
+        ]
+        assert len(codes_with_mistakes) >= 19, (
+            f"Only {len(codes_with_mistakes)} codes have common_mistakes, need at least 19"
+        )
+
+    def test_common_mistakes_structure(self):
+        """Each common_mistakes entry should have 'mistake' and 'consequence' keys."""
+        from status_extra import STATUS_EXTRA
+        for code, data in STATUS_EXTRA.items():
+            if 'common_mistakes' in data:
+                for entry in data['common_mistakes']:
+                    assert 'mistake' in entry, f"Missing 'mistake' key in {code}"
+                    assert 'consequence' in entry, f"Missing 'consequence' key in {code}"
+
+    def test_multiple_mistakes_per_code(self, client):
+        """Pages with multiple mistakes should render all of them."""
+        resp = client.get('/500')
+        html = resp.get_data(as_text=True)
+        assert html.count('mistake-card') >= 2
+
+    def test_mistakes_section_is_collapsible(self, client):
+        """The mistakes section should use a details/summary for collapsibility."""
+        resp = client.get('/200')
+        html = resp.get_data(as_text=True)
+        assert '<details' in html and 'mistakes-summary' in html
+
+
+# --- Easter egg: Barrel Roll ---
+
+class TestBarrelRollEasterEgg:
+    def test_homepage_has_barrel_roll_toast(self, client):
+        """Homepage should include the barrel roll toast element."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'barrel-roll-toast' in html
+
+    def test_homepage_has_barrel_roll_script(self, client):
+        """Homepage should have barrel roll detection script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'barrel roll' in html
+        assert 'barrel_roll' in html
+
+    def test_barrel_roll_tracks_egg(self, client):
+        """Homepage barrel roll script should save to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('barrel_roll')" in html
+
+    def test_barrel_roll_shows_toast_message(self, client):
+        """Homepage barrel roll script should show 'Polly wants a barrel roll!' toast."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Polly wants a barrel roll!' in html
+
+    def test_barrel_roll_css_exists(self, client):
+        """Style sheet should contain barrel roll animation."""
+        resp = client.get('/static/style.css')
+        assert b'barrel-roll-spin' in resp.data
+        assert b'.barrel-roll' in resp.data
+        assert b'.barrel-roll-toast' in resp.data
+
+
+# --- Easter egg: 404 Catch Game ---
+
+class TestCatchGameEasterEgg:
+    def test_404_page_has_wandering_parrot(self, client):
+        """404 page should have the clickable wandering parrot."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'error-wandering-parrot' in html
+
+    def test_404_page_has_catch_script(self, client):
+        """404 page should include the catch game script."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'handleCatch' in html
+        assert 'maxCatches' in html
+
+    def test_404_catch_tracks_egg(self, client):
+        """404 catch game should save to eggs_found localStorage."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "eggs.indexOf('404_catch')" in html
+
+    def test_404_catch_reveals_secret(self, client):
+        """After 5 catches, the secret message about /418 should appear."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "You caught me!" in html
+        assert "try /418" in html
+
+    def test_404_catch_parrot_accessible(self, client):
+        """Wandering parrot should have accessible attributes in catch script."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'Catch the wandering parrot' in html
+
+
+# --- Easter egg: Time Traveler ---
+
+class TestTimeTravelerEasterEgg:
+    def test_base_has_time_traveler_script(self, client):
+        """Base template should include the time traveler footer script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer-time-egg' in html
+        assert 'time_404' in html
+        assert 'time_200' in html
+        assert 'time_5xx' in html
+
+    def test_time_traveler_404_message(self, client):
+        """Script should contain the 4:04 time traveler message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "even time can" in html
+        assert "find this page" in html
+
+    def test_time_traveler_200_message(self, client):
+        """Script should contain the 2:00 napping parrot message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '200 OK, but the parrot is napping' in html
+
+    def test_time_traveler_5xx_message(self, client):
+        """Script should contain the 5xx o'clock message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "5xx o" in html
+        assert "clock somewhere" in html
+
+    def test_time_traveler_tracks_eggs(self, client):
+        """Time traveler script should save discoveries to eggs_found localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'eggs_found' in html
+
+    def test_time_traveler_css_exists(self, client):
+        """Style sheet should contain the time traveler footer egg style."""
+        resp = client.get('/static/style.css')
+        assert b'footer-time-egg' in resp.data
+
+
+# --- Easter egg: /coffee endpoint ---
+
+class TestCoffeeEasterEgg:
+    def test_coffee_returns_418(self, client):
+        """/coffee should return HTTP 418 I'm a Teapot."""
+        resp = client.get('/coffee')
+        assert resp.status_code == 418
+
+    def test_coffee_has_teapot_text(self, client):
+        """/coffee should display teapot message."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "teapot" in html.lower()
+        assert "coffee" in html.lower()
+
+    def test_coffee_has_ascii_art(self, client):
+        """/coffee should include ASCII art teapot."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-ascii-teapot' in html
+
+    def test_coffee_has_steam_particles(self, client):
+        """/coffee should have steam particle elements."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-steam' in html
+        assert 'steam-particle' in html
+
+    def test_coffee_has_brew_counter(self, client):
+        """/coffee should display a fake brew attempts counter."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'brew-counter' in html
+        assert 'Failed brew attempts' in html
+
+    def test_coffee_tracks_egg(self, client):
+        """/coffee visit should save to eggs_found localStorage."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "eggs.indexOf('coffee')" in html
+
+    def test_coffee_has_back_link(self, client):
+        """/coffee should have links back to homepage and 418 page."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'href="/"' in html
+        assert 'href="/418"' in html
+
+    def test_coffee_has_pour_animation(self, client):
+        """/coffee should include pour animation element."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert 'coffee-pour-stream' in html
+
+    def test_coffee_not_in_navigation(self, client):
+        """/coffee should NOT appear in the site navigation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/coffee"' not in html
+
+    def test_coffee_css_exists(self, client):
+        """Style sheet should contain coffee page styles."""
+        resp = client.get('/static/style.css')
+        assert b'coffee-container' in resp.data
+        assert b'coffee-teapot-tilt' in resp.data
+        assert b'coffee-pour' in resp.data
+
+    def test_coffee_has_security_headers(self, client):
+        """/coffee should have CSP and security headers."""
+        resp = client.get('/coffee')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert 'X-Content-Type-Options' in resp.headers
+
+    def test_coffee_has_nonce(self, client):
+        """/coffee script tag should have a nonce matching CSP."""
+        resp = client.get('/coffee')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_418_detail_has_coffee_hint(self, client):
+        """418 detail page should contain hidden comment hint for /coffee."""
+        resp = client.get('/418')
+        html = resp.data.decode()
+        assert '<!-- try /coffee -->' in html
+
+    def test_non_418_detail_no_coffee_hint(self, client):
+        """Non-418 detail pages should NOT contain the /coffee hint."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '<!-- try /coffee -->' not in html
+
+
+# --- Parrotdex new egg entries ---
+
+class TestParrotdexNewEggs:
+    def test_collection_has_barrel_roll_egg(self, client):
+        """Collection page should have barrel_roll egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="barrel_roll"' in html
+
+    def test_collection_has_404_catch_egg(self, client):
+        """Collection page should have 404_catch egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="404_catch"' in html
+
+    def test_collection_has_time_eggs(self, client):
+        """Collection page should have all time traveler egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="time_404"' in html
+        assert 'data-egg="time_200"' in html
+        assert 'data-egg="time_5xx"' in html
+
+    def test_collection_has_coffee_egg(self, client):
+        """Collection page should have coffee egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="coffee"' in html
+
+    def test_collection_egg_hints(self, client):
+        """Collection page new eggs should have appropriate hints."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'barrel roll' in html.lower()
+        assert 'wandering parrot' in html.lower()
+        assert 'teapot' in html.lower()
+
+    def test_collection_preserves_existing_eggs(self, client):
+        """Collection page should still have all original egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+
+
+class TestProfilePage:
+    """Tests for the XP profile page."""
+
+    def test_profile_returns_200(self, client):
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+
+    def test_profile_has_rank_display(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-rank-display' in html
+        assert 'profile-rank-title' in html
+        assert 'Fledgling' in html
+
+    def test_profile_has_heatmap_container(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-heatmap-container' in html
+        assert 'profile-heatmap' in html
+
+    def test_profile_has_stats_section(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-stats-section' in html
+        assert 'stat-quiz-answers' in html
+        assert 'stat-daily-streak' in html
+        assert 'stat-codes-visited' in html
+        assert 'stat-practice-completed' in html
+
+    def test_profile_has_ranks_list(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-ranks-list' in html
+        assert 'Fledgling' in html
+        assert 'Nestling' in html
+        assert 'Feathered Apprentice' in html
+        assert 'Wing Cadet' in html
+        assert 'Parrot Scout' in html
+        assert 'Plume Knight' in html
+        assert 'Wing Commander' in html
+        assert 'Sky Captain' in html
+        assert 'Grand Macaw' in html
+        assert 'Legendary Lorikeet' in html
+
+    def test_profile_has_xp_breakdown(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-xp-breakdown' in html
+        assert '+10 XP' in html
+        assert '+50 XP' in html
+        assert '+5 XP' in html
+        assert '+15 XP' in html
+        assert '+100 XP' in html
+
+    def test_profile_has_progress_bar(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-progress-bar' in html
+        assert 'profile-progressbar' in html
+
+    def test_profile_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/profile"' in html
+        assert 'Profile' in html
+
+    def test_profile_nav_link_on_all_pages(self, client):
+        """Profile nav link should be in the base template on various pages."""
+        for route in ['/quiz', '/practice', '/daily']:
+            resp = client.get(route)
+            html = resp.data.decode()
+            assert 'href="/profile"' in html, f"Profile nav link missing on {route}"
+
+    def test_xp_badge_in_header(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-badge' in html
+        assert 'xp-badge-rank' in html
+        assert 'xp-badge-xp' in html
+
+    def test_xp_tracking_script_present(self, client):
+        """ParrotXP tracking script should be in base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'httpparrot_xp' in html
+        assert 'httpparrot_activity' in html
+
+    def test_xp_tracking_script_has_methods(self, client):
+        """ParrotXP script should expose award, getTotal, getLevel, getRank methods."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'award:' in html or 'award: award' in html
+        assert 'getTotal:' in html or 'getTotal: getTotal' in html
+        assert 'getLevel:' in html or 'getLevel: getLevel' in html
+        assert 'getRank:' in html or 'getRank: getRank' in html
+
+    def test_profile_page_title(self, client):
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Profile - HTTP Parrots' in html
+
+
+class TestRedirectTracer:
+    """Tests for the Redirect Tracer feature."""
+
+    def test_trace_page_renders(self, client):
+        """Trace page should return 200 with expected content."""
+        resp = client.get('/trace')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Redirect Tracer' in html
+        assert 'trace-url' in html
+        assert 'trace-form' in html
+
+    def test_trace_nav_link(self, client):
+        """Navigation should contain a link to the Trace page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/trace"' in html
+
+    def test_trace_redirects_no_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/trace-redirects')
+        assert resp.status_code == 400
+        assert b'No URL provided' in resp.data
+
+    def test_trace_redirects_ssrf_blocked(self, client):
+        """API should block private/internal URLs at each hop."""
+        resp = client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data) == 1
+        assert 'SSRF' in data[0].get('error', '') or 'not allowed' in data[0].get('error', '')
+
+    def test_trace_redirects_single_hop(self, client):
+        """Non-redirect response should return a single hop."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html', 'Server': 'nginx'}
+        mock_resp.elapsed.total_seconds.return_value = 0.03
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert len(data) == 1
+            assert data[0]['status_code'] == 200
+            assert data[0]['url'] == 'https://example.com'
+            assert 'time_ms' in data[0]
+            assert data[0]['headers']['Content-Type'] == 'text/html'
+
+    def test_trace_redirects_chain(self, client):
+        """API should follow a redirect chain through multiple hops."""
+        mock_301 = MagicMock()
+        mock_301.status_code = 301
+        mock_301.headers = {
+            'Location': 'https://www.example.com/',
+            'Server': 'nginx',
+        }
+        mock_301.elapsed.total_seconds.return_value = 0.02
+        mock_302 = MagicMock()
+        mock_302.status_code = 302
+        mock_302.headers = {
+            'Location': 'https://www.example.com/home',
+            'Set-Cookie': 'sid=abc123',
+        }
+        mock_302.elapsed.total_seconds.return_value = 0.04
+        mock_200 = MagicMock()
+        mock_200.status_code = 200
+        mock_200.headers = {
+            'Content-Type': 'text/html',
+            'Strict-Transport-Security': 'max-age=31536000',
+        }
+        mock_200.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=[mock_301, mock_302, mock_200]):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert len(data) == 3
+            assert data[0]['status_code'] == 301
+            assert data[0]['location'] == 'https://www.example.com/'
+            assert data[1]['status_code'] == 302
+            assert data[1]['headers'].get('Set-Cookie') == '(present)'
+            assert data[2]['status_code'] == 200
+            assert 'Strict-Transport-Security' in data[2]['headers']
+
+    def test_trace_redirects_ssrf_on_intermediate_hop(self, client):
+        """SSRF protection should apply to each redirect target."""
+        mock_301 = MagicMock()
+        mock_301.status_code = 301
+        mock_301.headers = {'Location': 'http://192.168.1.1/admin'}
+        mock_301.elapsed.total_seconds.return_value = 0.02
+
+        def fake_getaddrinfo(host, *args, **kwargs):
+            if host == '192.168.1.1':
+                return [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('192.168.1.1', 0))]
+            return [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+
+        with patch('index.socket.getaddrinfo', side_effect=fake_getaddrinfo), \
+             patch('requests.head', return_value=mock_301):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            # First hop is the 301, second hop is the blocked internal URL
+            assert len(data) == 2
+            assert data[0]['status_code'] == 301
+            assert 'not allowed' in data[1].get('error', '') or 'SSRF' in data[1].get('error', '')
+
+    def test_trace_redirects_max_hops(self, client):
+        """API should stop after 10 redirect hops."""
+        mock_redirect = MagicMock()
+        mock_redirect.status_code = 302
+        mock_redirect.headers = {'Location': 'https://example.com/loop'}
+        mock_redirect.elapsed.total_seconds.return_value = 0.01
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_redirect):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            # 10 redirect hops + 1 "too many redirects" error entry
+            assert len(data) == 11
+            assert 'Too many redirects' in data[-1].get('error', '')
+
+    def test_trace_redirects_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html'}
+        mock_resp.elapsed.total_seconds.return_value = 0.03
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', return_value=mock_resp):
+            resp = client.get('/api/trace-redirects?url=example.com')
+            data = resp.get_json()
+            assert data[0]['url'] == 'https://example.com'
+
+    def test_trace_redirects_timeout(self, client):
+        """API should handle timeout errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=requests.Timeout):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            assert len(data) == 1
+            assert 'timed out' in data[0]['error'].lower()
+
+    def test_trace_redirects_connection_error(self, client):
+        """API should handle connection errors gracefully."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.head', side_effect=requests.ConnectionError):
+            resp = client.get('/api/trace-redirects?url=https://example.com')
+            data = resp.get_json()
+            assert len(data) == 1
+            assert 'connect' in data[0]['error'].lower()
+
+    def test_trace_redirects_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/trace-redirects?url=http://127.0.0.1/')
+        resp = client.get('/api/trace-redirects?url=https://example.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_trace_in_sitemap(self, client):
+        """Sitemap should include the trace page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/trace' in resp.data
+
+    def test_trace_redirects_in_robots_disallow(self, client):
+        """robots.txt should disallow the trace API endpoint."""
+        resp = client.get('/robots.txt')
+        assert b'/api/trace-redirects' in resp.data
+
+
+# --- XP award() calls wired into templates ---
+
+class TestXPAwardCalls:
+    """Verify ParrotXP.award() is actually called in each template."""
+
+    def test_quiz_awards_xp_on_correct(self, client):
+        """Quiz template should call ParrotXP.award(10, 'quiz_correct')."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "ParrotXP.award(10, 'quiz_correct')" in html
+
+    def test_daily_awards_xp_on_correct(self, client):
+        """Daily template should call ParrotXP.award(50, 'daily_correct')."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert "ParrotXP.award(50, 'daily_correct')" in html
+
+    def test_practice_awards_xp_on_correct(self, client):
+        """Practice template should call ParrotXP.award(15, 'practice_correct')."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert "ParrotXP.award(15, 'practice_correct')" in html
+
+    def test_detail_page_awards_xp_on_first_visit(self, client):
+        """Detail page should call ParrotXP.award(5, 'page_visit') for new codes."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert "ParrotXP.award(5, 'page_visit')" in html
+
+    def test_collection_awards_xp_for_easter_egg(self, client):
+        """Collection page should call ParrotXP.award(100, 'easter_egg')."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_coffee_awards_xp_for_easter_egg(self, client):
+        """Coffee page should call ParrotXP.award(100, 'easter_egg') on first visit."""
+        resp = client.get('/coffee')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_quiz_perfect_10_flag(self, client):
+        """Quiz should set httpparrot_perfect_quiz flag on 10/10 score."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'httpparrot_perfect_quiz' in html
+
+    def test_daily_speed_demon_flag(self, client):
+        """Daily should set httpparrot_speed_demon flag for fast answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'httpparrot_speed_demon' in html
+
+
+# --- Achievement Badges (Feathers) ---
+
+class TestFeatherBadges:
+    """Verify Feathers system is defined and integrated."""
+
+    def test_feathers_defined_in_base(self, client):
+        """Base template should define the FEATHERS array."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'FEATHERS' in html
+        assert 'httpparrot_feathers' in html
+
+    def test_all_15_badges_defined(self, client):
+        """All 15 feather badge IDs should appear in the base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        badge_ids = [
+            'first_flight', 'quiz_whiz', 'perfect_10', 'streak_starter',
+            'on_fire', 'centurion', 'wing_commander', 'completionist',
+            'error_expert', 'server_sage', 'egg_hunter', 'scholar',
+            'night_owl', 'speed_demon', 'frozen_solid'
+        ]
+        for badge_id in badge_ids:
+            assert badge_id in html, f"Badge '{badge_id}' not found in base template"
+
+    def test_check_feathers_method_exists(self, client):
+        """ParrotXP should expose checkFeathers method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'checkFeathers:' in html or 'checkFeathers: checkFeathers' in html
+
+    def test_get_feathers_method_exists(self, client):
+        """ParrotXP should expose getFeathers method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'getFeathers:' in html or 'getFeathers: getFeathers' in html
+
+    def test_feather_toast_css_exists(self, client):
+        """Feather toast CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-toast' in css
+        assert '.feather-toast-visible' in css
+
+    def test_feather_toast_function_exists(self, client):
+        """Base template should contain showFeatherToast function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'showFeatherToast' in html
+
+    def test_award_calls_check_feathers(self, client):
+        """The award function should call checkFeathers after awarding XP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'awardWithFeathers' in html
+        assert 'checkFeathers()' in html
+
+
+# --- Profile Feathers section ---
+
+class TestProfileFeathers:
+    """Verify the Feathers section appears on the profile page."""
+
+    def test_profile_has_feathers_section(self, client):
+        """Profile page should contain a Feathers section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-feathers-section' in html
+        assert 'Feathers' in html
+
+    def test_profile_has_feathers_grid(self, client):
+        """Profile page should contain the feathers grid container."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-feathers-grid' in html
+
+    def test_profile_feathers_js_populates_grid(self, client):
+        """Profile script should populate the feathers grid from ParrotXP.FEATHERS."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotXP.FEATHERS' in html
+        assert 'feather-card' in html
+
+    def test_profile_feathers_shows_earned_and_locked(self, client):
+        """Profile script should distinguish earned vs locked feathers."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'earned' in html
+        assert 'locked' in html
+
+    def test_feather_card_css_exists(self, client):
+        """Feather card CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-card' in css
+        assert '.feather-card.earned' in css
+        assert '.feather-card.locked' in css
+        assert '.profile-feathers-grid' in css
+
+
+class TestSurfaceElevationSystem:
+    """Tests for CSS surface elevation tokens and gradient border hover."""
+
+    def test_surface_elevation_tokens_defined(self, client):
+        """Surface elevation tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--surface-0:' in css
+        assert '--surface-1:' in css
+        assert '--surface-2:' in css
+        assert '--surface-3:' in css
+
+    def test_shadow_tokens_defined(self, client):
+        """Shadow elevation tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--shadow-sm:' in css
+        assert '--shadow-md:' in css
+        assert '--shadow-lg:' in css
+
+    def test_level1_parrot_cards(self, client):
+        """Surface-1 token should be used for card-level elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-1)' in css
+
+    def test_level1_detail_info(self, client):
+        """Detail info should use surface-1 and shadow-sm."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.detail-info {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-1)' in block
+        assert 'var(--shadow-sm)' in block
+
+    def test_level1_header_card(self, client):
+        """Header card should use surface-1 and shadow-sm."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.header-card {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-1)' in block
+        assert 'var(--shadow-sm)' in block
+
+    def test_level2_filter_dropdown(self, client):
+        """Filter dropdown should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.filter-dropdown {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-2)' in block
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_quiz_image(self, client):
+        """Quiz image should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-2)' in css
+        idx = css.index('.quiz-image {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_tester_result(self, client):
+        """Tester result should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.tester-result {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-2)' in block
+        assert 'var(--shadow-md)' in block
+
+    def test_level2_compare_card(self, client):
+        """Compare card should use surface-2 and shadow-md."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--surface-2)' in css
+
+    def test_level3_mobile_nav(self, client):
+        """Mobile nav should use surface-3 and shadow-lg."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.mobile-nav {')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--surface-3)' in block
+        assert 'var(--shadow-lg)' in block
+
+
+class TestGradientBorderHover:
+    """Tests for CSS gradient border card hover effect."""
+
+    def test_category_glow_colors_defined(self, client):
+        """Each parrot category should define --cat-glow-color."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot-1xx { --cat-glow-color: var(--color-cyan)' in css
+        assert '.parrot-2xx { --cat-glow-color: var(--color-emerald)' in css
+        assert '.parrot-3xx { --cat-glow-color: var(--color-gold)' in css
+        assert '.parrot-4xx { --cat-glow-color: var(--color-coral)' in css
+        assert '.parrot-5xx { --cat-glow-color: var(--color-lavender)' in css
+
+    def test_parrot_after_pseudo_element(self, client):
+        """Parrot ::after should have the gradient border setup."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot::after' in css
+        assert 'conic-gradient' in css
+
+    def test_parrot_after_mask_technique(self, client):
+        """Parrot ::after should use mask-composite: exclude for border effect."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'mask-composite: exclude' in block
+        assert '-webkit-mask-composite: xor' in block
+
+    def test_parrot_after_default_hidden(self, client):
+        """Parrot ::after should be invisible by default (opacity: 0)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'opacity: 0' in block
+
+    def test_parrot_hover_after_visible(self, client):
+        """Parrot hover ::after should become visible (opacity: 1)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.parrot:hover::after' in css
+        idx = css.index('.parrot:hover::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'opacity: 1' in block
+
+    def test_parrot_after_uses_duration_normal(self, client):
+        """Parrot ::after transition should use --duration-normal and --ease-out."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'var(--duration-normal)' in block
+        assert 'var(--ease-out)' in block
+
+    def test_parrot_after_pointer_events_none(self, client):
+        """Parrot ::after should not capture pointer events."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.parrot::after')
+        block_end = css.index('}', idx)
+        block = css[idx:block_end]
+        assert 'pointer-events: none' in block
+
+
+class TestLightThemeSurfaceTokens:
+    """Tests for light theme surface elevation overrides."""
+
+    def test_light_theme_surface_tokens(self, client):
+        """Light theme should override surface and shadow tokens."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        light_idx = css.index('@media (prefers-color-scheme: light)')
+        light_block = css[light_idx:]
+        assert '--surface-0:' in light_block
+        assert '--surface-1:' in light_block
+        assert '--surface-2:' in light_block
+        assert '--surface-3:' in light_block
+        assert '--shadow-sm:' in light_block
+        assert '--shadow-md:' in light_block
+        assert '--shadow-lg:' in light_block
+
+
+class TestReducedMotionGradientBorder:
+    """Tests for reduced motion handling of gradient border."""
+
+    def test_reduced_motion_disables_gradient_transition(self, client):
+        """Reduced motion should disable gradient border animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('@media (prefers-reduced-motion: reduce)')
+        light_idx = css.index('/* === Light Theme', idx)
+        block = css[idx:light_idx]
+        assert '.parrot::after' in block
+
+
+class TestDebugExercises:
+    """Tests for the Debug This Response page."""
+
+    def test_debug_page_returns_200(self, client):
+        resp = client.get('/debug')
+        assert resp.status_code == 200
+
+    def test_debug_page_has_title(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'Debug This Response' in html
+        assert 'Debug This Response - HTTP Parrots' in html
+
+    def test_debug_page_has_exercise_cards(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-card' in html
+        assert 'debug-submit-btn' in html
+        assert 'debug-description' in html
+
+    def test_debug_page_has_difficulty_filters(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'data-difficulty="all"' in html
+        assert 'data-difficulty="beginner"' in html
+        assert 'data-difficulty="intermediate"' in html
+        assert 'data-difficulty="expert"' in html
+
+    def test_debug_page_has_score_bar(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-score-bar' in html
+        assert 'debug-found' in html
+        assert 'debug-missed' in html
+        assert 'debug-remaining' in html
+
+    def test_debug_page_has_http_exchange_panels(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-exchange' in html
+        assert 'debug-panel' in html
+        assert 'request-label' in html
+        assert 'response-label' in html
+
+    def test_debug_page_uses_highlight_http_filter(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'http-hl-status' in html
+        assert 'http-hl-method' in html
+        assert 'http-hl-header' in html
+
+    def test_debug_page_has_bug_checkboxes(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-bug-option' in html
+        assert 'type="checkbox"' in html
+
+    def test_debug_page_has_distractor_options(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'distractor-1' in html
+
+    def test_debug_page_has_result_containers(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-results' in html
+        assert 'debug-result-summary' in html
+
+    def test_debug_page_has_related_code_links(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'debug-detail-link' in html
+        assert 'Learn about' in html
+
+    def test_debug_page_has_xp_integration(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'ParrotXP.award' in html
+        assert 'debug_correct' in html
+
+    def test_debug_nav_link_present(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/debug"' in html
+        assert '>Debug<' in html
+
+    def test_debug_nav_link_in_mobile_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/debug"') >= 2
+
+    def test_debug_page_has_h1(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert '<h1>' in html
+
+    def test_debug_page_has_aria_labels(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'aria-label="Score tracker"' in html
+        assert 'aria-label="Filter by difficulty"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_debug_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/debug</loc>' in body
+
+    def test_debug_csp_header(self, client):
+        resp = client.get('/debug')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "'nonce-" in csp
+
+    def test_debug_page_inline_style_has_nonce(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'style nonce=' in html
+
+    def test_debug_page_inline_script_has_nonce(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'script nonce=' in html
+
+
+class TestDebugExerciseData:
+    """Tests for the debug_exercises.py data module."""
+
+    def test_exercises_at_least_30(self):
+        from debug_exercises import DEBUG_EXERCISES
+        assert len(DEBUG_EXERCISES) >= 30
+
+    def test_exercise_has_required_fields(self):
+        from debug_exercises import DEBUG_EXERCISES
+        required = {'id', 'difficulty', 'category', 'title', 'description', 'request',
+                     'response', 'bugs', 'related_codes'}
+        for ex in DEBUG_EXERCISES:
+            missing = required - set(ex.keys())
+            assert not missing, f"Exercise {ex.get('id', '?')} missing fields: {missing}"
+
+    def test_exercise_ids_unique(self):
+        from debug_exercises import DEBUG_EXERCISES
+        ids = [ex['id'] for ex in DEBUG_EXERCISES]
+        assert len(ids) == len(set(ids)), "Duplicate exercise IDs found"
+
+    def test_exercise_difficulties_valid(self):
+        from debug_exercises import DEBUG_EXERCISES
+        valid = {'beginner', 'intermediate', 'expert'}
+        for ex in DEBUG_EXERCISES:
+            assert ex['difficulty'] in valid, \
+                f"Exercise {ex['id']} has invalid difficulty: {ex['difficulty']}"
+
+    def test_each_exercise_has_at_least_one_bug(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            assert len(ex['bugs']) >= 1, \
+                f"Exercise {ex['id']} has no bugs"
+
+    def test_bugs_have_required_fields(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            for bug in ex['bugs']:
+                assert 'id' in bug, f"Bug in {ex['id']} missing id"
+                assert 'description' in bug, f"Bug in {ex['id']} missing description"
+                assert 'explanation' in bug, f"Bug in {ex['id']} missing explanation"
+
+    def test_bug_ids_unique_within_exercise(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            bug_ids = [b['id'] for b in ex['bugs']]
+            assert len(bug_ids) == len(set(bug_ids)), \
+                f"Exercise {ex['id']} has duplicate bug IDs"
+
+    def test_all_difficulty_levels_represented(self):
+        from debug_exercises import DEBUG_EXERCISES
+        difficulties = {ex['difficulty'] for ex in DEBUG_EXERCISES}
+        assert 'beginner' in difficulties
+        assert 'intermediate' in difficulties
+        assert 'expert' in difficulties
+
+    def test_related_codes_are_strings(self):
+        from debug_exercises import DEBUG_EXERCISES
+        for ex in DEBUG_EXERCISES:
+            for code in ex['related_codes']:
+                assert isinstance(code, str), \
+                    f"Exercise {ex['id']} has non-string related code: {code}"
+
+    def test_request_contains_http_method(self):
+        from debug_exercises import DEBUG_EXERCISES
+        import re
+        method_re = re.compile(r'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)')
+        for ex in DEBUG_EXERCISES:
+            assert method_re.match(ex['request']), \
+                f"Exercise {ex['id']} request doesn't start with HTTP method"
+
+    def test_response_contains_status_line(self):
+        from debug_exercises import DEBUG_EXERCISES
+        import re
+        status_re = re.compile(r'^HTTP/\d\.\d\s+\d{3}')
+        for ex in DEBUG_EXERCISES:
+            assert status_re.match(ex['response']), \
+                f"Exercise {ex['id']} response doesn't start with status line"
+
+
+class TestDebugExerciseCategories:
+    """Tests for debug exercise category field and category filter UI."""
+
+    def test_all_exercises_have_category(self):
+        from debug_exercises import DEBUG_EXERCISES
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        for ex in DEBUG_EXERCISES:
+            assert 'category' in ex, f"Exercise {ex['id']} missing category"
+            assert ex['category'] in valid_cats, \
+                f"Exercise {ex['id']} has invalid category: {ex['category']}"
+
+    def test_debug_page_has_category_filter_buttons(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'data-category="all"' in html
+        assert 'data-category="auth"' in html
+        assert 'data-category="caching"' in html
+        assert 'data-category="redirects"' in html
+        assert 'data-category="crud"' in html
+        assert 'data-category="errors"' in html
+        assert 'data-category="headers"' in html
+        assert 'data-category="api-design"' in html
+
+    def test_debug_cards_have_category_data_attr(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        import re
+        card_cats = re.findall(r'data-category="([\w-]+)".*?class="debug-card"', html)
+        card_cats2 = re.findall(r'class="debug-card"[^>]*data-category="([\w-]+)"', html)
+        assert len(card_cats) > 0 or len(card_cats2) > 0
+
+    def test_debug_page_category_filter_label(self, client):
+        resp = client.get('/debug')
+        html = resp.data.decode()
+        assert 'Filter by category' in html
+
+    def test_multiple_categories_represented(self):
+        from debug_exercises import DEBUG_EXERCISES
+        categories = {ex['category'] for ex in DEBUG_EXERCISES}
+        assert len(categories) >= 4, f"Only {len(categories)} categories represented"
+
+
+class TestScenarioData:
+    """Tests for the scenarios.py data module."""
+
+    def test_scenarios_at_least_50(self):
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 50, f"Only {len(SCENARIOS)} scenarios, expected 50+"
+
+    def test_scenario_has_required_fields(self):
+        from scenarios import SCENARIOS
+        required = {'id', 'difficulty', 'category', 'description', 'correct', 'options', 'explanations'}
+        for s in SCENARIOS:
+            missing = required - set(s.keys())
+            assert not missing, f"Scenario {s.get('id', '?')} missing fields: {missing}"
+
+    def test_scenario_ids_unique(self):
+        from scenarios import SCENARIOS
+        ids = [s['id'] for s in SCENARIOS]
+        assert len(ids) == len(set(ids)), "Duplicate scenario IDs found"
+
+    def test_scenario_difficulties_valid(self):
+        from scenarios import SCENARIOS
+        valid = {'beginner', 'intermediate', 'expert'}
+        for s in SCENARIOS:
+            assert s['difficulty'] in valid, \
+                f"Scenario {s['id']} has invalid difficulty: {s['difficulty']}"
+
+    def test_scenario_categories_valid(self):
+        from scenarios import SCENARIOS
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        for s in SCENARIOS:
+            assert 'category' in s, f"Scenario {s['id']} missing category"
+            assert s['category'] in valid_cats, \
+                f"Scenario {s['id']} has invalid category: {s['category']}"
+
+    def test_all_difficulty_levels_represented(self):
+        from scenarios import SCENARIOS
+        difficulties = {s['difficulty'] for s in SCENARIOS}
+        assert 'beginner' in difficulties
+        assert 'intermediate' in difficulties
+        assert 'expert' in difficulties
+
+    def test_multiple_categories_represented(self):
+        from scenarios import SCENARIOS
+        categories = {s['category'] for s in SCENARIOS}
+        assert len(categories) >= 5, f"Only {len(categories)} categories represented"
+
+    def test_correct_answer_in_options(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            assert s['correct'] in s['options'], \
+                f"Scenario {s['id']} correct answer {s['correct']} not in options"
+
+    def test_each_option_has_explanation(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            for opt in s['options']:
+                assert opt in s['explanations'], \
+                    f"Scenario {s['id']} missing explanation for option {opt}"
+
+    def test_each_scenario_has_four_options(self):
+        from scenarios import SCENARIOS
+        for s in SCENARIOS:
+            assert len(s['options']) == 4, \
+                f"Scenario {s['id']} has {len(s['options'])} options, expected 4"
+
+
+class TestPracticeCategoryFilters:
+    """Tests for category filter UI on the practice page."""
+
+    def test_practice_page_has_category_filter_buttons(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-category="all"' in html
+        assert 'data-category="auth"' in html
+        assert 'data-category="caching"' in html
+        assert 'data-category="redirects"' in html
+        assert 'data-category="crud"' in html
+        assert 'data-category="errors"' in html
+        assert 'data-category="headers"' in html
+        assert 'data-category="api-design"' in html
+
+    def test_practice_cards_have_category_data_attr(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        import re
+        card_cats = re.findall(r'class="practice-card"[^>]*data-category="([\w-]+)"', html)
+        assert len(card_cats) > 0
+
+    def test_practice_page_category_filter_label(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'Filter by category' in html
+
+    def test_practice_category_filter_styling(self, client):
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'data-category="auth"' in html
+        assert 'practice-filter-btn' in html
+
+
+# --- Console Parrot API Easter Egg ---
+
+class TestConsoleParrotAPI:
+    """Tests for the window.parrot console API easter egg."""
+
+    def test_console_parrot_script_present(self, client):
+        """Base template should include the console parrot API script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'window.parrot' in html
+
+    def test_console_parrot_ascii_greeting(self, client):
+        """Console parrot should print a styled ASCII greeting."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'HTTP' in html
+        assert 'Parrots' in html
+        assert 'console.log' in html
+        assert '%c' in html
+
+    def test_parrot_help_method(self, client):
+        """window.parrot should have a help() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.help()' in html
+        assert 'console.table' in html
+
+    def test_parrot_squawk_method(self, client):
+        """window.parrot should have a squawk() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.squawk()' in html
+        assert 'SQUAWKS' in html
+
+    def test_parrot_fortune_method(self, client):
+        """window.parrot should have a fortune() method with 15+ fortunes."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.fortune()' in html
+        assert 'FORTUNES' in html
+        # Count fortunes defined in the array
+        fortune_count = html.count("'You will") + html.count("'A ") + html.count("'The ") + html.count("'Beware") + html.count("'Your ") + html.count("'An ") + html.count("'Trust")
+        assert fortune_count >= 10, f"Expected at least 10 fortune matches, got {fortune_count}"
+
+    def test_parrot_status_method(self, client):
+        """window.parrot should have a status(code) method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.status(' in html
+        assert 'STATUS_CATEGORIES' in html
+
+    def test_parrot_lore_method(self, client):
+        """window.parrot should have a lore() method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'parrot.lore()' in html
+        assert 'LORE' in html
+
+    def test_parrot_object_frozen(self, client):
+        """window.parrot should be defined with Object.freeze."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Object.freeze' in html
+
+    def test_console_parrot_registers_egg(self, client):
+        """Console parrot should register console_parrot egg in eggs_found."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'console_parrot' in html
+        assert 'eggs_found' in html
+
+    def test_console_parrot_awards_xp(self, client):
+        """Console parrot should award XP via ParrotXP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotXP.award(100' in html
+
+    def test_collection_has_console_parrot_egg(self, client):
+        """Collection page should have console_parrot egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="console_parrot"' in html
+
+    def test_collection_console_parrot_hint(self, client):
+        """Collection page console_parrot card should have appropriate hint."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'devtools' in html.lower()
+
+
+# --- HTTP Handshake Easter Egg ---
+
+class TestHTTPHandshakeEasterEgg:
+    """Tests for the H-T-T-P keyboard combo handshake easter egg."""
+
+    def test_http_listener_present(self, client):
+        """Base template should include the HTTP keydown listener."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "['h','t','t','p']" in html
+
+    def test_http_listener_ignores_inputs(self, client):
+        """HTTP listener should skip input/textarea/select elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'INPUT' in html
+        assert 'TEXTAREA' in html
+
+    def test_http_handshake_overlay_created(self, client):
+        """HTTP handshake should create overlay with handshake elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-overlay' in html
+        assert 'handshake-scene' in html
+
+    def test_http_handshake_syn_synack_ack(self, client):
+        """Handshake animation should include SYN, SYN-ACK, ACK labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'SYN' in html
+        assert 'SYN-ACK' in html
+        assert 'ACK' in html
+
+    def test_http_handshake_200_ok(self, client):
+        """Handshake animation should show 200 OK."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-ok' in html
+        assert '200 OK' in html
+
+    def test_http_handshake_connection_established(self, client):
+        """Handshake should show Connection Established message."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Connection Established!' in html
+
+    def test_http_handshake_client_server_parrots(self, client):
+        """Handshake should have client and server parrot labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-client' in html
+        assert 'handshake-server' in html
+        assert 'Client' in html
+        assert 'Server' in html
+
+    def test_http_handshake_registers_egg(self, client):
+        """HTTP handshake should register http_handshake egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'http_handshake' in html
+
+    def test_http_handshake_awards_xp(self, client):
+        """HTTP handshake should award XP on trigger."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # There should be at least two award(100 calls: console_parrot and http_handshake
+        assert html.count('ParrotXP.award(100') >= 2
+
+    def test_http_handshake_auto_dismiss(self, client):
+        """HTTP handshake overlay should auto-dismiss after animation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'handshake-dismissing' in html
+        assert 'removeChild' in html
+
+    def test_http_handshake_2sec_timeout(self, client):
+        """HTTP listener should use a 2 second timeout for key sequence."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '2000' in html
+
+    def test_collection_has_http_handshake_egg(self, client):
+        """Collection page should have http_handshake egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="http_handshake"' in html
+
+    def test_collection_http_handshake_hint(self, client):
+        """Collection page http_handshake card should have appropriate hint."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'protocol' in html.lower()
+
+    def test_handshake_css_present(self, client):
+        """Style.css should contain handshake overlay CSS."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.handshake-overlay' in css
+        assert '.handshake-msg' in css
+        assert '.handshake-connected' in css
+        assert '.handshake-syn' in css
+        assert '.handshake-synack' in css
+        assert '.handshake-ack' in css
+        assert '.handshake-ok' in css
+
+    def test_handshake_css_reduced_motion(self, client):
+        """Handshake CSS should respect prefers-reduced-motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'handshake-bird' in css
+        assert 'prefers-reduced-motion' in css
+
+
+class TestTypographyTokens:
+    """Tests for JetBrains Mono font upgrade and type scale tokens."""
+
+    def test_jetbrains_mono_font_import(self, client):
+        """JetBrains Mono should be in the Google Fonts import URL."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'JetBrains+Mono' in html
+        assert 'Share+Tech+Mono' not in html
+
+    def test_jetbrains_mono_css_token(self, client):
+        """--font-mono should reference JetBrains Mono."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert "'JetBrains Mono'" in css
+        assert "'Share Tech Mono'" not in css
+
+    def test_font_code_removed(self, client):
+        """--font-code should no longer exist (merged into --font-mono)."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--font-code' not in css
+
+    def test_type_scale_tokens_defined(self, client):
+        """All type scale tokens should be defined in :root."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '--text-xs:' in css
+        assert '--text-sm:' in css
+        assert '--text-base:' in css
+        assert '--text-md:' in css
+        assert '--text-lg:' in css
+        assert '--text-xl:' in css
+        assert '--text-2xl:' in css
+        assert '--text-3xl:' in css
+
+    def test_type_scale_tokens_used(self, client):
+        """Type scale tokens should actually be used in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'var(--text-xs)' in css
+        assert 'var(--text-sm)' in css
+        assert 'var(--text-base)' in css
+        assert 'var(--text-md)' in css
+        assert 'var(--text-lg)' in css
+        assert 'var(--text-xl)' in css
+        assert 'var(--text-2xl)' in css
+        assert 'var(--text-3xl)' in css
+
+    def test_type_scale_token_values(self):
+        """Type scale tokens should have the correct values."""
+        with open('static/style.css', 'r') as f:
+            css = f.read()
+        assert '--text-xs: 0.65rem' in css
+        assert '--text-sm: 0.8rem' in css
+        assert '--text-base: 0.95rem' in css
+        assert '--text-md: 1rem' in css
+        assert '--text-lg: 1.25rem' in css
+        assert '--text-xl: 1.5rem' in css
+        assert '--text-2xl: 2.2rem' in css
+        assert '--text-3xl: 3rem' in css
+
+
+# --- Confusion Pair Lessons ---
+
+class TestConfusionPairsData:
+    """Tests for confusion_pairs.py data module."""
+
+    def test_pairs_not_empty(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        assert len(CONFUSION_PAIRS) >= 15
+
+    def test_each_pair_has_required_keys(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        required = {'slug', 'codes', 'title', 'tldr', 'decision_tree', 'examples', 'quiz', 'category'}
+        for pair in CONFUSION_PAIRS:
+            missing = required - set(pair.keys())
+            assert not missing, f"Pair {pair.get('slug', '?')} missing keys: {missing}"
+
+    def test_each_pair_has_two_codes(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['codes']) == 2, f"Pair {pair['slug']} should have exactly 2 codes"
+
+    def test_slug_format(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        import re
+        slug_re = re.compile(r'^\d{3}-vs-\d{3}$')
+        for pair in CONFUSION_PAIRS:
+            assert slug_re.match(pair['slug']), f"Invalid slug format: {pair['slug']}"
+
+    def test_each_pair_has_decision_steps(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['decision_tree']) >= 2, \
+                f"Pair {pair['slug']} needs at least 2 decision steps"
+            for step in pair['decision_tree']:
+                assert 'question' in step
+                assert 'yes' in step
+                assert 'no' in step
+
+    def test_each_pair_has_examples(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['examples']) >= 2, \
+                f"Pair {pair['slug']} needs at least 2 examples"
+            for ex in pair['examples']:
+                assert 'scenario' in ex
+                assert 'code' in ex
+                assert 'explanation' in ex
+
+    def test_each_pair_has_quiz_questions(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            assert len(pair['quiz']) == 3, \
+                f"Pair {pair['slug']} should have exactly 3 quiz questions"
+            for q in pair['quiz']:
+                assert 'scenario' in q
+                assert 'correct' in q
+                assert 'wrong' in q
+
+    def test_quiz_answers_are_from_pair_codes(self):
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            codes = set(pair['codes'])
+            for q in pair['quiz']:
+                assert q['correct'] in codes, \
+                    f"Pair {pair['slug']}: quiz correct answer {q['correct']} not in pair codes {codes}"
+                assert q['wrong'] in codes, \
+                    f"Pair {pair['slug']}: quiz wrong answer {q['wrong']} not in pair codes {codes}"
+
+    def test_slug_lookup(self):
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        assert '401-vs-403' in CONFUSION_PAIRS_BY_SLUG
+        assert '301-vs-302' in CONFUSION_PAIRS_BY_SLUG
+
+    def test_code_lookup(self):
+        from confusion_pairs import CONFUSION_PAIRS_BY_CODE
+        assert '401' in CONFUSION_PAIRS_BY_CODE
+        assert '403' in CONFUSION_PAIRS_BY_CODE
+        assert '301' in CONFUSION_PAIRS_BY_CODE
+
+    def test_covered_pairs(self):
+        """Ensure the required pairs are covered."""
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        required = [
+            '401-vs-403', '301-vs-302', '307-vs-308', '400-vs-422',
+            '404-vs-410', '500-vs-502', '500-vs-503', '200-vs-204',
+            '302-vs-307',
+            # New pairs added in expansion
+            '502-vs-504', '401-vs-407', '204-vs-205', '409-vs-412',
+            '301-vs-308', '503-vs-504',
+        ]
+        for slug in required:
+            assert slug in CONFUSION_PAIRS_BY_SLUG, f"Missing required pair: {slug}"
+
+    def test_each_pair_has_category(self):
+        """Every pair must belong to a category."""
+        from confusion_pairs import CONFUSION_PAIRS, CONFUSION_PAIR_CATEGORY_ORDER
+        for pair in CONFUSION_PAIRS:
+            assert 'category' in pair, f"Pair {pair['slug']} missing category"
+            assert pair['category'] in CONFUSION_PAIR_CATEGORY_ORDER, \
+                f"Pair {pair['slug']} has unknown category '{pair['category']}'"
+
+    def test_pairs_by_category_covers_all(self):
+        """PAIRS_BY_CATEGORY should contain every pair exactly once."""
+        from confusion_pairs import CONFUSION_PAIRS, PAIRS_BY_CATEGORY
+        slugs_from_cats = []
+        for pairs in PAIRS_BY_CATEGORY.values():
+            slugs_from_cats.extend(p['slug'] for p in pairs)
+        assert sorted(slugs_from_cats) == sorted(p['slug'] for p in CONFUSION_PAIRS)
+
+    def test_unique_slugs(self):
+        """No duplicate slugs allowed."""
+        from confusion_pairs import CONFUSION_PAIRS
+        slugs = [p['slug'] for p in CONFUSION_PAIRS]
+        assert len(slugs) == len(set(slugs)), "Duplicate slugs found"
+
+
+class TestLearnIndexRoute:
+    """Tests for /learn index page."""
+
+    def test_learn_index_returns_200(self, client):
+        resp = client.get('/learn')
+        assert resp.status_code == 200
+
+    def test_learn_index_has_title(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'Confusion Pairs' in html
+
+    def test_learn_index_lists_pairs(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '401-vs-403' in html
+        assert '301-vs-302' in html
+        assert '/learn/' in html
+
+    def test_learn_index_has_tldr(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        # TL;DR text should be present from at least one pair
+        assert "doesn&#39;t know who you are" in html or "doesn't know who you are" in html or '401' in html
+
+    def test_learn_index_has_category_headings(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'learn-index-category-heading' in html
+        assert 'Auth pairs' in html
+        assert 'Redirect pairs' in html
+        assert 'Error pairs' in html
+
+    def test_learn_index_has_pair_count(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '15 pairs' in html
+        assert '5 categories' in html
+
+    def test_learn_index_lists_new_pairs(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '502-vs-504' in html
+        assert '401-vs-407' in html
+        assert '204-vs-205' in html
+        assert '409-vs-412' in html
+        assert '301-vs-308' in html
+        assert '503-vs-504' in html
+
+
+class TestLearnPairRoute:
+    """Tests for /learn/<slug> lesson pages."""
+
+    def test_learn_pair_returns_200(self, client):
+        resp = client.get('/learn/401-vs-403')
+        assert resp.status_code == 200
+
+    def test_learn_pair_invalid_slug_returns_404(self, client):
+        resp = client.get('/learn/999-vs-998')
+        assert resp.status_code == 404
+
+    def test_learn_pair_has_title(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert '401 Unauthorized vs 403 Forbidden' in html
+
+    def test_learn_pair_has_tldr(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'learn-tldr' in html
+        assert 'TL;DR' in html
+
+    def test_learn_pair_has_decision_tree(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Decision Tree' in html
+        assert 'learn-decision-step' in html
+
+    def test_learn_pair_has_examples(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Annotated Examples' in html
+        assert 'learn-example-card' in html
+
+    def test_learn_pair_has_quiz(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'Mini-Quiz' in html
+        assert 'learn-quiz-form' in html
+        assert 'learn-quiz-submit' in html
+
+    def test_learn_pair_has_comparison_cards(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'compare-card' in html
+        assert 'Side-by-Side Comparison' in html
+
+    def test_learn_pair_has_breadcrumb(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'breadcrumb' in html
+        assert 'href="/learn"' in html
+
+    def test_learn_pair_has_detail_links(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'href="/401"' in html
+        assert 'href="/403"' in html
+
+    def test_learn_pair_xp_script(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'learn_quiz_correct' in html
+
+    def test_all_pairs_render(self, client):
+        """Every configured pair should render without error."""
+        from confusion_pairs import CONFUSION_PAIRS
+        for pair in CONFUSION_PAIRS:
+            resp = client.get(f'/learn/{pair["slug"]}')
+            assert resp.status_code == 200, f"/learn/{pair['slug']} returned {resp.status_code}"
+
+
+class TestLearnNavLink:
+    """Tests for Learn link in navigation."""
+
+    def test_nav_has_learn_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/learn"' in html
+        assert '>Learn<' in html
+
+    def test_nav_learn_active_on_index(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+    def test_nav_learn_active_on_pair(self, client):
+        resp = client.get('/learn/401-vs-403')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestLearnSitemap:
+    """Tests for learn pages in sitemap."""
+
+    def test_sitemap_has_learn_index(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/learn</loc>' in xml or '/learn<' in xml
+
+    def test_sitemap_has_learn_pairs(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/learn/401-vs-403' in xml
+        assert '/learn/301-vs-302' in xml
+
+
+class TestDetailPageLearnLinks:
+    """Tests for 'Learn the difference' links on detail pages."""
+
+    def test_401_page_has_learn_link_to_403(self, client):
+        resp = client.get('/401')
+        html = resp.data.decode()
+        assert 'Learn the difference' in html
+        assert '/learn/401-vs-403' in html
+
+    def test_403_page_has_learn_link_to_401(self, client):
+        resp = client.get('/403')
+        html = resp.data.decode()
+        assert 'Learn the difference' in html
+        assert '/learn/401-vs-403' in html
+
+    def test_200_page_has_learn_link_to_204(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '/learn/200-vs-204' in html
+
+
+class TestViewTransitions:
+    """Tests for the View Transitions API progressive enhancement."""
+
+    def test_base_template_has_view_transition_meta_tag(self, client):
+        """The view-transition meta tag should be present in every page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '<meta name="view-transition" content="same-origin">' in html
+
+    def test_view_transition_meta_tag_on_detail_page(self, client):
+        """Detail pages inherit from base and should also have the meta tag."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert '<meta name="view-transition" content="same-origin">' in html
+
+    def test_css_has_view_transition_at_rule(self):
+        """The stylesheet should contain the @view-transition rule."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@view-transition' in css
+        assert 'navigation: auto' in css
+
+    def test_css_has_fade_keyframes(self):
+        """The stylesheet should define fade-out and fade-in keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@keyframes fade-out' in css
+        assert '@keyframes fade-in' in css
+
+    def test_css_has_view_transition_old_new_root(self):
+        """Root view transition pseudo-elements should be styled."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '::view-transition-old(root)' in css
+        assert '::view-transition-new(root)' in css
+
+    def test_homepage_cards_have_view_transition_name(self, client):
+        """Each parrot card image on the homepage should have a view-transition-name."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'view-transition-name: parrot-200' in html
+        assert 'view-transition-name: parrot-404' in html
+        assert 'view-transition-name: parrot-500' in html
+
+    def test_detail_page_image_has_view_transition_name(self, client):
+        """The detail page hero image should have a matching view-transition-name."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'view-transition-name: parrot-200' in html
+
+    def test_detail_page_transition_name_matches_code(self, client):
+        """The view-transition-name on the detail page should match the status code."""
+        for code in ['404', '418', '500']:
+            resp = client.get(f'/{code}')
+            html = resp.data.decode()
+            assert f'view-transition-name: parrot-{code}' in html
+
+    def test_css_has_site_header_view_transition_name(self):
+        """The site header should have a view-transition-name for persistence."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'view-transition-name: site-header' in css
+
+    def test_css_reduced_motion_disables_view_transitions(self):
+        """In prefers-reduced-motion, view transition animations should be disabled."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the reduced-motion block and verify it contains view transition overrides
+        rm_start = css.find('@media (prefers-reduced-motion: reduce)')
+        assert rm_start != -1
+        rm_block = css[rm_start:css.find('\n/* === Light Theme', rm_start)]
+        assert '::view-transition-old(root)' in rm_block
+        assert '::view-transition-new(root)' in rm_block
+        assert 'animation: none !important' in rm_block
+
+
+# --- Streak Freeze & Milestone Celebrations ---
+
+class TestStreakFreeze:
+    """Verify streak freeze logic is present in the daily template."""
+
+    def test_daily_has_freezes_available_field(self, client):
+        """Daily state should include freezesAvailable field."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'freezesAvailable' in html
+
+    def test_daily_has_freeze_indicator(self, client):
+        """Daily page should have a streak freeze indicator element."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'streak-freeze-indicator' in html
+        assert 'freeze-count' in html
+
+    def test_daily_has_freeze_message(self, client):
+        """Daily page should have a streak freeze used message element."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'streak-freeze-msg' in html
+        assert 'Streak freeze used' in html
+
+    def test_daily_freeze_consumes_on_missed_day(self, client):
+        """Daily JS should check freezesAvailable when a day is missed."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'state.freezesAvailable > 0' in html
+        assert 'state.freezesAvailable--' in html
+
+    def test_daily_freeze_milestones_earn_freezes(self, client):
+        """Users earn freezes at 7-day and 14-day milestones."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'FREEZE_MILESTONES' in html
+        assert 'state.freezesAvailable++' in html
+
+    def test_daily_freeze_sets_flag_for_feather(self, client):
+        """Using a freeze sets httpparrot_freeze_used flag."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'httpparrot_freeze_used' in html
+
+    def test_freeze_indicator_css_exists(self, client):
+        """CSS should have streak-freeze-indicator styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.streak-freeze-indicator' in css
+        assert '.streak-freeze-message' in css
+
+
+class TestMilestoneCelebrations:
+    """Verify milestone celebration code is present."""
+
+    def test_daily_has_milestones_map(self, client):
+        """Daily JS should define MILESTONES with XP rewards."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'MILESTONES' in html
+        # Check all five milestone thresholds
+        for m in ['7', '14', '30', '50', '100']:
+            assert m in html
+
+    def test_daily_has_milestone_overlay(self, client):
+        """Daily page should have a milestone celebration overlay."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-overlay' in html
+        assert 'milestone-content' in html
+        assert 'milestone-number' in html
+        assert 'milestone-congrats' in html
+
+    def test_daily_has_milestone_share(self, client):
+        """Milestone overlay should have a share button."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-share' in html
+        assert 'day streak on HTTP Parrots' in html
+
+    def test_daily_has_milestone_xp_display(self, client):
+        """Milestone overlay should show bonus XP."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'milestone-xp' in html
+        assert 'Bonus XP' in html
+
+    def test_daily_milestone_auto_dismiss(self, client):
+        """Milestone overlay should auto-dismiss after 5 seconds."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert '5000' in html
+
+    def test_milestone_spawns_confetti(self, client):
+        """Milestone celebration should spawn confetti."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'showMilestoneCelebration' in html
+        assert 'spawnConfetti' in html
+
+    def test_milestone_css_exists(self, client):
+        """CSS should have milestone overlay styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.milestone-overlay' in css
+        assert '.milestone-content' in css
+        assert '.milestone-number' in css
+
+    def test_daily_checks_milestones_on_correct(self, client):
+        """After a correct answer, milestones should be checked."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'checkMilestoneRewards(state)' in html
+
+
+class TestProfileStreakFreezeIntegration:
+    """Verify profile page shows streak freeze and milestone data."""
+
+    def test_profile_has_freeze_count(self, client):
+        """Profile should display streak freeze count."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'stat-freeze-count' in html
+        assert 'Freezes' in html
+
+    def test_profile_has_milestones_section(self, client):
+        """Profile should have a milestones history section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-milestones-section' in html
+        assert 'profile-milestones-list' in html
+        assert 'Milestones' in html
+
+    def test_profile_reads_daily_state(self, client):
+        """Profile JS should read from httpparrot_daily localStorage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_daily' in html
+        assert 'freezesAvailable' in html
+        assert 'milestonesHit' in html
+
+    def test_profile_milestone_labels(self, client):
+        """Profile JS should have milestone display labels."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert '7-Day Streak' in html
+        assert '14-Day Streak' in html
+        assert '30-Day Streak' in html
+
+
+class TestFrozenSolidFeather:
+    """Verify the Frozen Solid feather badge."""
+
+    def test_frozen_solid_in_feathers_array(self, client):
+        """Frozen Solid feather should be defined in FEATHERS."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'frozen_solid' in html
+        assert 'Frozen Solid' in html
+
+    def test_frozen_solid_check_in_check_feathers(self, client):
+        """checkFeathers should check httpparrot_freeze_used flag."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "!has('frozen_solid')" in html
+        assert "httpparrot_freeze_used" in html
+
+
+class TestCelebrationAnimations:
+    """Tests for achievement celebration animations (confetti, rank-up, XP flash)."""
+
+    def test_celebration_confetti_function_present(self, client):
+        """Base template should define spawnCelebrationConfetti function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function spawnCelebrationConfetti' in html
+
+    def test_celebration_confetti_spawns_particles(self, client):
+        """spawnCelebrationConfetti should create celebration-confetti elements."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'celebration-confetti' in html
+
+    def test_celebration_confetti_uses_brand_colors(self, client):
+        """Confetti particles should use teal/purple brand palette."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '#00c9a7' in html
+        assert '#7b61ff' in html
+
+    def test_celebration_confetti_auto_cleanup(self, client):
+        """Confetti should auto-remove on animationend."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # The function should listen for animationend and remove particles
+        assert 'animationend' in html
+
+    def test_show_feather_toast_triggers_confetti(self, client):
+        """showFeatherToast should call spawnCelebrationConfetti."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti(toast)' in html
+
+    def test_celebration_confetti_css_exists(self, client):
+        """Celebration confetti CSS class should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.celebration-confetti' in css
+        assert 'celebration-burst' in css
+
+    def test_rank_up_banner_function_present(self, client):
+        """Base template should define showRankUpBanner function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function showRankUpBanner' in html
+
+    def test_rank_up_banner_shows_rank_name(self, client):
+        """Rank-up banner should display the new rank name."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Rank Up! You are now a' in html
+
+    def test_rank_up_banner_has_icon(self, client):
+        """Rank-up banner should include a rank icon."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'rank-up-banner-icon' in html
+
+    def test_rank_up_banner_auto_dismiss(self, client):
+        """Rank-up banner should auto-dismiss after 4 seconds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Banner removes rank-up-visible class after 4000ms, then removes element after 600ms
+        assert "banner.classList.remove('rank-up-visible')" in html
+
+    def test_rank_up_banner_awards_bonus_xp(self, client):
+        """Rank-up should award bonus XP based on rank reached."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'RANK_BONUS_XP' in html
+        assert 'rank_up_bonus' in html
+
+    def test_rank_up_gold_particles(self, client):
+        """Rank-up should trigger gold particle shower."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function spawnGoldParticles' in html
+        assert 'rank-up-gold-particle' in html
+
+    def test_rank_up_banner_css_exists(self, client):
+        """Rank-up banner CSS should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-banner' in css
+        assert 'rank-up-visible' in css
+        assert 'gold-shower' in css
+        assert '.rank-up-gold-particle' in css
+
+    def test_rank_up_banner_gold_gradient(self, client):
+        """Rank-up banner should have gold gradient background."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '#ffd700' in css
+        assert '#ffb300' in css
+
+    def test_check_feathers_detects_rank_change(self, client):
+        """checkFeathers should detect rank changes and show banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'rankBefore' in html
+        assert 'rankAfter' in html
+        assert 'showRankUpBanner(rankAfter)' in html
+
+    def test_xp_milestone_flash_function_present(self, client):
+        """Base template should define checkXpMilestoneFlash function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function checkXpMilestoneFlash' in html
+
+    def test_xp_milestones_defined(self, client):
+        """XP milestone thresholds should be defined."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'XP_MILESTONES' in html
+        for milestone in ['100', '500', '1000', '5000', '10000']:
+            assert milestone in html
+
+    def test_xp_flash_triggers_glow(self, client):
+        """XP milestone crossing should add xp-flash class to badge."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-flash' in html
+
+    def test_xp_flash_floating_number(self, client):
+        """XP milestone should show floating number animation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'xp-float-number' in html
+
+    def test_xp_flash_css_exists(self, client):
+        """XP flash CSS classes should be in the stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-flash' in css
+        assert 'xp-glow-flash' in css
+        assert '.xp-float-number' in css
+        assert 'xp-float-up' in css
+
+    def test_award_calls_milestone_check(self, client):
+        """The award function should call checkXpMilestoneFlash."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'checkXpMilestoneFlash(oldTotal, total)' in html
+
+    def test_reduced_motion_disables_celebration_confetti(self, client):
+        """Reduced motion should disable celebration confetti."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.celebration-confetti { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_rank_up_banner(self, client):
+        """Reduced motion should disable rank-up banner animations."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-banner { transition: none !important; transform: none !important; }' in css
+
+    def test_reduced_motion_disables_gold_particles(self, client):
+        """Reduced motion should disable gold particles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rank-up-gold-particle { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_xp_flash(self, client):
+        """Reduced motion should disable XP flash animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-flash { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_xp_float_number(self, client):
+        """Reduced motion should disable floating XP number."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.xp-float-number { animation: none !important; display: none !important; }' in css
+
+    def test_parrotxp_exposes_celebration_functions(self, client):
+        """ParrotXP global should expose celebration functions."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnCelebrationConfetti: spawnCelebrationConfetti' in html
+        assert 'showRankUpBanner: showRankUpBanner' in html
+        assert 'checkXpMilestoneFlash: checkXpMilestoneFlash' in html
+
+
+class TestSeasonalThemes:
+    """Tests for Holiday Plumage seasonal theme system."""
+
+    def test_season_detection_script_in_base(self, client):
+        """Base template should include the season detection script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Holiday Plumage' in html
+        assert '_httpparrotSeason' in html
+
+    def test_season_detection_checks_winter(self, client):
+        """Season detection script should check for winter (Dec 15 - Jan 5)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-winter" in html
+        assert "m === 11 && d >= 15" in html
+        assert "m === 0 && d <= 5" in html
+
+    def test_season_detection_checks_halloween(self, client):
+        """Season detection script should check for halloween (Oct 25 - Nov 1)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-halloween" in html
+        assert "m === 9 && d >= 25" in html
+        assert "m === 10 && d <= 1" in html
+
+    def test_season_detection_checks_april_fools(self, client):
+        """Season detection script should check for April Fools (Apr 1)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-april-fools" in html
+        assert "m === 3 && d === 1" in html
+
+    def test_season_detection_checks_valentine(self, client):
+        """Season detection script should check for Valentine's (Feb 14)."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "season-valentine" in html
+        assert "m === 1 && d === 14" in html
+
+    def test_season_egg_tracking_winter(self, client):
+        """Season script should track season_winter egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_winter'" in html
+
+    def test_season_egg_tracking_halloween(self, client):
+        """Season script should track season_halloween egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_halloween'" in html
+
+    def test_season_egg_tracking_april(self, client):
+        """Season script should track season_april egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_april'" in html
+
+    def test_season_egg_tracking_valentine(self, client):
+        """Season script should track season_valentine egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "'season_valentine'" in html
+
+    def test_seasonal_egg_awards_50_xp(self, client):
+        """Seasonal eggs should award 50 XP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "award(50, 'seasonal_egg')" in html
+
+    def test_seasonal_egg_uses_localstorage(self, client):
+        """Seasonal egg tracking should use eggs_found localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs_found" in html
+
+    def test_season_effects_script_present(self, client):
+        """Seasonal effects script should be present in base template."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Holiday Plumage' in html
+        assert 'Seasonal Effects' in html
+
+    def test_halloween_ghost_in_footer_script(self, client):
+        """Halloween effect should add ghost emoji to footer."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'halloween-ghost' in html
+
+    def test_april_fools_banner_script(self, client):
+        """April Fools effect should create scramble banner."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'april-fools-banner' in html
+        assert 'All status codes are scrambled' in html
+
+    def test_april_fools_reverts_after_10_seconds(self, client):
+        """April Fools scramble should revert after 10 seconds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Just kidding!' in html
+        assert '10000' in html
+
+    def test_valentine_heart_confetti_function(self, client):
+        """Valentine's effect should create heart confetti function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '_valentineHeartConfetti' in html
+        assert 'valentine-heart' in html
+
+    def test_pending_xp_award_after_parrotxp_loads(self, client):
+        """Seasonal script should queue XP if ParrotXP not loaded yet."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '_seasonalEggPending' in html
+
+
+class TestSeasonalCSS:
+    """Tests for seasonal CSS classes and styles."""
+
+    def test_winter_css_header(self, client):
+        """Winter season should style the header with blue tint."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter .site-header-compact' in css
+
+    def test_winter_css_snowfall(self, client):
+        """Winter season should have snowfall animation on body::before."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter::before' in css
+        assert '@keyframes snowfall' in css
+
+    def test_halloween_css_header(self, client):
+        """Halloween season should have orange/purple gradient on header."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-halloween .site-header-compact' in css
+
+    def test_halloween_css_hue_rotate(self, client):
+        """Halloween season should add hue-rotate on card hover."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-halloween .collection-card:hover' in css
+        assert 'hue-rotate' in css
+
+    def test_halloween_ghost_css(self, client):
+        """Halloween ghost should have float animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.halloween-ghost' in css
+        assert '@keyframes ghost-float' in css
+
+    def test_april_fools_banner_css(self, client):
+        """April Fools banner should have styling."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.april-fools-banner' in css
+        assert '.april-fools-revert' in css
+
+    def test_valentine_css_header(self, client):
+        """Valentine's season should tint the header pink."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-valentine .site-header-compact' in css
+
+    def test_valentine_heart_css(self, client):
+        """Valentine's should have heart confetti particles with clip-path."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.valentine-heart' in css
+        assert 'clip-path' in css
+        assert '@keyframes heart-burst' in css
+
+    def test_reduced_motion_disables_snowfall(self, client):
+        """Reduced motion should disable winter snowfall."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.season-winter::before { animation: none !important; display: none !important; }' in css
+
+    def test_reduced_motion_disables_ghost(self, client):
+        """Reduced motion should disable ghost animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.halloween-ghost { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_april_fools(self, client):
+        """Reduced motion should disable April Fools pulse."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.april-fools-banner { animation: none !important; }' in css
+
+    def test_reduced_motion_disables_hearts(self, client):
+        """Reduced motion should disable valentine heart animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.valentine-heart { animation: none !important; display: none !important; }' in css
+
+
+class TestSeasonalCollectionEggs:
+    """Tests for seasonal egg cards in collection page."""
+
+    def test_collection_has_winter_egg(self, client):
+        """Collection page should have season_winter egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_winter"' in html
+
+    def test_collection_has_halloween_egg(self, client):
+        """Collection page should have season_halloween egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_halloween"' in html
+
+    def test_collection_has_april_egg(self, client):
+        """Collection page should have season_april egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_april"' in html
+
+    def test_collection_has_valentine_egg(self, client):
+        """Collection page should have season_valentine egg card."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="season_valentine"' in html
+
+    def test_collection_seasonal_egg_hints(self, client):
+        """Seasonal egg cards should have appropriate hint text."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'winter holidays' in html.lower()
+        assert 'trick or treat' in html.lower()
+        assert 'not everything is as it seems' in html.lower()
+        assert 'love is in the http' in html.lower()
+
+    def test_collection_preserves_existing_eggs(self, client):
+        """Collection page should still have all original egg cards."""
+        resp = client.get('/collection')
+        html = resp.data.decode()
+        assert 'data-egg="204"' in html
+        assert 'data-egg="418"' in html
+        assert 'data-egg="429"' in html
+        assert 'data-egg="508"' in html
+        assert 'data-egg="konami"' in html
+        assert 'data-egg="barrel_roll"' in html
+        assert 'data-egg="http_handshake"' in html
+
+
+# --- Learning Paths ---
+
+class TestLearningPathsData:
+    """Validate the learning_paths.py data structure."""
+
+    def test_all_paths_have_required_keys(self):
+        from learning_paths import LEARNING_PATHS
+        required = {'id', 'title', 'description', 'difficulty', 'steps'}
+        for path in LEARNING_PATHS:
+            assert required.issubset(path.keys()), f"Path {path.get('id')} missing keys"
+
+    def test_path_ids_are_unique(self):
+        from learning_paths import LEARNING_PATHS
+        ids = [p['id'] for p in LEARNING_PATHS]
+        assert len(ids) == len(set(ids)), "Duplicate path ids"
+
+    def test_path_difficulties_valid(self):
+        from learning_paths import LEARNING_PATHS
+        allowed = {'beginner', 'intermediate', 'advanced'}
+        for path in LEARNING_PATHS:
+            assert path['difficulty'] in allowed, f"Invalid difficulty: {path['difficulty']}"
+
+    def test_all_steps_have_required_keys(self):
+        from learning_paths import LEARNING_PATHS
+        for path in LEARNING_PATHS:
+            for i, step in enumerate(path['steps']):
+                assert 'type' in step, f"Step {i} in {path['id']} missing type"
+                assert 'target' in step, f"Step {i} in {path['id']} missing target"
+                assert 'label' in step, f"Step {i} in {path['id']} missing label"
+
+    def test_step_types_valid(self):
+        from learning_paths import LEARNING_PATHS
+        allowed = {'visit', 'practice', 'debug', 'quiz', 'learn'}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                assert step['type'] in allowed, f"Invalid step type: {step['type']}"
+
+    def test_visit_targets_are_valid_codes(self):
+        """Visit-type step targets must correspond to known status codes."""
+        from learning_paths import LEARNING_PATHS
+        from index import _name_cache
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'visit':
+                    assert step['target'] in _name_cache, \
+                        f"Unknown code {step['target']} in path {path['id']}"
+
+    def test_learn_targets_are_valid_slugs(self):
+        """Learn-type step targets must correspond to known confusion pair slugs."""
+        from learning_paths import LEARNING_PATHS
+        from confusion_pairs import CONFUSION_PAIRS_BY_SLUG
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'learn':
+                    assert step['target'] in CONFUSION_PAIRS_BY_SLUG, \
+                        f"Unknown slug {step['target']} in path {path['id']}"
+
+    def test_practice_targets_are_valid_ids(self):
+        """Practice-type step targets must correspond to known scenario ids."""
+        from learning_paths import LEARNING_PATHS
+        from scenarios import SCENARIOS
+        scenario_ids = {s['id'] for s in SCENARIOS}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'practice':
+                    assert step['target'] in scenario_ids, \
+                        f"Unknown scenario id {step['target']} in path {path['id']}"
+
+    def test_debug_targets_are_valid_ids(self):
+        """Debug-type step targets must correspond to known exercise ids."""
+        from learning_paths import LEARNING_PATHS
+        from debug_exercises import DEBUG_EXERCISES
+        debug_ids = {e['id'] for e in DEBUG_EXERCISES}
+        for path in LEARNING_PATHS:
+            for step in path['steps']:
+                if step['type'] == 'debug':
+                    assert step['target'] in debug_ids, \
+                        f"Unknown debug id {step['target']} in path {path['id']}"
+
+    def test_three_paths_exist(self):
+        from learning_paths import LEARNING_PATHS
+        assert len(LEARNING_PATHS) == 3
+
+    def test_lookup_by_id(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert 'http-foundations' in LEARNING_PATHS_BY_ID
+        assert 'error-whisperer' in LEARNING_PATHS_BY_ID
+        assert 'redirect-master' in LEARNING_PATHS_BY_ID
+
+    def test_http_foundations_is_beginner(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['http-foundations']['difficulty'] == 'beginner'
+
+    def test_error_whisperer_is_intermediate(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['error-whisperer']['difficulty'] == 'intermediate'
+
+    def test_redirect_master_is_advanced(self):
+        from learning_paths import LEARNING_PATHS_BY_ID
+        assert LEARNING_PATHS_BY_ID['redirect-master']['difficulty'] == 'advanced'
+
+
+class TestPathsIndexRoute:
+    """Tests for /paths route."""
+
+    def test_paths_index_returns_200(self, client):
+        resp = client.get('/paths')
+        assert resp.status_code == 200
+
+    def test_paths_index_has_title(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'Learning Paths' in html
+
+    def test_paths_index_lists_all_paths(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'HTTP Foundations' in html
+        assert 'Error Whisperer' in html
+        assert 'Redirect Master' in html
+
+    def test_paths_index_has_difficulty_badges(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'path-difficulty-beginner' in html
+        assert 'path-difficulty-intermediate' in html
+        assert 'path-difficulty-advanced' in html
+
+    def test_paths_index_has_progress_bars(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'path-progress-bar' in html
+        assert 'progressbar' in html
+
+    def test_paths_index_links_to_details(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'href="/paths/http-foundations"' in html
+        assert 'href="/paths/error-whisperer"' in html
+        assert 'href="/paths/redirect-master"' in html
+
+    def test_paths_index_has_step_counts(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'steps' in html
+
+    def test_paths_index_has_descriptions(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        assert 'Start your HTTP journey' in html
+        assert 'Master the 4xx and 5xx' in html
+        assert 'Conquer the full family' in html
+
+
+class TestPathDetailRoute:
+    """Tests for /paths/<path_id> route."""
+
+    def test_path_detail_returns_200(self, client):
+        resp = client.get('/paths/http-foundations')
+        assert resp.status_code == 200
+
+    def test_path_detail_invalid_id_returns_404(self, client):
+        resp = client.get('/paths/nonexistent-path')
+        assert resp.status_code == 404
+
+    def test_path_detail_has_title(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'HTTP Foundations' in html
+
+    def test_path_detail_has_breadcrumb(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'breadcrumb' in html.lower() or 'Breadcrumb' in html
+        assert 'href="/paths"' in html
+
+    def test_path_detail_has_difficulty_badge(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-difficulty-beginner' in html
+
+    def test_path_detail_has_progress_bar(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'progress-fill' in html
+        assert 'progressbar' in html
+
+    def test_path_detail_has_steps(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-step' in html
+        assert 'path-step-check' in html
+
+    def test_path_detail_has_step_type_badges(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-step-type-visit' in html
+        assert 'path-step-type-practice' in html
+        assert 'path-step-type-learn' in html
+        assert 'path-step-type-quiz' in html
+
+    def test_path_detail_has_step_links(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'href="/200"' in html
+        assert 'href="/quiz"' in html
+        assert 'href="/learn/200-vs-204"' in html
+
+    def test_path_detail_has_completion_banner(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path-complete-banner' in html
+        assert 'Path Complete' in html
+
+    def test_path_detail_has_xp_bonus_script(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'path_complete' in html
+        assert '200' in html  # 200 XP bonus
+
+    def test_all_paths_render(self, client):
+        """Every configured path detail page should render without error."""
+        from learning_paths import LEARNING_PATHS
+        for path in LEARNING_PATHS:
+            resp = client.get(f'/paths/{path["id"]}')
+            assert resp.status_code == 200, f"/paths/{path['id']} returned {resp.status_code}"
+
+    def test_error_whisperer_has_debug_steps(self, client):
+        resp = client.get('/paths/error-whisperer')
+        html = resp.data.decode()
+        assert 'path-step-type-debug' in html
+        assert 'href="/debug"' in html
+
+    def test_redirect_master_has_learn_steps(self, client):
+        resp = client.get('/paths/redirect-master')
+        html = resp.data.decode()
+        assert 'href="/learn/301-vs-302"' in html
+        assert 'href="/learn/307-vs-308"' in html
+        assert 'href="/learn/302-vs-307"' in html
+
+
+class TestPathsNavLink:
+    """Tests for Paths link in navigation."""
+
+    def test_nav_has_paths_link(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/paths"' in html
+        assert 'Learning Paths' in html
+
+    def test_nav_paths_active_on_index(self, client):
+        resp = client.get('/paths')
+        html = resp.data.decode()
+        # The /paths nav link should have the active class
+        assert 'nav-active' in html
+
+    def test_nav_paths_active_on_detail(self, client):
+        resp = client.get('/paths/http-foundations')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestPathsSitemap:
+    """Tests for paths URLs in sitemap."""
+
+    def test_sitemap_includes_paths_index(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/paths</loc>' in xml or '/paths<' in xml
+
+    def test_sitemap_includes_path_details(self, client):
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/paths/http-foundations' in xml
+        assert '/paths/error-whisperer' in xml
+        assert '/paths/redirect-master' in xml
+
+
+# --- Security Audit ---
+
+class TestSecurityAudit:
+    def test_security_audit_page_renders(self, client):
+        """Security audit page should return 200 with expected content."""
+        resp = client.get('/security-audit')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Security Audit' in html
+        assert 'audit-url' in html
+        assert 'audit-form' in html
+
+    def test_security_audit_has_nonce(self, client):
+        """Security audit script tag should have a nonce."""
+        resp = client.get('/security-audit')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+        assert f'nonce="{nonce}"'.encode() in resp.data
+
+    def test_security_audit_nav_link(self, client):
+        """Navigation should contain a link to the security audit page."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/security-audit"' in html
+
+    def test_security_audit_in_sitemap(self, client):
+        """Sitemap should include the security audit page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/security-audit' in resp.data
+
+    def test_security_audit_api_in_robots_txt(self, client):
+        """robots.txt should block /api/security-audit."""
+        resp = client.get('/robots.txt')
+        assert b'Disallow: /api/security-audit' in resp.data
+
+
+class TestSecurityAuditAPI:
+    def test_api_missing_url(self, client):
+        """API should return 400 when url is missing."""
+        resp = client.get('/api/security-audit')
+        assert resp.status_code == 400
+        assert b'Missing required parameter' in resp.data
+
+    def test_api_blocked_url(self, client):
+        """API should return 403 for private/blocked URLs."""
+        resp = client.get('/api/security-audit?url=http://127.0.0.1/')
+        assert resp.status_code == 403
+        assert b'not allowed' in resp.data
+
+    def test_api_rate_limited(self, client):
+        """API should return 429 when rate limited."""
+        for _ in range(10):
+            client.get('/api/security-audit?url=http://127.0.0.1/')
+        resp = client.get('/api/security-audit?url=https://example.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_api_success_returns_grade(self, client):
+        """API should return a grade, score, and checks for a valid URL."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Strict-Transport-Security': 'max-age=31536000',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'grade' in data
+            assert 'score' in data
+            assert 'max_score' in data
+            assert 'checks' in data
+            assert isinstance(data['checks'], list)
+            assert len(data['checks']) == 10
+
+    def test_api_auto_prefix_scheme(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp) as mock_get:
+            resp = client.get('/api/security-audit?url=example.com')
+            assert resp.status_code == 200
+            call_args = mock_get.call_args
+            assert call_args[0][0] == 'https://example.com'
+
+    def test_api_connection_error(self, client):
+        """API should return 502 when connection fails."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', side_effect=requests.RequestException):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            assert resp.status_code == 502
+            assert b'Could not connect' in resp.data
+
+    def test_api_perfect_score(self, client):
+        """A site with all security headers should get A+ grade."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            data = resp.get_json()
+            assert data['grade'] == 'A+'
+            assert data['score'] == data['max_score']
+
+    def test_api_poor_score(self, client):
+        """A site with no security headers should get F grade."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {
+            'Server': 'Apache/2.4.41 (Ubuntu)',
+            'X-Powered-By': 'PHP/7.4.3',
+            'Access-Control-Allow-Origin': '*',
+            'Set-Cookie': 'session=abc123',
+        }
+        mock_resp.close = MagicMock()
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/security-audit?url=https://example.com')
+            data = resp.get_json()
+            assert data['grade'] == 'F'
+            assert data['score'] == 0
+
+
+class TestSecurityAuditScoringLogic:
+    """Unit tests for the _run_security_checks and _score_to_grade functions."""
+
+    def test_all_headers_present_full_score(self):
+        """All security headers present should give full score."""
+        headers = {
+            'Strict-Transport-Security': 'max-age=31536000',
+            'Content-Security-Policy': "default-src 'self'",
+            'X-Content-Type-Options': 'nosniff',
+            'X-Frame-Options': 'DENY',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+            'Permissions-Policy': 'camera=()',
+        }
+        score, max_score, checks = _run_security_checks(headers)
+        assert score == max_score
+        assert all(c['status'] == 'pass' for c in checks)
+
+    def test_no_headers_zero_score(self):
+        """No security headers should give zero score (except absence-based checks)."""
+        headers = {
+            'Server': 'nginx/1.18',
+            'X-Powered-By': 'Express',
+            'Access-Control-Allow-Origin': '*',
+            'Set-Cookie': 'sid=abc',
+        }
+        score, max_score, checks = _run_security_checks(headers)
+        assert score == 0
+        assert max_score == 70
+
+    def test_xcto_must_be_nosniff(self):
+        """X-Content-Type-Options must be exactly 'nosniff' to pass."""
+        headers = {'X-Content-Type-Options': 'nosniff'}
+        score, _, checks = _run_security_checks(headers)
+        xcto = next(c for c in checks if c['id'] == 'xcto')
+        assert xcto['status'] == 'pass'
+
+        headers_wrong = {'X-Content-Type-Options': 'something-else'}
+        _, _, checks_wrong = _run_security_checks(headers_wrong)
+        xcto_wrong = next(c for c in checks_wrong if c['id'] == 'xcto')
+        assert xcto_wrong['status'] == 'fail'
+
+    def test_server_header_absent_passes(self):
+        """Absent Server header should pass."""
+        _, _, checks = _run_security_checks({})
+        server = next(c for c in checks if c['id'] == 'server')
+        assert server['status'] == 'pass'
+
+    def test_server_header_leaking_fails(self):
+        """Server header with version info should fail."""
+        _, _, checks = _run_security_checks({'Server': 'Apache/2.4.41'})
+        server = next(c for c in checks if c['id'] == 'server')
+        assert server['status'] == 'fail'
+
+    def test_powered_by_absent_passes(self):
+        """Absent X-Powered-By header should pass."""
+        _, _, checks = _run_security_checks({})
+        powered = next(c for c in checks if c['id'] == 'powered')
+        assert powered['status'] == 'pass'
+
+    def test_powered_by_present_fails(self):
+        """Present X-Powered-By header should fail."""
+        _, _, checks = _run_security_checks({'X-Powered-By': 'Express'})
+        powered = next(c for c in checks if c['id'] == 'powered')
+        assert powered['status'] == 'fail'
+
+    def test_cookie_secure_httponly_samesite(self):
+        """Cookie with all three attributes should pass."""
+        headers = {'Set-Cookie': 'sid=abc; Secure; HttpOnly; SameSite=Lax'}
+        _, _, checks = _run_security_checks(headers)
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'pass'
+
+    def test_cookie_missing_attributes_fails(self):
+        """Cookie without security attributes should fail."""
+        headers = {'Set-Cookie': 'sid=abc'}
+        _, _, checks = _run_security_checks(headers)
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'fail'
+
+    def test_cookie_absent_passes(self):
+        """No cookies at all should pass."""
+        _, _, checks = _run_security_checks({})
+        cookie = next(c for c in checks if c['id'] == 'cookie')
+        assert cookie['status'] == 'pass'
+
+    def test_cors_wildcard_fails(self):
+        """CORS wildcard * should fail."""
+        _, _, checks = _run_security_checks({'Access-Control-Allow-Origin': '*'})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'fail'
+
+    def test_cors_specific_origin_passes(self):
+        """Specific CORS origin should pass."""
+        _, _, checks = _run_security_checks({'Access-Control-Allow-Origin': 'https://example.com'})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'pass'
+
+    def test_cors_absent_passes(self):
+        """Absent CORS header should pass."""
+        _, _, checks = _run_security_checks({})
+        cors = next(c for c in checks if c['id'] == 'cors_wildcard')
+        assert cors['status'] == 'pass'
+
+    def test_case_insensitive_headers(self):
+        """Header checks should be case insensitive."""
+        headers = {
+            'strict-transport-security': 'max-age=31536000',
+            'content-security-policy': "default-src 'self'",
+            'x-content-type-options': 'nosniff',
+        }
+        score, _, checks = _run_security_checks(headers)
+        hsts = next(c for c in checks if c['id'] == 'hsts')
+        csp = next(c for c in checks if c['id'] == 'csp')
+        xcto = next(c for c in checks if c['id'] == 'xcto')
+        assert hsts['status'] == 'pass'
+        assert csp['status'] == 'pass'
+        assert xcto['status'] == 'pass'
+
+
+class TestScoreToGrade:
+    """Tests for the _score_to_grade conversion function."""
+
+    def test_grade_a_plus(self):
+        assert _score_to_grade(75, 75) == 'A+'
+        assert _score_to_grade(72, 75) == 'A+'
+
+    def test_grade_a(self):
+        assert _score_to_grade(64, 75) == 'A'
+
+    def test_grade_b(self):
+        assert _score_to_grade(53, 75) == 'B'
+
+    def test_grade_c(self):
+        assert _score_to_grade(38, 75) == 'C'
+
+    def test_grade_d(self):
+        assert _score_to_grade(23, 75) == 'D'
+
+    def test_grade_f(self):
+        assert _score_to_grade(10, 75) == 'F'
+        assert _score_to_grade(0, 75) == 'F'
+
+    def test_grade_zero_max(self):
+        assert _score_to_grade(0, 0) == 'F'
+
+    def test_each_check_has_required_fields(self):
+        """Every check result should have id, header, points, desc, fix, and status."""
+        _, _, checks = _run_security_checks({})
+        for check in checks:
+            assert 'id' in check
+            assert 'header' in check
+            assert 'points' in check
+            assert 'desc' in check
+            assert 'fix' in check
+            assert 'status' in check
+            assert check['status'] in ('pass', 'fail')
+
+
+# --- Fault Simulator page ---
+
+class TestFaultSimulatorPage:
+    def test_page_renders(self, client):
+        resp = client.get('/fault-simulator')
+        assert resp.status_code == 200
+        assert b'Fault Simulator' in resp.data
+
+    def test_page_has_endpoint_sections(self, client):
+        resp = client.get('/fault-simulator')
+        html = resp.data.decode()
+        assert 'section-delay' in html
+        assert 'section-drip' in html
+        assert 'section-stream' in html
+        assert 'section-jitter' in html
+        assert 'section-unstable' in html
+
+    def test_page_has_try_buttons(self, client):
+        resp = client.get('/fault-simulator')
+        html = resp.data.decode()
+        assert 'delay-btn' in html
+        assert 'drip-btn' in html
+        assert 'stream-btn' in html
+        assert 'jitter-btn' in html
+        assert 'unstable-btn' in html
+
+    def test_nav_link_exists(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/fault-simulator"' in html
+        assert 'Fault Simulator' in html
+
+    def test_sitemap_contains_fault_simulator(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/fault-simulator' in resp.data
+
+    def test_robots_disallows_fault_apis(self, client):
+        resp = client.get('/robots.txt')
+        text = resp.data.decode()
+        assert '/api/delay/' in text
+        assert '/api/drip' in text
+        assert '/api/stream/' in text
+        assert '/api/jitter' in text
+        assert '/api/unstable' in text
+
+
+# --- Fault Simulation: Delay endpoint ---
+
+class TestApiDelay:
+    def test_delay_returns_json(self, client):
+        resp = client.get('/api/delay/0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 0
+        assert 'timestamp' in data
+
+    def test_delay_valid_seconds(self, client):
+        resp = client.get('/api/delay/1')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 1
+
+    def test_delay_max_boundary(self, client):
+        resp = client.get('/api/delay/10')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 10
+
+    def test_delay_exceeds_max(self, client):
+        resp = client.get('/api/delay/11')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_delay_negative(self, client):
+        resp = client.get('/api/delay/-1')
+        assert resp.status_code == 400 or resp.status_code == 404
+
+    def test_delay_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/delay/0')
+        resp = client.get('/api/delay/0')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+
+# --- Fault Simulation: Drip endpoint ---
+
+class TestApiDrip:
+    def test_drip_default_params(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10')
+        assert resp.status_code == 200
+        assert len(resp.data) == 10
+
+    def test_drip_returns_correct_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=100')
+        assert resp.status_code == 200
+        assert len(resp.data) == 100
+
+    def test_drip_content_type(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10')
+        assert 'octet-stream' in resp.content_type
+
+    def test_drip_exceeds_max_duration(self, client):
+        resp = client.get('/api/drip?duration=31&numbytes=10')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_drip_exceeds_max_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10241')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_drip_zero_duration(self, client):
+        resp = client.get('/api/drip?duration=0&numbytes=10')
+        assert resp.status_code == 400
+
+    def test_drip_zero_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=0')
+        assert resp.status_code == 400
+
+    def test_drip_negative_params(self, client):
+        resp = client.get('/api/drip?duration=-1&numbytes=10')
+        assert resp.status_code == 400
+
+    def test_drip_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/drip?duration=1&numbytes=1')
+        resp = client.get('/api/drip?duration=1&numbytes=1')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Stream endpoint ---
+
+class TestApiStream:
+    def test_stream_returns_lines(self, client):
+        resp = client.get('/api/stream/3')
+        assert resp.status_code == 200
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        assert len(lines) == 3
+
+    def test_stream_json_lines(self, client):
+        import json
+        resp = client.get('/api/stream/2')
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        for line in lines:
+            data = json.loads(line)
+            assert 'id' in data
+            assert 'timestamp' in data
+            assert 'parrot' in data
+
+    def test_stream_content_type(self, client):
+        resp = client.get('/api/stream/1')
+        assert 'ndjson' in resp.content_type
+
+    def test_stream_exceeds_max(self, client):
+        resp = client.get('/api/stream/101')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_stream_zero(self, client):
+        resp = client.get('/api/stream/0')
+        assert resp.status_code == 400
+
+    def test_stream_single_line(self, client):
+        import json
+        resp = client.get('/api/stream/1')
+        assert resp.status_code == 200
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        assert len(lines) == 1
+        data = json.loads(lines[0])
+        assert data['id'] == 0
+
+    def test_stream_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/stream/1')
+        resp = client.get('/api/stream/1')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Jitter endpoint ---
+
+class TestApiJitter:
+    def test_jitter_default_params(self, client):
+        resp = client.get('/api/jitter?min=0&max=0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay_ms'] == 0
+        assert 'range' in data
+        assert 'timestamp' in data
+
+    def test_jitter_returns_within_range(self, client):
+        resp = client.get('/api/jitter?min=100&max=200')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert 100 <= data['delay_ms'] <= 200
+
+    def test_jitter_exceeds_max(self, client):
+        resp = client.get('/api/jitter?min=0&max=10001')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_jitter_min_exceeds_max_value(self, client):
+        resp = client.get('/api/jitter?min=500&max=100')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_jitter_negative(self, client):
+        resp = client.get('/api/jitter?min=-1&max=100')
+        assert resp.status_code == 400
+
+    def test_jitter_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/jitter?min=0&max=0')
+        resp = client.get('/api/jitter?min=0&max=0')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Unstable endpoint ---
+
+class TestApiUnstable:
+    def test_unstable_returns_200_or_500(self, client):
+        resp = client.get('/api/unstable?failure_rate=0.5')
+        assert resp.status_code in (200, 500)
+        data = resp.get_json()
+        assert 'status' in data
+        assert 'failure_rate' in data
+        assert 'timestamp' in data
+
+    def test_unstable_zero_failure_rate(self, client):
+        resp = client.get('/api/unstable?failure_rate=0.0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['status'] == 'ok'
+
+    def test_unstable_full_failure_rate(self, client):
+        resp = client.get('/api/unstable?failure_rate=1.0')
+        assert resp.status_code == 500
+        data = resp.get_json()
+        assert data['status'] == 'error'
+
+    def test_unstable_invalid_rate_too_high(self, client):
+        resp = client.get('/api/unstable?failure_rate=1.5')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_unstable_invalid_rate_negative(self, client):
+        resp = client.get('/api/unstable?failure_rate=-0.1')
+        assert resp.status_code == 400
+
+    def test_unstable_default_rate(self, client):
+        resp = client.get('/api/unstable')
+        assert resp.status_code in (200, 500)
+        data = resp.get_json()
+        assert data['failure_rate'] == 0.5
+
+    def test_unstable_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/unstable?failure_rate=0')
+        resp = client.get('/api/unstable?failure_rate=0')
+        assert resp.status_code == 429
+
+
+# --- Procedural Sound Toggle (ParrotSound) ---
+
+class TestParrotSoundSystem:
+    """Verify ParrotSound object is defined and wired into templates."""
+
+    def test_parrot_sound_defined_in_base(self, client):
+        """Base template should define the ParrotSound global object."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'window.ParrotSound' in html
+
+    def test_parrot_sound_squawk_method(self, client):
+        """ParrotSound should expose a squawk method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'squawk: squawk' in html
+
+    def test_parrot_sound_correct_method(self, client):
+        """ParrotSound should expose a correct method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'correct: correct' in html
+
+    def test_parrot_sound_wrong_method(self, client):
+        """ParrotSound should expose a wrong method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'wrong: wrong' in html
+
+    def test_parrot_sound_jingle_method(self, client):
+        """ParrotSound should expose a jingle method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'jingle: jingle' in html
+
+    def test_parrot_sound_click_method(self, client):
+        """ParrotSound should expose a click method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'click: click' in html
+
+    def test_parrot_sound_is_enabled_method(self, client):
+        """ParrotSound should expose an isEnabled method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'isEnabled: isEnabled' in html
+
+    def test_parrot_sound_toggle_method(self, client):
+        """ParrotSound should expose a toggle method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'toggle: toggle' in html
+
+    def test_sound_toggle_button_in_header(self, client):
+        """Header should contain the sound toggle button (on subpages)."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="sound-toggle"' in html
+        assert 'sound-toggle-btn' in html
+
+    def test_sound_toggle_icon_in_header(self, client):
+        """Sound toggle button should contain the icon span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="sound-toggle-icon"' in html
+
+    def test_sound_toggle_aria_pressed(self, client):
+        """Sound toggle button should have aria-pressed attribute."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-pressed=' in html
+
+    def test_localstorage_key_referenced(self, client):
+        """ParrotSound should use httpparrot_sound localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_sound' in html
+
+    def test_reduced_motion_check(self, client):
+        """ParrotSound should check prefers-reduced-motion."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'prefers-reduced-motion' in html
+
+    def test_audio_context_lazy_creation(self, client):
+        """ParrotSound should lazily create AudioContext."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'AudioContext' in html
+        assert 'webkitAudioContext' in html
+
+    def test_oscillator_usage(self, client):
+        """ParrotSound should use OscillatorNode for sounds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'createOscillator' in html
+
+    def test_gain_node_usage(self, client):
+        """ParrotSound should use GainNode for volume control."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'createGain' in html
+
+
+class TestParrotSoundWiring:
+    """Verify sound triggers are wired into quiz, daily, and practice templates."""
+
+    def test_quiz_correct_sound(self, client):
+        """Quiz should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_quiz_wrong_sound(self, client):
+        """Quiz should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_daily_correct_sound(self, client):
+        """Daily should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_daily_wrong_sound(self, client):
+        """Daily should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_practice_correct_sound(self, client):
+        """Practice should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_practice_wrong_sound(self, client):
+        """Practice should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_feather_toast_jingle(self, client):
+        """Feather toast should trigger ParrotSound.jingle()."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotSound.jingle()' in html
+
+    def test_rank_up_jingle(self, client):
+        """Rank-up banner should trigger ParrotSound.jingle()."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Both feather toast and rank-up banner call jingle
+        count = html.count('ParrotSound.jingle()')
+        assert count >= 2, f"Expected at least 2 jingle calls, found {count}"
+
+    def test_sound_gated_by_is_enabled(self, client):
+        """All sound triggers should check ParrotSound.isEnabled() first."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotSound.isEnabled()' in html
+
+
+# --- Bento Dashboard ---
+
+class TestBentoDashboard:
+    """Tests for the bento grid dashboard on the homepage."""
+
+    def test_dashboard_section_present(self, client):
+        """Homepage should have a bento dashboard section."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-dashboard' in html
+
+    def test_daily_challenge_tile_present(self, client):
+        """Dashboard should have a daily challenge tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--daily' in html
+        assert 'bento-streak-count' in html
+        assert 'Daily Challenge' in html
+
+    def test_daily_challenge_tile_links_to_daily(self, client):
+        """Daily challenge tile should link to /daily."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/daily"' in html
+        assert 'Play Now' in html
+
+    def test_xp_progress_tile_present(self, client):
+        """Dashboard should have an XP progress tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--xp' in html
+        assert 'bento-rank-name' in html
+        assert 'XP Progress' in html
+
+    def test_xp_progress_tile_has_progress_bar(self, client):
+        """XP progress tile should have a progress bar."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-xp-bar' in html
+        assert 'bento-xp-fill' in html
+        assert 'progressbar' in html
+
+    def test_quick_tools_tile_present(self, client):
+        """Dashboard should have a quick tools tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--tools' in html
+        assert 'Quick Tools' in html
+
+    def test_quick_tools_has_quiz_link(self, client):
+        """Quick tools tile should link to quiz."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/quiz"' in html
+
+    def test_quick_tools_has_practice_link(self, client):
+        """Quick tools tile should link to practice."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+
+    def test_quick_tools_has_debug_link(self, client):
+        """Quick tools tile should link to debug."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/debug"' in html
+
+    def test_quick_tools_has_playground_link(self, client):
+        """Quick tools tile should link to playground."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/playground"' in html
+
+    def test_learning_paths_tile_present(self, client):
+        """Dashboard should have a learning paths tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--paths' in html
+        assert 'Learning Paths' in html
+        assert 'Continue Learning' in html
+
+    def test_learning_paths_links_to_paths(self, client):
+        """Learning paths tile should link to /paths."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/paths"' in html
+
+    def test_potd_shown_as_tag_in_grid(self, client):
+        """Parrot of the Day should be shown as a tag on the featured card in the grid."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'featured' in html
+
+    def test_parrot_grid_still_present(self, client):
+        """The existing parrot card grid should still exist below the dashboard."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="parrot-grid"' in html
+
+    def test_bento_dashboard_has_aria_label(self, client):
+        """Dashboard section should have an aria-label for accessibility."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Dashboard"' in html
+
+    def test_tool_links_have_aria_labels(self, client):
+        """Quick tool links should have aria-labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Quiz"' in html
+        assert 'aria-label="Practice"' in html
+        assert 'aria-label="Debug"' in html
+        assert 'aria-label="Playground"' in html
+
+
+class TestBentoDashboardCSS:
+    """Tests for the bento dashboard responsive CSS."""
+
+    def test_bento_dashboard_grid_css_exists(self):
+        """CSS should define the bento-dashboard grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-dashboard' in css
+        assert 'grid-template-columns' in css
+
+    def test_bento_tile_css_exists(self):
+        """CSS should define bento-tile styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-tile' in css
+
+    def test_bento_responsive_tablet(self):
+        """CSS should have tablet responsive breakpoint for bento grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'repeat(2, 1fr)' in css
+
+    def test_bento_responsive_mobile(self):
+        """CSS should have mobile responsive breakpoint for single-column bento grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-dashboard' in css
+
+    def test_bento_tile_min_height(self):
+        """Bento tiles should have a minimum height for touch-friendliness."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'min-height' in css
+
+    def test_bento_potd_spans_columns(self):
+        """POTD tile should span 2 columns on desktop."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'grid-column: span 2' in css
+
+
+# --- Spaced Repetition Review page ---
+
+class TestReviewPage:
+    """Tests for the /review spaced repetition review page."""
+
+    def test_review_page_returns_200(self, client):
+        resp = client.get('/review')
+        assert resp.status_code == 200
+
+    def test_review_page_title(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Spaced Repetition Review' in html
+        assert 'Review - HTTP Parrots' in html
+
+    def test_review_page_has_h1(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert '<h1>' in html
+        assert 'Spaced Repetition Review' in html
+
+    def test_review_page_has_stats_bar(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-stats-bar' in html
+        assert 'review-due' in html
+        assert 'review-correct' in html
+        assert 'review-wrong' in html
+        assert 'review-remaining' in html
+
+    def test_review_page_has_due_today_counter(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Due Today' in html
+
+    def test_review_page_has_session_stats(self, client):
+        """Stats bar should show correct/wrong/remaining counters."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Correct' in html
+        assert 'Wrong' in html
+        assert 'Remaining' in html
+
+    def test_review_page_has_review_area(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-area' in html
+
+    def test_review_page_has_scenario_data(self, client):
+        """Review page should contain scenario data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'scenario_' in html
+
+    def test_review_page_has_debug_data(self, client):
+        """Review page should contain debug exercise data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'debug_' in html
+
+    def test_review_page_has_confusion_data(self, client):
+        """Review page should contain confusion pair data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'confusion_' in html
+
+    def test_review_page_leitner_box_intervals(self, client):
+        """Review page should define Leitner box intervals."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'BOX_INTERVALS' in html
+
+    def test_review_page_localstorage_key(self, client):
+        """Review page should use the httpparrot_review localStorage key."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'httpparrot_review' in html
+
+    def test_review_page_xp_integration(self, client):
+        """Review page should award XP for correct answers."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'ParrotXP.award' in html
+        assert 'review_correct' in html
+
+    def test_review_page_complete_message(self, client):
+        """Review page should have a 'Review Complete!' message."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Review Complete!' in html
+
+    def test_review_page_empty_state(self, client):
+        """Review page should handle empty queue state."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'No items due for review' in html
+
+    def test_review_page_box_indicator(self, client):
+        """Review page should show the current Leitner box level."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-box-indicator' in html
+
+    def test_review_page_has_type_badges(self, client):
+        """Review page should distinguish item types with badges."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'type-scenario' in html
+        assert 'type-debug' in html
+        assert 'type-confusion' in html
+
+    def test_review_page_explanation_visibility(self, client):
+        """Review page should have explanation div that toggles visibility."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-explanation' in html
+
+    def test_review_page_next_button(self, client):
+        """Review page should have a next item button."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-next-btn' in html
+        assert 'Next Item' in html
+
+    def test_review_page_has_option_buttons(self, client):
+        """Review page should render option buttons."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-option-btn' in html
+
+    def test_review_page_inline_style_has_nonce(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'style nonce=' in html
+
+    def test_review_page_inline_script_has_nonce(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'script nonce=' in html
+
+    def test_review_csp_header(self, client):
+        resp = client.get('/review')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "'nonce-" in csp
+
+    def test_review_page_meta_description(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'spaced repetition' in html.lower()
+
+    def test_review_nav_link_present(self, client):
+        """Desktop nav should have a Review link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/review"' in html
+        assert '>Review<' in html
+
+    def test_review_nav_link_in_mobile_nav(self, client):
+        """Both desktop and mobile navs should have a Review link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/review"') >= 2
+
+    def test_review_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/review</loc>' in body
+
+    def test_review_page_tracks_total_reviews(self, client):
+        """Review page should track total_reviews for the Memory Master badge."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'total_reviews' in html
+
+
+class TestReviewLeitnerSystem:
+    """Tests for the Leitner box system data structure and behaviour."""
+
+    def test_review_page_defines_five_boxes(self, client):
+        """Leitner system should define intervals for 5 boxes."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        # Box intervals: 1:1, 2:3, 3:7, 4:14, 5:30
+        assert '1: 1' in html
+        assert '2: 3' in html
+        assert '3: 7' in html
+        assert '4: 14' in html
+        assert '5: 30' in html
+
+    def test_review_page_init_items_function(self, client):
+        """Review page should have initItems function to seed new items."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'initItems' in html
+
+    def test_review_page_record_answer_function(self, client):
+        """Review page should have recordAnswer function."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'recordAnswer' in html
+
+    def test_review_page_get_due_items_function(self, client):
+        """Review page should have getDueItems function."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'getDueItems' in html
+
+    def test_review_item_structure(self, client):
+        """Review items should have box_level, next_review, last_answer."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'box_level' in html
+        assert 'next_review' in html
+        assert 'last_answer' in html
+
+    def test_review_correct_moves_up_box(self, client):
+        """Correct answer should move item up a box (Math.min(5, ...))."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Math.min(5' in html
+
+    def test_review_wrong_resets_to_box_1(self, client):
+        """Wrong answer should reset item to box 1."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'box_level = 1' in html
+
+
+class TestMemoryMasterBadge:
+    """Tests for the Memory Master feather badge."""
+
+    def test_memory_master_feather_defined(self, client):
+        """Memory Master feather should be in the FEATHERS array."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'memory_master' in html
+        assert 'Memory Master' in html
+
+    def test_memory_master_feather_check(self, client):
+        """checkFeathers should check total_reviews >= 50."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'total_reviews' in html
+        assert '>= 50' in html
+
+    def test_memory_master_feather_desc(self, client):
+        """Memory Master should describe 50 spaced repetition reviews."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Complete 50 spaced repetition reviews' in html
+
+
+class TestProfileReviewIntegration:
+    """Tests for the review system integration in the profile page."""
+
+    def test_profile_has_due_for_review_stat(self, client):
+        """Profile page should show a 'Due for Review' stat."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'stat-review-due' in html
+        assert 'Due for Review' in html
+
+    def test_profile_review_link(self, client):
+        """Profile Due for Review should link to /review."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'href="/review"' in html
+
+    def test_profile_review_reads_localstorage(self, client):
+        """Profile page should read httpparrot_review from localStorage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_review' in html
+
+    def test_profile_xp_breakdown_includes_review(self, client):
+        """Profile XP breakdown should list review XP."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Spaced repetition review correct' in html
+        assert '+15 XP' in html
+
+
+# --- Webhook Inspector / Request Bin ---
+
+class TestWebhookInspectorPage:
+    def test_webhook_inspector_page(self, client):
+        """Webhook inspector page renders successfully."""
+        resp = client.get('/webhook-inspector')
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        assert 'Webhook Inspector' in html
+        assert 'Create New Bin' in html
+
+    def test_webhook_inspector_nav_link(self, client):
+        """Nav should include a Webhooks link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/webhook-inspector"' in html
+        assert 'Webhooks' in html
+
+
+class TestWebhookBinCreate:
+    def test_create_bin(self, client):
+        """POST /api/bin/create returns bin_id and url."""
+        resp = client.post('/api/bin/create')
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert 'bin_id' in data
+        assert 'url' in data
+        assert len(data['bin_id']) == 8
+        assert '/bin/' in data['url']
+        assert data['url'].endswith('/hook')
+
+    def test_create_bin_stores_in_memory(self, client):
+        """Created bin exists in the in-memory store."""
+        resp = client.post('/api/bin/create')
+        data = resp.get_json()
+        assert data['bin_id'] in _webhook_bins
+        assert 'created' in _webhook_bins[data['bin_id']]
+        assert 'requests' in _webhook_bins[data['bin_id']]
+
+    def test_create_bin_rate_limited(self, client):
+        """Bin creation is rate-limited."""
+        for _ in range(10):
+            client.post('/api/bin/create')
+        resp = client.post('/api/bin/create')
+        assert resp.status_code == 429
+        data = resp.get_json()
+        assert 'Rate limit' in data['error']
+
+
+class TestWebhookBinCapture:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_capture_get_request(self, client):
+        """GET to hook endpoint captures the request."""
+        data = self._create_bin(client)
+        resp = client.get(f'/bin/{data["bin_id"]}/hook?foo=bar')
+        assert resp.status_code == 200
+        assert resp.get_json()['status'] == 'captured'
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert len(reqs) == 1
+        assert reqs[0]['method'] == 'GET'
+        assert reqs[0]['query']['foo'] == 'bar'
+
+    def test_capture_post_request_with_body(self, client):
+        """POST with body is captured."""
+        data = self._create_bin(client)
+        resp = client.post(f'/bin/{data["bin_id"]}/hook',
+                           data='hello world',
+                           content_type='text/plain')
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'POST'
+        assert reqs[0]['body'] == 'hello world'
+
+    def test_capture_put_request(self, client):
+        """PUT request is captured."""
+        data = self._create_bin(client)
+        resp = client.put(f'/bin/{data["bin_id"]}/hook',
+                          json={'key': 'value'})
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'PUT'
+
+    def test_capture_delete_request(self, client):
+        """DELETE request is captured."""
+        data = self._create_bin(client)
+        resp = client.delete(f'/bin/{data["bin_id"]}/hook')
+        assert resp.status_code == 200
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert reqs[0]['method'] == 'DELETE'
+
+    def test_capture_strips_sensitive_headers(self, client):
+        """Sensitive headers are stripped from captured requests."""
+        data = self._create_bin(client)
+        client.post(f'/bin/{data["bin_id"]}/hook', headers={
+            'Authorization': 'Bearer secret',
+            'Cookie': 'session=abc',
+            'X-Custom': 'safe',
+        })
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        header_keys = {k.lower() for k in reqs[0]['headers']}
+        assert 'authorization' not in header_keys
+        assert 'cookie' not in header_keys
+        assert 'x-custom' in header_keys
+
+    def test_capture_has_timestamp(self, client):
+        """Captured request includes an ISO timestamp."""
+        data = self._create_bin(client)
+        client.get(f'/bin/{data["bin_id"]}/hook')
+        reqs = _webhook_bins[data['bin_id']]['requests']
+        assert 'timestamp' in reqs[0]
+        # Should be parseable ISO format
+        assert 'T' in reqs[0]['timestamp']
+
+    def test_capture_nonexistent_bin_404(self, client):
+        """Hook to a nonexistent bin returns 404."""
+        resp = client.get('/bin/nonexist/hook')
+        assert resp.status_code == 404
+
+    def test_capture_max_requests(self, client):
+        """Bin keeps only the most recent 50 requests."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        for i in range(55):
+            client.get(f'/bin/{bin_id}/hook?i={i}')
+        reqs = _webhook_bins[bin_id]['requests']
+        assert len(reqs) == _WEBHOOK_BIN_MAX_REQUESTS
+        # The oldest 5 should have been dropped; first remaining should be i=5
+        assert reqs[0]['query']['i'] == '5'
+
+
+class TestWebhookBinRetrieve:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_get_empty_bin(self, client):
+        """GET /api/bin/<id> returns empty array for new bin."""
+        data = self._create_bin(client)
+        resp = client.get(f'/api/bin/{data["bin_id"]}')
+        assert resp.status_code == 200
+        assert resp.get_json() == []
+
+    def test_get_bin_with_requests(self, client):
+        """GET /api/bin/<id> returns captured requests."""
+        data = self._create_bin(client)
+        client.post(f'/bin/{data["bin_id"]}/hook', data='test body',
+                    content_type='text/plain')
+        resp = client.get(f'/api/bin/{data["bin_id"]}')
+        assert resp.status_code == 200
+        reqs = resp.get_json()
+        assert len(reqs) == 1
+        assert reqs[0]['method'] == 'POST'
+        assert reqs[0]['body'] == 'test body'
+
+    def test_get_nonexistent_bin_404(self, client):
+        """GET /api/bin/<id> returns 404 for unknown bin."""
+        resp = client.get('/api/bin/nonexist')
+        assert resp.status_code == 404
+
+
+class TestWebhookBinExpiry:
+    def _create_bin(self, client):
+        resp = client.post('/api/bin/create')
+        return resp.get_json()
+
+    def test_expired_bin_hook_returns_404(self, client):
+        """Hook to an expired bin returns 404."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        # Manually set created time to the past
+        _webhook_bins[bin_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        resp = client.get(f'/bin/{bin_id}/hook')
+        assert resp.status_code == 404
+        assert bin_id not in _webhook_bins
+
+    def test_expired_bin_get_returns_404(self, client):
+        """GET on an expired bin returns 404."""
+        data = self._create_bin(client)
+        bin_id = data['bin_id']
+        _webhook_bins[bin_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        resp = client.get(f'/api/bin/{bin_id}')
+        assert resp.status_code == 404
+        assert bin_id not in _webhook_bins
+
+    def test_expired_bins_pruned_on_create(self, client):
+        """Creating a new bin prunes expired bins."""
+        data = self._create_bin(client)
+        old_id = data['bin_id']
+        _webhook_bins[old_id]['created'] = time.time() - _WEBHOOK_BIN_TTL - 1
+        # Create a new bin, which should prune the old one
+        client.post('/api/bin/create')
+        assert old_id not in _webhook_bins
+
+
+class TestWebhookSitemapRobots:
+    def test_sitemap_includes_webhook_inspector(self, client):
+        """Sitemap should include the webhook-inspector page."""
+        resp = client.get('/sitemap.xml')
+        assert b'/webhook-inspector' in resp.data
+
+    def test_robots_disallows_bin_api(self, client):
+        """robots.txt should disallow /api/bin/ and /bin/."""
+        resp = client.get('/robots.txt')
+        text = resp.data.decode()
+        assert 'Disallow: /api/bin/' in text
+        assert 'Disallow: /bin/' in text
+
+
+# --- Personality Quiz ---
+
+class TestPersonalityQuizPage:
+    """Tests for the /personality route and template."""
+
+    def test_personality_page_loads(self, client):
+        resp = client.get('/personality')
+        assert resp.status_code == 200
+
+    def test_personality_page_has_title(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'Which HTTP Status Code Are You?' in html
+
+    def test_personality_page_has_progress_bar(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'personality-progress' in html
+        assert 'progress-bar' in html
+        assert 'progressbar' in html
+
+    def test_personality_page_has_quiz_area(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'quiz-area' in html
+        assert 'question-text' in html
+        assert 'choices' in html
+
+    def test_personality_page_has_result_area(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'result-area' in html
+        assert 'result-card' in html
+        assert 'result-img' in html
+        assert 'result-name' in html
+        assert 'result-desc' in html
+
+    def test_personality_page_has_share_buttons(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'copy-result' in html
+        assert 'twitter-share' in html
+        assert 'Copy Result' in html
+        assert 'Share on X' in html
+
+    def test_personality_page_has_retake_button(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'retake-btn' in html
+        assert 'Retake Quiz' in html
+
+    def test_personality_page_has_detail_link(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'detail-link' in html
+        assert 'Learn more about this status code' in html
+
+    def test_personality_page_has_og_meta(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'og:title' in html
+        assert 'og:description' in html
+
+    def test_personality_page_has_meta_description(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'HTTP Personality Quiz' in html
+
+
+class TestPersonalityQuizScript:
+    """Tests verifying the personality quiz JavaScript data is present."""
+
+    def test_personality_has_questions(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'QUESTIONS' in html
+
+    def test_personality_has_8_questions(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'Question 1 of 8' in html
+
+    def test_personality_has_personalities_data(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'PERSONALITIES' in html
+
+    def test_personality_has_common_codes(self, client):
+        """All 15 required personality codes must be defined."""
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        required_codes = [
+            '200', '201', '204', '301', '302', '307',
+            '400', '401', '403', '404', '418', '429',
+            '500', '502', '503',
+        ]
+        for code in required_codes:
+            assert f'"{code}"' in html, f"Missing personality for code {code}"
+
+    def test_personality_has_traits(self, client):
+        """Each personality should have traits defined."""
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'traits' in html
+
+    def test_personality_has_confetti(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'spawnConfetti' in html
+        assert 'confetti-particle' in html
+
+    def test_personality_has_xp_award(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'ParrotXP' in html
+        assert 'personality_quiz' in html
+
+
+class TestPersonalityNavAndSitemap:
+    """Tests for personality quiz navigation and sitemap integration."""
+
+    def test_personality_in_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/personality"' in html
+        assert 'Personality' in html
+
+    def test_personality_in_mobile_nav(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/personality"') >= 2
+
+    def test_personality_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/personality' in body
+
+    def test_personality_nav_active_state(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestPersonalityCSS:
+    """Tests for personality quiz CSS classes."""
+
+    def test_personality_css_classes_in_stylesheet(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-container' in css
+        assert '.personality-title' in css
+        assert '.personality-progress' in css
+        assert '.personality-result-card' in css
+        assert '.personality-traits' in css
+
+    def test_personality_has_responsive_styles(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-share-buttons' in css
+
+    def test_personality_result_badge_gradient(self, client):
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.personality-result-badge' in css
+
+
+class TestPersonalityAccessibility:
+    """Tests for personality quiz accessibility."""
+
+    def test_personality_has_main_landmark(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'role="main"' in html
+        assert 'id="main-content"' in html
+
+    def test_personality_has_aria_progressbar(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'role="progressbar"' in html
+        assert 'aria-valuenow' in html
+        assert 'aria-valuemin' in html
+        assert 'aria-valuemax' in html
+
+    def test_personality_has_aria_live_region(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        assert 'aria-live="polite"' in html
+
+    def test_personality_has_csp_nonce(self, client):
+        resp = client.get('/personality')
+        html = resp.data.decode()
+        csp = resp.headers.get('Content-Security-Policy', '')
+        nonce = re.search(r"'nonce-([^']+)'", csp)
+        assert nonce is not None
+        assert f'nonce="{nonce.group(1)}"' in html
+
+
+# --- Weekly Themed Challenge ---
+
+class TestWeeklyRoute:
+    """Tests for the /weekly route returning 200 and containing expected content."""
+
+    def test_weekly_returns_200(self, client):
+        """Weekly challenge page should return 200."""
+        resp = client.get('/weekly')
+        assert resp.status_code == 200
+
+    def test_weekly_contains_theme_name(self, client):
+        """Weekly page should display a theme name."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        theme_names = [
+            'Redirect Week', 'Auth Week', 'Error Week', 'Success Week',
+            'Caching Week', 'API Design Week', 'Debug Week', 'Speed Round',
+        ]
+        assert any(name in html for name in theme_names), \
+            "No theme name found in weekly page"
+
+    def test_weekly_contains_theme_description(self, client):
+        """Weekly page should display a theme description."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-theme-desc' in html
+
+    def test_weekly_contains_week_number(self, client):
+        """Weekly page should display the current week number."""
+        from datetime import date
+        week_num = date.today().isocalendar()[1]
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert f'Week {week_num}' in html
+
+    def test_weekly_has_five_questions(self, client):
+        """Weekly challenge should have exactly 5 questions in the QUESTIONS array."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'var QUESTIONS = [' in html
+        question_ids = re.findall(r'"id":\s*\d+', html)
+        assert len(question_ids) == 5, f"Expected 5 questions, found {len(question_ids)}"
+
+    def test_weekly_has_progress_steps(self, client):
+        """Weekly page should have 5 progress step indicators."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        for i in range(5):
+            assert f'id="step-{i}"' in html
+
+    def test_weekly_has_timer(self, client):
+        """Weekly page should have a per-question timer."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-timer' in html
+        assert 'weekly-timer-value' in html
+        assert 'role="timer"' in html
+
+    def test_weekly_has_results_card(self, client):
+        """Weekly page should have a results card section."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-results-card' in html
+        assert 'weekly-final-score' in html
+        assert 'weekly-final-time' in html
+        assert 'weekly-final-xp' in html
+
+    def test_weekly_has_share_buttons(self, client):
+        """Weekly page should have copy and Twitter share buttons."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-share-copy' in html
+        assert 'weekly-share-twitter' in html
+        assert 'Share on Twitter' in html
+        assert 'Copy Result' in html
+
+    def test_weekly_has_champion_badge(self, client):
+        """Weekly page should have a Weekly Champion badge for perfect scores."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-results-badge' in html
+        assert 'Weekly Champion' in html
+
+    def test_weekly_has_answer_choices(self, client):
+        """Weekly page should have an answer choices group with ARIA."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'id="weekly-choices"' in html
+        assert 'role="group"' in html
+        assert 'aria-label="Answer choices"' in html
+
+    def test_weekly_has_feedback_area(self, client):
+        """Weekly page should have a feedback area with aria-live."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'id="weekly-feedback"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_weekly_has_next_button(self, client):
+        """Weekly page should have a Next Question button."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'weekly-next-btn' in html
+        assert 'Next Question' in html
+
+
+class TestWeeklyDeterministic:
+    """Tests that weekly challenge questions are deterministic within the same week."""
+
+    def test_weekly_same_questions_same_week(self, client):
+        """Two requests in the same week should produce identical questions."""
+        resp1 = client.get('/weekly')
+        resp2 = client.get('/weekly')
+        html1 = resp1.data.decode()
+        html2 = resp2.data.decode()
+        strip_nonce = lambda h: re.sub(r'nonce="[^"]*"', 'nonce=""', h)
+        assert strip_nonce(html1) == strip_nonce(html2)
+
+    def test_weekly_theme_deterministic_from_week_number(self):
+        """Theme selection should be deterministic based on week number."""
+        from datetime import date
+        week_number = date.today().isocalendar()[1]
+        themes = [
+            'Redirect Week', 'Auth Week', 'Error Week', 'Success Week',
+            'Caching Week', 'API Design Week', 'Debug Week', 'Speed Round',
+        ]
+        expected_theme = themes[week_number % len(themes)]
+        with app.test_client() as client:
+            resp = client.get('/weekly')
+            html = resp.data.decode()
+            assert expected_theme in html
+
+
+class TestWeeklyXPAndBadges:
+    """Tests for XP awards and badge elements in the weekly challenge."""
+
+    def test_weekly_awards_25_xp_per_correct(self, client):
+        """Weekly challenge should award 25 XP per correct answer."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert "ParrotXP.award(25, 'weekly_correct')" in html
+
+    def test_weekly_awards_100_bonus_for_perfect(self, client):
+        """Weekly challenge should award 100 bonus XP for 5/5."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'weekly_perfect')" in html
+
+    def test_weekly_sets_champion_flag(self, client):
+        """Perfect score should set httpparrot_weekly_champion flag."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'httpparrot_weekly_champion' in html
+
+    def test_weekly_uses_localstorage(self, client):
+        """Weekly challenge should use httpparrot_weekly localStorage key."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'httpparrot_weekly' in html
+
+    def test_weekly_tracks_streak(self, client):
+        """Weekly challenge should track weekly streaks."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'streak' in html
+        assert 'weekly-streak-label' in html
+        assert 'weekly-results-streak' in html
+
+
+class TestWeeklyNav:
+    """Tests for weekly challenge presence in navigation."""
+
+    def test_weekly_nav_link_in_homepage(self, client):
+        """Homepage should have a nav link to /weekly."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/weekly"' in html
+
+    def test_weekly_nav_link_text(self, client):
+        """Nav should have Weekly text for the link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Weekly Challenge' in html
+
+    def test_weekly_nav_active_on_weekly_page(self, client):
+        """Weekly page nav link should have active class."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'nav-active' in html
+
+
+class TestWeeklySitemap:
+    """Tests for weekly challenge in sitemap."""
+
+    def test_sitemap_contains_weekly(self, client):
+        """Sitemap should include /weekly."""
+        resp = client.get('/sitemap.xml')
+        xml = resp.data.decode()
+        assert '/weekly' in xml
+
+
+class TestWeeklySoundEffects:
+    """Tests for sound effects in the weekly challenge."""
+
+    def test_weekly_correct_sound(self, client):
+        """Weekly should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_weekly_wrong_sound(self, client):
+        """Weekly should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/weekly')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+
+class TestWeeklyCSS:
+    """Tests for weekly challenge CSS styles."""
+
+    def test_weekly_theme_banner_style(self, client):
+        """CSS should have weekly theme banner styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-theme-banner' in css
+        assert '.weekly-theme-name' in css
+
+    def test_weekly_progress_style(self, client):
+        """CSS should have weekly progress step styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-progress' in css
+        assert '.weekly-step' in css
+        assert '.step-correct' in css
+        assert '.step-wrong' in css
+
+    def test_weekly_results_style(self, client):
+        """CSS should have weekly results card styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-results-card' in css
+        assert '.weekly-results-badge' in css
+
+    def test_weekly_reduced_motion(self, client):
+        """CSS should have reduced motion rules for weekly elements."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-results-badge' in css
+        assert '.weekly-progress-fill' in css

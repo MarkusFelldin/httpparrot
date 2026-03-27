@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Challenge: {{ theme.name }} - HTTP Parrots{% endblock %}
+{% block subtitle %}Weekly Challenge{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Weekly themed HTTP status code challenge. This week: {{ theme.name }}. Answer 5 questions, earn XP, and compete!">
+{% endblock %}
+
+{% block content %}
+    <main class="quiz-container" id="main-content" role="main">
+        <div class="weekly-header">
+            <div class="weekly-theme-banner" role="banner">
+                <span class="weekly-theme-icon" aria-hidden="true">{{ theme.icon | safe }}</span>
+                <div class="weekly-theme-info">
+                    <h1 class="weekly-theme-name">{{ theme.name }}</h1>
+                    <p class="weekly-theme-desc">{{ theme.description }}</p>
+                </div>
+            </div>
+            <div class="weekly-meta">
+                <span class="weekly-week-label">Week {{ week_number }}</span>
+                <span class="weekly-streak-label" id="weekly-streak-label"></span>
+            </div>
+        </div>
+
+        <div class="weekly-progress" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" id="weekly-progress-bar">
+            <div class="weekly-progress-steps">
+                <span class="weekly-step" id="step-0">1</span>
+                <span class="weekly-step" id="step-1">2</span>
+                <span class="weekly-step" id="step-2">3</span>
+                <span class="weekly-step" id="step-3">4</span>
+                <span class="weekly-step" id="step-4">5</span>
+            </div>
+            <div class="weekly-progress-fill" id="weekly-progress-fill"></div>
+        </div>
+
+        <div class="weekly-timer" id="weekly-timer" aria-live="polite" role="timer">
+            <span class="weekly-timer-icon" aria-hidden="true">&#x23F1;&#xFE0F;</span>
+            <span class="weekly-timer-value" id="weekly-timer-value">0.0s</span>
+        </div>
+
+        <div class="weekly-question-area" id="weekly-question-area">
+            <div class="weekly-scenario" id="weekly-scenario">
+                <div class="weekly-scenario-label">Question <span id="weekly-q-num">1</span> of 5</div>
+                <div class="weekly-scenario-text" id="weekly-scenario-text"></div>
+            </div>
+
+            <div class="quiz-choices" id="weekly-choices" role="group" aria-label="Answer choices">
+            </div>
+
+            <div class="quiz-feedback" id="weekly-feedback" aria-live="polite" role="status"></div>
+
+            <button class="btn-back weekly-next-btn" id="weekly-next-btn" style="display:none;">Next Question</button>
+        </div>
+
+        <div class="weekly-results" id="weekly-results" style="display:none;" role="region" aria-label="Challenge results">
+            <h2 class="weekly-results-title">Challenge Complete!</h2>
+            <div class="weekly-results-card">
+                <div class="weekly-results-theme">
+                    <span aria-hidden="true">{{ theme.icon | safe }}</span> {{ theme.name }}
+                </div>
+                <div class="weekly-results-score">
+                    <div class="score-item">
+                        <div class="score-value" id="weekly-final-score">0</div>
+                        <div class="score-label">Correct</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-value" id="weekly-final-time">0s</div>
+                        <div class="score-label">Total Time</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-value" id="weekly-final-xp">0</div>
+                        <div class="score-label">XP Earned</div>
+                    </div>
+                </div>
+                <div class="weekly-results-grid" id="weekly-results-grid" aria-label="Answer results"></div>
+                <div class="weekly-results-badge" id="weekly-results-badge" style="display:none;">
+                    <span aria-hidden="true">&#x1FAB6;</span> Weekly Champion!
+                </div>
+                <div class="weekly-results-streak" id="weekly-results-streak"></div>
+            </div>
+            <div class="weekly-share-buttons">
+                <button class="btn-back weekly-share-copy" id="weekly-share-copy">Copy Result</button>
+                <a class="btn-back weekly-share-twitter" id="weekly-share-twitter" href="#" target="_blank" rel="noopener">Share on Twitter</a>
+            </div>
+        </div>
+
+        <div class="weekly-already" id="weekly-already" style="display:none;">
+            <div class="weekly-already-text">You already completed this week's challenge!</div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var QUESTIONS = {{ questions | tojson }};
+        var WEEK_NUMBER = {{ week_number }};
+        var THEME_NAME = {{ theme.name | tojson }};
+        var THEME_ICON = {{ theme.icon | tojson }};
+        var STORAGE_KEY = 'httpparrot_weekly';
+        var TOTAL = QUESTIONS.length;
+
+        var currentQ = 0;
+        var score = 0;
+        var answered = false;
+        var results = [];
+        var questionTimes = [];
+        var timerStart = 0;
+        var timerInterval = null;
+        var totalTime = 0;
+
+        function getState() {
+            try {
+                var raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) return JSON.parse(raw);
+            } catch(e) {}
+            return { lastWeek: 0, streak: 0, completed: false, score: 0, totalTime: 0, results: [] };
+        }
+
+        function saveState(state) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        }
+
+        function updateStreakLabel(streak) {
+            var el = document.getElementById('weekly-streak-label');
+            if (streak > 0) {
+                el.textContent = streak + '-week streak';
+            }
+        }
+
+        function startTimer() {
+            timerStart = Date.now();
+            var timerEl = document.getElementById('weekly-timer-value');
+            timerInterval = setInterval(function() {
+                var elapsed = (Date.now() - timerStart) / 1000;
+                timerEl.textContent = elapsed.toFixed(1) + 's';
+            }, 100);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            return (Date.now() - timerStart) / 1000;
+        }
+
+        function updateProgress(step, wasCorrect) {
+            var bar = document.getElementById('weekly-progress-bar');
+            bar.setAttribute('aria-valuenow', step + 1);
+            var fill = document.getElementById('weekly-progress-fill');
+            fill.style.width = ((step + 1) / TOTAL * 100) + '%';
+            var stepEl = document.getElementById('step-' + step);
+            stepEl.classList.add(wasCorrect ? 'step-correct' : 'step-wrong');
+        }
+
+        function buildButton(label, text, index) {
+            var btn = document.createElement('button');
+            btn.className = 'quiz-btn weekly-btn';
+            btn.dataset.index = index;
+            var labelSpan = document.createElement('span');
+            labelSpan.className = 'quiz-btn-label';
+            labelSpan.textContent = label;
+            var textSpan = document.createElement('span');
+            textSpan.className = 'quiz-btn-text';
+            textSpan.textContent = text;
+            btn.appendChild(labelSpan);
+            btn.appendChild(textSpan);
+            return btn;
+        }
+
+        function renderQuestion(idx) {
+            var q = QUESTIONS[idx];
+            document.getElementById('weekly-q-num').textContent = idx + 1;
+            document.getElementById('weekly-scenario-text').textContent = q.description;
+            document.getElementById('weekly-feedback').textContent = '';
+            document.getElementById('weekly-feedback').className = 'quiz-feedback';
+            document.getElementById('weekly-next-btn').style.display = 'none';
+
+            var choicesEl = document.getElementById('weekly-choices');
+            while (choicesEl.firstChild) choicesEl.removeChild(choicesEl.firstChild);
+            var labels = ['A', 'B', 'C', 'D'];
+            for (var i = 0; i < q.options.length; i++) {
+                choicesEl.appendChild(buildButton(labels[i], q.options[i], i));
+            }
+
+            answered = false;
+            startTimer();
+            attachChoiceHandlers(idx);
+        }
+
+        function attachChoiceHandlers(qIdx) {
+            var btns = document.querySelectorAll('.weekly-btn');
+            btns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    if (answered) return;
+                    answered = true;
+
+                    var elapsed = stopTimer();
+                    questionTimes.push(elapsed);
+
+                    var idx = parseInt(btn.dataset.index);
+                    var q = QUESTIONS[qIdx];
+                    var wasCorrect = (idx === q.correct_index);
+
+                    if (wasCorrect) {
+                        score++;
+                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(25, 'weekly_correct');
+                    }
+                    results.push(wasCorrect);
+
+                    btns.forEach(function(b) {
+                        b.disabled = true;
+                        if (parseInt(b.dataset.index) === q.correct_index) {
+                            b.classList.add('correct');
+                        }
+                    });
+                    if (!wasCorrect) {
+                        btn.classList.add('wrong');
+                    }
+
+                    var fb = document.getElementById('weekly-feedback');
+                    var selectedCode = q.options[idx];
+                    if (wasCorrect) {
+                        fb.textContent = 'Correct! ' + (q.explanations[selectedCode] || '');
+                        fb.className = 'quiz-feedback right';
+                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
+                    } else {
+                        fb.textContent = 'Nope! ' + (q.explanations[q.options[q.correct_index]] || 'The correct answer was ' + q.options[q.correct_index] + '.');
+                        fb.className = 'quiz-feedback nope';
+                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
+                    }
+
+                    updateProgress(qIdx, wasCorrect);
+
+                    if (qIdx < TOTAL - 1) {
+                        document.getElementById('weekly-next-btn').style.display = '';
+                    } else {
+                        setTimeout(function() { showResults(); }, 1200);
+                    }
+                });
+            });
+        }
+
+        function showResults() {
+            document.getElementById('weekly-question-area').style.display = 'none';
+            document.getElementById('weekly-timer').style.display = 'none';
+            document.getElementById('weekly-results').style.display = '';
+
+            totalTime = questionTimes.reduce(function(a, b) { return a + b; }, 0);
+
+            document.getElementById('weekly-final-score').textContent = score + '/' + TOTAL;
+            document.getElementById('weekly-final-time').textContent = totalTime.toFixed(1) + 's';
+
+            var xpEarned = score * 25;
+            if (score === TOTAL) {
+                xpEarned += 100;
+                document.getElementById('weekly-results-badge').style.display = '';
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'weekly_perfect');
+                localStorage.setItem('httpparrot_weekly_champion', 'true');
+                spawnConfetti(document.getElementById('weekly-results-badge'));
+            }
+            document.getElementById('weekly-final-xp').textContent = '+' + xpEarned;
+
+            var grid = '';
+            for (var i = 0; i < results.length; i++) {
+                grid += results[i] ? '\uD83D\uDFE2' : '\uD83D\uDD34';
+            }
+            document.getElementById('weekly-results-grid').textContent = grid;
+
+            var state = getState();
+            if (state.lastWeek === WEEK_NUMBER - 1) {
+                state.streak++;
+            } else if (state.lastWeek !== WEEK_NUMBER) {
+                state.streak = 1;
+            }
+            state.lastWeek = WEEK_NUMBER;
+            state.completed = true;
+            state.score = score;
+            state.totalTime = totalTime;
+            state.results = results;
+            saveState(state);
+
+            document.getElementById('weekly-results-streak').textContent =
+                state.streak > 1 ? state.streak + '-week streak!' : '';
+            updateStreakLabel(state.streak);
+
+            var shareText = THEME_ICON + ' HTTP Parrots Weekly: ' + THEME_NAME + '\n' +
+                grid + ' ' + score + '/' + TOTAL + '\n' +
+                'Time: ' + totalTime.toFixed(1) + 's\n' +
+                (state.streak > 1 ? state.streak + '-week streak!\n' : '') +
+                'httpparrots.com/weekly';
+
+            var copyBtn = document.getElementById('weekly-share-copy');
+            copyBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(shareText).then(function() {
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                }).catch(function() {
+                    copyBtn.textContent = 'Failed';
+                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                });
+            });
+            var twitterUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText);
+            document.getElementById('weekly-share-twitter').href = twitterUrl;
+        }
+
+        function spawnConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            for (var i = 0; i < 20; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 50 + Math.random() * 100;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        document.getElementById('weekly-next-btn').addEventListener('click', function() {
+            currentQ++;
+            renderQuestion(currentQ);
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (answered) return;
+            if (e.key >= '1' && e.key <= '4') {
+                var btns = document.querySelectorAll('.weekly-btn');
+                if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
+            }
+        });
+
+        // Init
+        var state = getState();
+        updateStreakLabel(state.streak);
+
+        if (state.lastWeek === WEEK_NUMBER && state.completed) {
+            score = state.score || 0;
+            totalTime = state.totalTime || 0;
+            results = state.results || [];
+            showResults();
+            document.getElementById('weekly-already').style.display = '';
+            return;
+        }
+
+        renderQuestion(0);
+    })();
+    </script>
+{% endblock %}

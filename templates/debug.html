@@ -1,0 +1,694 @@
+{% extends "base.html" %}
+
+{% block title %}Debug This Response - HTTP Parrots{% endblock %}
+{% block subtitle %}Debug This Response{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Find the bugs in broken HTTP responses. Practice identifying missing headers, wrong status codes, and protocol violations.">
+{% endblock %}
+
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+.debug-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+.debug-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.debug-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0 0 0.5rem;
+}
+.debug-header p {
+    color: #a0a0b0;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.debug-score-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.debug-score-item {
+    text-align: center;
+}
+.debug-score-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f0f0f0;
+    font-family: 'JetBrains Mono', monospace;
+}
+.debug-score-value.score-found-val { color: #2dd4a8; }
+.debug-score-value.score-missed-val { color: #ff6b6b; }
+.debug-score-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.debug-filters {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+.debug-filter-btn {
+    padding: 0.5rem 1.2rem 0.5rem 1.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #c0c0d0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    position: relative;
+}
+.debug-filter-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #f0f0f0;
+}
+.debug-filter-btn.active {
+    color: #f0f0f0;
+    border-color: rgba(255,255,255,0.2);
+}
+.debug-filter-btn.active[data-difficulty="all"] {
+    background: rgba(255,255,255,0.12);
+}
+.debug-filter-btn.active[data-difficulty="beginner"] {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+    border-color: rgba(0, 201, 167, 0.3);
+}
+.debug-filter-btn.active[data-difficulty="intermediate"] {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+    border-color: rgba(249, 199, 79, 0.3);
+}
+.debug-filter-btn.active[data-difficulty="expert"] {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+    border-color: rgba(233, 69, 96, 0.3);
+}
+.debug-filter-btn.active[data-category="all"] {
+    background: rgba(255,255,255,0.12);
+}
+.debug-filter-btn.active[data-category="auth"] {
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+    border-color: rgba(123, 97, 255, 0.3);
+}
+.debug-filter-btn.active[data-category="caching"] {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.3);
+}
+.debug-filter-btn.active[data-category="redirects"] {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+    border-color: rgba(249, 199, 79, 0.3);
+}
+.debug-filter-btn.active[data-category="crud"] {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+    border-color: rgba(0, 201, 167, 0.3);
+}
+.debug-filter-btn.active[data-category="errors"] {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+    border-color: rgba(233, 69, 96, 0.3);
+}
+.debug-filter-btn.active[data-category="headers"] {
+    background: rgba(251, 146, 60, 0.15);
+    color: #fb923c;
+    border-color: rgba(251, 146, 60, 0.3);
+}
+.debug-filter-btn.active[data-category="api-design"] {
+    background: rgba(232, 121, 249, 0.15);
+    color: #e879f9;
+    border-color: rgba(232, 121, 249, 0.3);
+}
+.debug-filter-row-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+    align-self: center;
+}
+.debug-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.debug-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.2s;
+}
+.debug-card:hover {
+    border-color: rgba(255,255,255,0.12);
+}
+.debug-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+.debug-difficulty-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.debug-difficulty-badge.beginner {
+    background: rgba(0, 201, 167, 0.15);
+    color: #2dd4a8;
+}
+.debug-difficulty-badge.intermediate {
+    background: rgba(249, 199, 79, 0.15);
+    color: #f9c74f;
+}
+.debug-difficulty-badge.expert {
+    background: rgba(233, 69, 96, 0.15);
+    color: #ff6b6b;
+}
+.debug-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f0f0f0;
+}
+.debug-description {
+    color: #b0b0c0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+.debug-exchange {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+.debug-panel {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.debug-panel-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.4rem 0.75rem;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.debug-panel-label.request-label { color: #7b61ff; }
+.debug-panel-label.response-label { color: #f9c74f; }
+.debug-panel pre {
+    margin: 0;
+    padding: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #d0d0e0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.debug-bugs-section {
+    margin-bottom: 1rem;
+}
+.debug-bugs-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #c0c0d0;
+    margin-bottom: 0.5rem;
+}
+.debug-bug-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.35rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.debug-bug-option:hover {
+    background: rgba(255,255,255,0.04);
+}
+.debug-bug-option input[type="checkbox"] {
+    margin-top: 0.2rem;
+    accent-color: #7b61ff;
+    cursor: pointer;
+}
+.debug-bug-option label {
+    color: #d0d0e0;
+    font-size: 0.9rem;
+    cursor: pointer;
+    line-height: 1.4;
+}
+.debug-submit-btn {
+    display: inline-block;
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid rgba(123, 97, 255, 0.4);
+    background: rgba(123, 97, 255, 0.15);
+    color: #a78bfa;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.debug-submit-btn:hover:not(:disabled) {
+    background: rgba(123, 97, 255, 0.25);
+    color: #c4b5fd;
+    border-color: rgba(123, 97, 255, 0.6);
+}
+.debug-submit-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+.debug-results {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    border-left: 3px solid #7b61ff;
+    display: none;
+}
+.debug-results.visible {
+    display: block;
+}
+.debug-result-summary {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+.debug-result-summary.perfect {
+    color: #2dd4a8;
+}
+.debug-result-summary.partial {
+    color: #f9c74f;
+}
+.debug-result-summary.missed {
+    color: #ff6b6b;
+}
+.debug-result-item {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+}
+.debug-result-item.found {
+    background: rgba(0, 201, 167, 0.08);
+    border: 1px solid rgba(0, 201, 167, 0.2);
+}
+.debug-result-item.missed {
+    background: rgba(233, 69, 96, 0.08);
+    border: 1px solid rgba(233, 69, 96, 0.2);
+}
+.debug-result-item.false-positive {
+    background: rgba(249, 199, 79, 0.08);
+    border: 1px solid rgba(249, 199, 79, 0.2);
+}
+.debug-result-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+}
+.debug-result-item.found .debug-result-label { color: #2dd4a8; }
+.debug-result-item.missed .debug-result-label { color: #ff6b6b; }
+.debug-result-item.false-positive .debug-result-label { color: #f9c74f; }
+.debug-result-desc {
+    color: #d0d0e0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+.debug-result-explain {
+    color: #a0a0b0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.debug-detail-links {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.debug-detail-link {
+    color: #7b61ff;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.debug-detail-link:hover {
+    text-decoration: underline;
+    color: #a78bfa;
+}
+.debug-bug-option.correct-found label {
+    color: #2dd4a8;
+}
+.debug-bug-option.missed-bug label {
+    color: #ff6b6b;
+}
+.debug-bug-option.false-positive-bug label {
+    color: #f9c74f;
+}
+@media (max-width: 600px) {
+    .debug-exchange {
+        grid-template-columns: 1fr;
+    }
+    .debug-score-bar {
+        gap: 1rem;
+    }
+    .debug-filter-btn {
+        min-height: 44px;
+    }
+    .debug-submit-btn {
+        min-height: 44px;
+        width: 100%;
+    }
+}
+@media (max-width: 375px) {
+    .debug-container {
+        padding: 1.5rem 0.75rem 3rem;
+    }
+    .debug-card {
+        padding: 1rem 0.75rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <main class="debug-container" id="main-content" role="main">
+        <div class="debug-header">
+            <h1>Debug This Response</h1>
+            <p>Find the bugs in broken HTTP responses -- missing headers, wrong status codes, and protocol violations</p>
+        </div>
+
+        <div class="debug-score-bar" role="region" aria-label="Score tracker">
+            <div class="debug-score-item">
+                <div class="debug-score-value score-found-val" id="debug-found" aria-live="polite">0</div>
+                <div class="debug-score-label">Bugs Found</div>
+            </div>
+            <div class="debug-score-item">
+                <div class="debug-score-value score-missed-val" id="debug-missed" aria-live="polite">0</div>
+                <div class="debug-score-label">Missed</div>
+            </div>
+            <div class="debug-score-item">
+                <div class="debug-score-value" id="debug-remaining" aria-live="polite">{{ exercises|length }}</div>
+                <div class="debug-score-label">Remaining</div>
+            </div>
+        </div>
+
+        <div class="debug-filters" role="tablist" aria-label="Filter by difficulty">
+            <span class="debug-filter-row-label">Difficulty:</span>
+            <button class="debug-filter-btn active" data-difficulty="all" role="tab" aria-selected="true">All</button>
+            <button class="debug-filter-btn" data-difficulty="beginner" role="tab" aria-selected="false">Beginner</button>
+            <button class="debug-filter-btn" data-difficulty="intermediate" role="tab" aria-selected="false">Intermediate</button>
+            <button class="debug-filter-btn" data-difficulty="expert" role="tab" aria-selected="false">Expert</button>
+        </div>
+
+        <div class="debug-filters" role="tablist" aria-label="Filter by category">
+            <span class="debug-filter-row-label">Category:</span>
+            <button class="debug-filter-btn active" data-category="all" role="tab" aria-selected="true">All</button>
+            <button class="debug-filter-btn" data-category="auth" role="tab" aria-selected="false">Auth</button>
+            <button class="debug-filter-btn" data-category="caching" role="tab" aria-selected="false">Caching</button>
+            <button class="debug-filter-btn" data-category="redirects" role="tab" aria-selected="false">Redirects</button>
+            <button class="debug-filter-btn" data-category="crud" role="tab" aria-selected="false">CRUD</button>
+            <button class="debug-filter-btn" data-category="errors" role="tab" aria-selected="false">Errors</button>
+            <button class="debug-filter-btn" data-category="headers" role="tab" aria-selected="false">Headers</button>
+            <button class="debug-filter-btn" data-category="api-design" role="tab" aria-selected="false">API Design</button>
+        </div>
+
+        <div class="debug-cards" role="tabpanel">
+            {% for exercise in exercises %}
+            <div class="debug-card" data-difficulty="{{ exercise.difficulty }}" data-category="{{ exercise.category }}" data-id="{{ exercise.id }}" data-bugs="{{ exercise.bugs | tojson | e }}">
+                <div class="debug-card-header">
+                    <span class="debug-difficulty-badge {{ exercise.difficulty }}">{{ exercise.difficulty }}</span>
+                    <span class="debug-card-title">{{ exercise.title }}</span>
+                </div>
+                <div class="debug-description">{{ exercise.description }}</div>
+                <div class="debug-exchange">
+                    <div class="debug-panel">
+                        <div class="debug-panel-label request-label">Request</div>
+                        <pre>{{ exercise.request | highlight_http('request') }}</pre>
+                    </div>
+                    <div class="debug-panel">
+                        <div class="debug-panel-label response-label">Response</div>
+                        <pre>{{ exercise.response | highlight_http('response') }}</pre>
+                    </div>
+                </div>
+                <div class="debug-bugs-section">
+                    <div class="debug-bugs-title">Select what's wrong:</div>
+                    {% for bug in exercise.bugs %}
+                    <div class="debug-bug-option" data-bug-id="{{ bug.id }}">
+                        <input type="checkbox" id="bug-{{ exercise.id }}-{{ bug.id }}" data-exercise="{{ exercise.id }}" data-bug="{{ bug.id }}">
+                        <label for="bug-{{ exercise.id }}-{{ bug.id }}">{{ bug.description }}</label>
+                    </div>
+                    {% endfor %}
+                    {# Add plausible-but-wrong distractors #}
+                    {% if exercise.difficulty == 'beginner' %}
+                    <div class="debug-bug-option" data-bug-id="distractor-1">
+                        <input type="checkbox" id="bug-{{ exercise.id }}-distractor-1" data-exercise="{{ exercise.id }}" data-bug="distractor-1">
+                        <label for="bug-{{ exercise.id }}-distractor-1">Missing Content-Length header</label>
+                    </div>
+                    {% elif exercise.difficulty == 'intermediate' %}
+                    <div class="debug-bug-option" data-bug-id="distractor-1">
+                        <input type="checkbox" id="bug-{{ exercise.id }}-distractor-1" data-exercise="{{ exercise.id }}" data-bug="distractor-1">
+                        <label for="bug-{{ exercise.id }}-distractor-1">Should use HTTP/2 instead of HTTP/1.1</label>
+                    </div>
+                    {% elif exercise.difficulty == 'expert' %}
+                    <div class="debug-bug-option" data-bug-id="distractor-1">
+                        <input type="checkbox" id="bug-{{ exercise.id }}-distractor-1" data-exercise="{{ exercise.id }}" data-bug="distractor-1">
+                        <label for="bug-{{ exercise.id }}-distractor-1">Transfer-Encoding should be chunked</label>
+                    </div>
+                    {% endif %}
+                </div>
+                <button class="debug-submit-btn" data-exercise="{{ exercise.id }}">Check Answer</button>
+                <div class="debug-results" id="results-{{ exercise.id }}">
+                    <div class="debug-result-summary" id="summary-{{ exercise.id }}"></div>
+                    <div class="debug-result-items" id="result-items-{{ exercise.id }}"></div>
+                    <div class="debug-detail-links" id="links-{{ exercise.id }}">
+                        {% for code in exercise.related_codes %}
+                        <a href="/{{ code }}" class="debug-detail-link">Learn about {{ code }} &rarr;</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+    var totalFound = 0;
+    var totalMissed = 0;
+    var currentDifficulty = 'all';
+    var currentCategory = 'all';
+
+    function isCardVisible(card) {
+        var diff = card.getAttribute('data-difficulty');
+        var cat = card.getAttribute('data-category');
+        var diffMatch = currentDifficulty === 'all' || diff === currentDifficulty;
+        var catMatch = currentCategory === 'all' || cat === currentCategory;
+        return diffMatch && catMatch;
+    }
+
+    function applyFilters() {
+        var cards = document.querySelectorAll('.debug-card');
+        cards.forEach(function(card) {
+            card.style.display = isCardVisible(card) ? '' : 'none';
+        });
+        updateRemaining();
+    }
+
+    function updateRemaining() {
+        var cards = document.querySelectorAll('.debug-card');
+        var remaining = 0;
+        cards.forEach(function(card) {
+            if (isCardVisible(card) && !card.classList.contains('answered')) remaining++;
+        });
+        document.getElementById('debug-remaining').textContent = remaining;
+    }
+
+    // Difficulty filter buttons
+    var diffFilterBtns = document.querySelectorAll('.debug-filter-btn[data-difficulty]');
+    diffFilterBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            diffFilterBtns.forEach(function(b) {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            currentDifficulty = btn.getAttribute('data-difficulty');
+            applyFilters();
+        });
+    });
+
+    // Category filter buttons
+    var catFilterBtns = document.querySelectorAll('.debug-filter-btn[data-category]');
+    catFilterBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            catFilterBtns.forEach(function(b) {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            currentCategory = btn.getAttribute('data-category');
+            applyFilters();
+        });
+    });
+
+    function createResultItem(type, desc, explain) {
+        var div = document.createElement('div');
+        div.className = 'debug-result-item ' + type;
+
+        var labelEl = document.createElement('div');
+        labelEl.className = 'debug-result-label';
+        var labelText = type === 'found' ? 'Found' : type === 'missed' ? 'Missed' : 'False Positive';
+        labelEl.textContent = labelText;
+        div.appendChild(labelEl);
+
+        var descEl = document.createElement('div');
+        descEl.className = 'debug-result-desc';
+        descEl.textContent = desc;
+        div.appendChild(descEl);
+
+        var explainEl = document.createElement('div');
+        explainEl.className = 'debug-result-explain';
+        explainEl.textContent = explain;
+        div.appendChild(explainEl);
+
+        return div;
+    }
+
+    // Submit buttons
+    var submitBtns = document.querySelectorAll('.debug-submit-btn');
+    submitBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var exerciseId = btn.getAttribute('data-exercise');
+            var card = btn.closest('.debug-card');
+            if (card.classList.contains('answered')) return;
+            card.classList.add('answered');
+            btn.disabled = true;
+
+            // Parse the real bugs from data attribute
+            var bugsData = JSON.parse(card.getAttribute('data-bugs'));
+            var realBugIds = {};
+            bugsData.forEach(function(bug) {
+                realBugIds[bug.id] = bug;
+            });
+
+            // Get selected checkboxes
+            var checkboxes = card.querySelectorAll('input[type="checkbox"]');
+            var selected = {};
+            checkboxes.forEach(function(cb) {
+                cb.disabled = true;
+                if (cb.checked) {
+                    selected[cb.getAttribute('data-bug')] = true;
+                }
+            });
+
+            var found = 0;
+            var missed = 0;
+            var falsePositives = 0;
+            var resultItems = [];
+
+            // Check real bugs: found or missed
+            bugsData.forEach(function(bug) {
+                if (selected[bug.id]) {
+                    found++;
+                    resultItems.push({type: 'found', desc: bug.description, explain: bug.explanation});
+                    var option = card.querySelector('[data-bug-id="' + bug.id + '"]');
+                    if (option) option.classList.add('correct-found');
+                } else {
+                    missed++;
+                    resultItems.push({type: 'missed', desc: bug.description, explain: bug.explanation});
+                    var option = card.querySelector('[data-bug-id="' + bug.id + '"]');
+                    if (option) option.classList.add('missed-bug');
+                }
+            });
+
+            // Check false positives (selected distractors)
+            Object.keys(selected).forEach(function(bugId) {
+                if (!realBugIds[bugId]) {
+                    falsePositives++;
+                    resultItems.push({type: 'false-positive', desc: 'Not a real bug: this is actually fine', explain: 'This option was a distractor. Not every imperfection in an HTTP response is a bug.'});
+                    var option = card.querySelector('[data-bug-id="' + bugId + '"]');
+                    if (option) option.classList.add('false-positive-bug');
+                }
+            });
+
+            // Update global score
+            totalFound += found;
+            totalMissed += missed + falsePositives;
+            document.getElementById('debug-found').textContent = totalFound;
+            document.getElementById('debug-missed').textContent = totalMissed;
+
+            // XP integration
+            if (typeof ParrotXP !== 'undefined' && ParrotXP.award) {
+                for (var i = 0; i < found; i++) {
+                    ParrotXP.award(20, 'debug_correct');
+                }
+            }
+
+            // Render results
+            var summary = document.getElementById('summary-' + exerciseId);
+            var totalBugs = bugsData.length;
+            if (found === totalBugs && falsePositives === 0) {
+                summary.textContent = 'Perfect! You found all ' + totalBugs + ' bug' + (totalBugs > 1 ? 's' : '') + '.';
+                summary.className = 'debug-result-summary perfect';
+            } else if (found > 0) {
+                summary.textContent = 'Found ' + found + ' of ' + totalBugs + ' bug' + (totalBugs > 1 ? 's' : '') + (falsePositives > 0 ? ' (' + falsePositives + ' false positive' + (falsePositives > 1 ? 's' : '') + ')' : '') + '.';
+                summary.className = 'debug-result-summary partial';
+            } else {
+                summary.textContent = 'Missed all ' + totalBugs + ' bug' + (totalBugs > 1 ? 's' : '') + '. Review the explanations below.';
+                summary.className = 'debug-result-summary missed';
+            }
+
+            var itemsContainer = document.getElementById('result-items-' + exerciseId);
+            while (itemsContainer.firstChild) {
+                itemsContainer.removeChild(itemsContainer.firstChild);
+            }
+            resultItems.forEach(function(item) {
+                itemsContainer.appendChild(createResultItem(item.type, item.desc, item.explain));
+            });
+
+            var results = document.getElementById('results-' + exerciseId);
+            results.classList.add('visible');
+
+            updateRemaining();
+        });
+    });
+
+    updateRemaining();
+})();
+</script>
+{% endblock %}

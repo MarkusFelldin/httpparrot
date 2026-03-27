@@ -13,8 +13,8 @@ from urllib.parse import urlparse
 from xml.sax.saxutils import escape as xml_escape
 
 import requests as req
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, send_from_directory, url_for)
+from flask import (Flask, Response, abort, g, jsonify, redirect,
+                   render_template, request, send_from_directory, url_for)
 from flask_compress import Compress
 from markupsafe import Markup, escape
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -23,6 +23,11 @@ from status_descriptions import STATUS_INFO
 from status_extra import STATUS_EXTRA
 from http_examples import HTTP_EXAMPLES
 from scenarios import SCENARIOS
+from debug_exercises import DEBUG_EXERCISES
+from confusion_pairs import (CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG,
+                              CONFUSION_PAIRS_BY_CODE, CONFUSION_PAIR_CATEGORY_ORDER,
+                              PAIRS_BY_CATEGORY)
+from learning_paths import LEARNING_PATHS, LEARNING_PATHS_BY_ID
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -66,7 +71,8 @@ def highlight_http(text, panel_type='request'):
     """Add syntax-highlighting spans to HTTP request/response text.
 
     Wraps HTTP methods, status lines, and header names in styled spans
-    so CSS can colorize them without JavaScript.
+    so CSS can colorize them without JavaScript.  Each line is wrapped in
+    a ``<span class="http-line">`` so CSS can animate lines sequentially.
     """
     text = str(escape(text))
     # Highlight status lines first (response)
@@ -78,6 +84,11 @@ def highlight_http(text, panel_type='request'):
     # Highlight header names
     text = _HTTP_HEADER_RE.sub(
         r'<span class="http-hl-header">\1</span>\2', text)
+    # Wrap each line in a span for sequential animation
+    lines = text.split('\n')
+    text = '\n'.join(
+        f'<span class="http-line">{line}</span>' for line in lines
+    )
     return Markup(text)
 
 
@@ -188,6 +199,24 @@ def _ensure_scheme(url):
     if not url.startswith(('http://', 'https://')):
         return 'https://' + url
     return url
+
+
+# --- Webhook Inspector / Request Bin ---
+
+_webhook_bins = {}  # {bin_id: {created: timestamp, requests: [...]}}
+_WEBHOOK_BIN_TTL = 3600  # 1 hour
+_WEBHOOK_BIN_MAX_REQUESTS = 50
+_WEBHOOK_STRIP_HEADERS = {'authorization', 'cookie', 'proxy-authorization',
+                          'set-cookie', 'x-api-key'}
+
+
+def _prune_expired_bins():
+    """Remove bins older than TTL."""
+    now = time.time()
+    expired = [bid for bid, b in _webhook_bins.items()
+               if now - b['created'] > _WEBHOOK_BIN_TTL]
+    for bid in expired:
+        del _webhook_bins[bid]
 
 
 @app.context_processor
@@ -599,6 +628,7 @@ def get_featured_parrot():
 
 @app.errorhandler(404)
 def page_not_found(e):
+    """Render the custom interactive 404 page."""
     return render_template('404.html'), 404
 
 
@@ -629,6 +659,12 @@ def quiz():
     codes = pruned_status_codes()
     quiz_data = [{"code": c.code, "name": c.name, "image": c.image} for c in codes]
     return render_template('quiz.html', quiz_data=quiz_data)
+
+
+@app.route('/personality')
+def personality():
+    """Render the 'Which HTTP Status Code Are You?' personality quiz."""
+    return render_template('personality.html')
 
 
 @app.route('/daily')
@@ -680,14 +716,127 @@ def daily():
                            date_str=today.isoformat())
 
 
+@app.route('/weekly')
+def weekly():
+    """Render the weekly themed challenge — 5 questions from a rotating theme."""
+    today = date.today()
+    week_number = today.isocalendar()[1]
+    rng = random.Random(week_number)
+
+    WEEKLY_THEMES = [
+        {
+            "name": "Redirect Week",
+            "description": "Master the art of HTTP redirects. 301 or 302? 307 or 308? Prove you know the difference.",
+            "icon": "&#x27A1;&#xFE0F;",
+            "categories": ["redirects"],
+            "code_prefixes": ["3"],
+        },
+        {
+            "name": "Auth Week",
+            "description": "Authentication and authorization are the gatekeepers of the web. Do you know who gets in?",
+            "icon": "&#x1F512;",
+            "categories": ["auth"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "Error Week",
+            "description": "Client errors, server errors, and everything that can go wrong. Time to debug!",
+            "icon": "&#x1F6A8;",
+            "categories": ["errors"],
+            "code_prefixes": ["4", "5"],
+        },
+        {
+            "name": "Success Week",
+            "description": "Not everything is errors. Celebrate the 2xx codes that mean things went right!",
+            "icon": "&#x2705;",
+            "categories": ["crud"],
+            "code_prefixes": ["2"],
+        },
+        {
+            "name": "Caching Week",
+            "description": "304, ETag, If-Modified-Since. Make the web faster by knowing when not to fetch.",
+            "icon": "&#x26A1;",
+            "categories": ["caching"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "API Design Week",
+            "description": "Build better APIs. Know the right status codes for rate limits, content negotiation, and more.",
+            "icon": "&#x1F4E1;",
+            "categories": ["api-design"],
+            "code_prefixes": [],
+        },
+        {
+            "name": "Debug Week",
+            "description": "Server errors, bad gateways, and timeouts. Can you triage them all?",
+            "icon": "&#x1F41B;",
+            "categories": ["errors"],
+            "code_prefixes": ["5"],
+        },
+        {
+            "name": "Speed Round",
+            "description": "A wild mix from every category. Think fast, answer faster!",
+            "icon": "&#x1F3C3;",
+            "categories": [],
+            "code_prefixes": [],
+        },
+    ]
+
+    theme = WEEKLY_THEMES[week_number % len(WEEKLY_THEMES)]
+
+    # Select matching scenarios
+    candidates = []
+    for s in SCENARIOS:
+        if theme["categories"] and s["category"] in theme["categories"]:
+            candidates.append(s)
+        elif theme["code_prefixes"]:
+            if any(s["correct"].startswith(p) for p in theme["code_prefixes"]):
+                candidates.append(s)
+
+    # Speed Round or not enough matches: use all scenarios
+    if len(candidates) < 5:
+        candidates = list(SCENARIOS)
+
+    rng.shuffle(candidates)
+    questions = candidates[:5]
+
+    # Build question data with options and correct indices
+    question_data = []
+    for q in questions:
+        opts = list(q["options"])
+        rng.shuffle(opts)
+        correct_idx = opts.index(q["correct"])
+        question_data.append({
+            "id": q["id"],
+            "description": q["description"],
+            "options": opts,
+            "correct_index": correct_idx,
+            "correct_code": q["correct"],
+            "explanations": q["explanations"],
+        })
+
+    return render_template('weekly.html',
+                           theme=theme,
+                           questions=question_data,
+                           week_number=week_number,
+                           week_start=today.isoformat())
+
+
 @app.route('/practice')
 def practice():
     """Render the scenario-based practice page for HTTP status code training."""
     return render_template('practice.html', scenarios=SCENARIOS)
 
 
+@app.route('/debug')
+def debug_page():
+    """Render the Debug This Response exercise page."""
+    return render_template('debug.html', exercises=DEBUG_EXERCISES)
+
+
 @app.route('/api-docs')
 def api_docs():
+    """Render the API documentation page with endpoint reference and integration guides."""
     return render_template('api_docs.html')
 
 
@@ -704,6 +853,7 @@ def cheatsheet():
 
 @app.route('/flowchart')
 def flowchart():
+    """Render the interactive decision tree for choosing the right status code."""
     return render_template('flowchart.html')
 
 
@@ -740,8 +890,58 @@ def compare():
                            comparison_summaries=COMPARISON_SUMMARIES)
 
 
+_LEARN_CAT_COLORS = {
+    '1': '#48cae4', '2': '#2dd4a8', '3': '#f9c74f',
+    '4': '#ff6b6b', '5': '#a78bfa',
+}
+_LEARN_CAT_BGS = {
+    '1': 'rgba(72,202,228,0.10)', '2': 'rgba(45,212,168,0.10)',
+    '3': 'rgba(249,199,79,0.10)', '4': 'rgba(255,107,107,0.10)',
+    '5': 'rgba(167,139,250,0.10)',
+}
+
+
+@app.route('/learn')
+def learn_index():
+    """List all confusion pair lessons, grouped by category."""
+    return render_template('learn_index.html', pairs=CONFUSION_PAIRS,
+                           category_order=CONFUSION_PAIR_CATEGORY_ORDER,
+                           pairs_by_category=PAIRS_BY_CATEGORY)
+
+
+@app.route('/learn/<slug>')
+def learn_pair(slug):
+    """Render a confusion pair lesson page."""
+    pair = CONFUSION_PAIRS_BY_SLUG.get(slug)
+    if not pair:
+        abort(404)
+    code_names = {c: status_name(c) for c in pair['codes']}
+    code_images = {c: find_image(c) for c in pair['codes']}
+    code_info = {c: STATUS_INFO.get(c, {}) for c in pair['codes']}
+    return render_template('learn_pair.html', pair=pair,
+                           code_names=code_names, code_images=code_images,
+                           code_info=code_info, cat_colors=_LEARN_CAT_COLORS,
+                           cat_bgs=_LEARN_CAT_BGS)
+
+
+@app.route('/paths')
+def paths_index():
+    """List all guided learning paths with progress summaries."""
+    return render_template('paths_index.html', paths=LEARNING_PATHS)
+
+
+@app.route('/paths/<path_id>')
+def path_detail(path_id):
+    """Show a single learning path with step checklist and progress."""
+    path = LEARNING_PATHS_BY_ID.get(path_id)
+    if not path:
+        abort(404)
+    return render_template('path_detail.html', path=path)
+
+
 @app.route('/tester')
 def tester():
+    """Render the HTTP Tester page for checking URL status codes."""
     return render_template('tester.html')
 
 
@@ -755,6 +955,27 @@ def collection():
 def header_explainer():
     """Render the Header Explainer page for annotating HTTP headers."""
     return render_template('headers.html')
+
+
+@app.route('/profile')
+def profile():
+    """Render the XP profile page — all state stored client-side in localStorage."""
+    return render_template('profile.html')
+
+
+@app.route('/review')
+def review():
+    """Render the spaced repetition review page.
+
+    Passes scenario and debug exercise data to the template so the
+    client-side Leitner box system can build review items from them.
+    """
+    return render_template(
+        'review.html',
+        scenarios=SCENARIOS,
+        debug_exercises=DEBUG_EXERCISES,
+        confusion_pairs=CONFUSION_PAIRS,
+    )
 
 
 @app.route('/cors-checker')
@@ -814,6 +1035,196 @@ def check_cors():
         'allows_credentials': isinstance(actual_creds, str) and actual_creds.lower() == 'true',
     }
     return jsonify(results)
+
+
+@app.route('/security-audit')
+def security_audit():
+    """Render the Response Header Security Audit page."""
+    return render_template('security_audit.html')
+
+
+# Security header scoring rubric
+_SECURITY_CHECKS = [
+    {
+        'id': 'hsts',
+        'header': 'Strict-Transport-Security',
+        'points': 10,
+        'label': 'Strict-Transport-Security',
+        'desc': 'Ensures browsers only connect via HTTPS, preventing protocol downgrade attacks.',
+        'fix': 'Strict-Transport-Security: max-age=31536000; includeSubDomains',
+    },
+    {
+        'id': 'csp',
+        'header': 'Content-Security-Policy',
+        'points': 15,
+        'label': 'Content-Security-Policy',
+        'desc': 'Controls which resources the browser can load, mitigating XSS and injection attacks.',
+        'fix': "Content-Security-Policy: default-src 'self'; script-src 'self'",
+    },
+    {
+        'id': 'xcto',
+        'header': 'X-Content-Type-Options',
+        'points': 5,
+        'label': 'X-Content-Type-Options: nosniff',
+        'desc': 'Prevents browsers from MIME-sniffing the response, enforcing the declared content type.',
+        'fix': 'X-Content-Type-Options: nosniff',
+    },
+    {
+        'id': 'xfo',
+        'header': 'X-Frame-Options',
+        'points': 5,
+        'label': 'X-Frame-Options',
+        'desc': 'Prevents the page from being embedded in iframes, defending against clickjacking.',
+        'fix': 'X-Frame-Options: DENY',
+    },
+    {
+        'id': 'referrer',
+        'header': 'Referrer-Policy',
+        'points': 5,
+        'label': 'Referrer-Policy',
+        'desc': 'Controls how much referrer information is sent with outgoing requests.',
+        'fix': 'Referrer-Policy: strict-origin-when-cross-origin',
+    },
+    {
+        'id': 'permissions',
+        'header': 'Permissions-Policy',
+        'points': 5,
+        'label': 'Permissions-Policy',
+        'desc': 'Restricts which browser features (camera, mic, geolocation) the page can access.',
+        'fix': 'Permissions-Policy: camera=(), microphone=(), geolocation=()',
+    },
+    {
+        'id': 'server',
+        'header': 'Server',
+        'points': 5,
+        'label': 'No Server header leaking info',
+        'desc': 'The Server header can reveal software and version, aiding attackers in targeting known vulnerabilities.',
+        'fix': 'Remove or genericize the Server header in your web server config.',
+    },
+    {
+        'id': 'powered',
+        'header': 'X-Powered-By',
+        'points': 5,
+        'label': 'No X-Powered-By leaking info',
+        'desc': 'X-Powered-By reveals backend technology (e.g., Express, PHP), making targeted attacks easier.',
+        'fix': 'Remove the X-Powered-By header (e.g., app.disable("x-powered-by") in Express).',
+    },
+    {
+        'id': 'cookie',
+        'header': 'Set-Cookie',
+        'points': 10,
+        'label': 'Set-Cookie security attributes',
+        'desc': 'Cookies should use Secure (HTTPS only), HttpOnly (no JS access), and SameSite to prevent CSRF.',
+        'fix': 'Set-Cookie: session=abc; Secure; HttpOnly; SameSite=Lax',
+    },
+    {
+        'id': 'cors_wildcard',
+        'header': 'Access-Control-Allow-Origin',
+        'points': 5,
+        'label': 'CORS not wildcard *',
+        'desc': 'Using * for Access-Control-Allow-Origin allows any origin to read responses, which may leak data.',
+        'fix': 'Access-Control-Allow-Origin: https://your-trusted-domain.com',
+    },
+]
+
+
+def _run_security_checks(headers):
+    """Run all security header checks against the provided headers dict.
+
+    Returns (score, max_score, checks_list).
+    """
+    checks = []
+    score = 0
+    max_score = 0
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+
+    for check in _SECURITY_CHECKS:
+        hdr = check['header'].lower()
+        val = lower_headers.get(hdr, '')
+        result = {'id': check['id'], 'header': check['label'],
+                  'points': check['points'], 'desc': check['desc'],
+                  'fix': check['fix']}
+        max_score += check['points']
+
+        if check['id'] == 'xcto':
+            passed = val.lower() == 'nosniff' if val else False
+        elif check['id'] == 'server':
+            passed = not val or val.strip().lower() in ('', 'server')
+        elif check['id'] == 'powered':
+            passed = not val
+        elif check['id'] == 'cookie':
+            set_cookies = [v for k, v in headers.items() if k.lower() == 'set-cookie']
+            if not set_cookies:
+                passed = True
+            else:
+                all_good = True
+                for cookie in set_cookies:
+                    cl = cookie.lower()
+                    if 'secure' not in cl or 'httponly' not in cl or 'samesite' not in cl:
+                        all_good = False
+                        break
+                passed = all_good
+        elif check['id'] == 'cors_wildcard':
+            passed = val != '*'
+        else:
+            passed = bool(val)
+
+        if passed:
+            score += check['points']
+            result['status'] = 'pass'
+        else:
+            result['status'] = 'fail'
+
+        checks.append(result)
+
+    return score, max_score, checks
+
+
+def _score_to_grade(score, max_score):
+    """Convert a numeric score to a letter grade."""
+    if max_score == 0:
+        return 'F'
+    pct = score / max_score * 100
+    if pct >= 95:
+        return 'A+'
+    elif pct >= 85:
+        return 'A'
+    elif pct >= 70:
+        return 'B'
+    elif pct >= 50:
+        return 'C'
+    elif pct >= 30:
+        return 'D'
+    return 'F'
+
+
+@app.route('/api/security-audit')
+def api_security_audit():
+    """Audit response headers of a URL against security best practices."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '').strip()
+    if not url:
+        return jsonify({"error": "Missing required parameter: url"}), 400
+    url = _ensure_scheme(url)
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        return jsonify({"error": "URL not allowed"}), 403
+    try:
+        resp = req.get(safe_url, allow_redirects=False, timeout=10, stream=True)
+        raw_headers = dict(resp.headers)
+        resp.close()
+    except req.RequestException:
+        return jsonify({"error": "Could not connect to the URL"}), 502
+    score, max_score, checks = _run_security_checks(raw_headers)
+    grade = _score_to_grade(score, max_score)
+    return jsonify({
+        "url": safe_url,
+        "grade": grade,
+        "score": score,
+        "max_score": max_score,
+        "checks": checks,
+    })
 
 
 @app.route('/api/search')
@@ -904,11 +1315,94 @@ def check_url():
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
+@app.route('/trace')
+def trace_page():
+    """Render the Redirect Tracer page for visualizing redirect chains."""
+    return render_template('trace.html')
+
+
+@app.route('/api/trace-redirects')
+def trace_redirects():
+    """Follow redirects manually and return a JSON array of hops.
+
+    Each hop contains: url, status_code, location, time_ms, and key
+    response headers (Strict-Transport-Security, Set-Cookie presence,
+    Cache-Control).  SSRF protection is applied at every hop.
+    Max 10 hops to prevent infinite loops.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    url = _ensure_scheme(url)
+
+    hops = []
+    current_url = url
+    max_hops = 10
+
+    for _ in range(max_hops):
+        safe_url, hostname = resolve_and_validate(current_url)
+        if not safe_url:
+            hops.append({"url": current_url, "error": "URL not allowed (SSRF protection)"})
+            break
+        try:
+            resp = req.head(safe_url, allow_redirects=False, timeout=10)
+        except req.Timeout:
+            hops.append({"url": current_url, "error": "Request timed out"})
+            break
+        except req.ConnectionError:
+            hops.append({"url": current_url, "error": "Could not connect"})
+            break
+        except req.RequestException:
+            hops.append({"url": current_url, "error": "Request failed"})
+            break
+
+        hop = {
+            "url": current_url,
+            "status_code": resp.status_code,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+            "headers": {},
+        }
+        # Collect key security/caching headers
+        for hdr in ('Strict-Transport-Security', 'Cache-Control',
+                     'Content-Type', 'Server'):
+            if hdr in resp.headers:
+                hop["headers"][hdr] = resp.headers[hdr]
+        if 'Set-Cookie' in resp.headers:
+            hop["headers"]["Set-Cookie"] = "(present)"
+
+        location = resp.headers.get('Location')
+        if location:
+            hop["location"] = location
+
+        hops.append(hop)
+
+        # If not a redirect status, we've reached the final destination
+        if resp.status_code not in (301, 302, 303, 307, 308):
+            break
+
+        if not location:
+            break
+        current_url = location
+    else:
+        # Loop completed without break — max hops exceeded
+        hops.append({"url": current_url, "error": "Too many redirects (max 10)"})
+
+    return jsonify(hops)
+
+
 @app.route('/playground')
 def playground():
     """Render the Interactive Response Playground page."""
     codes = [{"code": c.code, "name": c.name} for c in status_code_list]
     return render_template('playground.html', all_codes=codes)
+
+
+@app.route('/curl-import')
+def curl_import():
+    """Render the cURL Import/Parse Tool page."""
+    return render_template('curl_import.html')
 
 
 # Security-sensitive headers that mock-response users must not override
@@ -960,6 +1454,141 @@ def mock_response():
                 and key_clean.lower() not in _BLOCKED_MOCK_HEADERS):
             resp.headers[key_clean] = value_clean
     return resp
+
+
+@app.route('/fault-simulator')
+def fault_simulator():
+    """Render the fault simulation tools page."""
+    return render_template('fault_simulator.html')
+
+
+@app.route('/api/delay/<int:seconds>')
+def api_delay(seconds):
+    """Wait N seconds (max 10), then respond with JSON. Rate-limited."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    if seconds < 0 or seconds > 10:
+        return jsonify({"error": "Delay must be between 0 and 10 seconds."}), 400
+    time.sleep(seconds)
+    return jsonify({
+        "delay": seconds,
+        "message": f"Response delayed by {seconds} second(s).",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route('/api/drip')
+def api_drip():
+    """Stream bytes slowly over a duration. Rate-limited.
+
+    Query params:
+      duration -- total seconds to drip (default 5, max 30)
+      numbytes -- total bytes to send (default 1024, max 10240)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    duration = request.args.get('duration', 5, type=float)
+    numbytes = request.args.get('numbytes', 1024, type=int)
+    if duration <= 0 or duration > 30:
+        return jsonify({"error": "Duration must be between 0 and 30 seconds."}), 400
+    if numbytes <= 0 or numbytes > 10240:
+        return jsonify({"error": "numbytes must be between 1 and 10240."}), 400
+
+    def _drip_generator():
+        chunk_count = max(1, int(duration))
+        bytes_per_chunk = max(1, numbytes // chunk_count)
+        remainder = numbytes - (bytes_per_chunk * chunk_count)
+        interval = duration / chunk_count
+        for i in range(chunk_count):
+            size = bytes_per_chunk + (remainder if i == chunk_count - 1 else 0)
+            yield b'*' * size
+            if i < chunk_count - 1:
+                time.sleep(interval)
+
+    return Response(_drip_generator(), mimetype='application/octet-stream')
+
+
+@app.route('/api/stream/<int:n>')
+def api_stream(n):
+    """Stream n JSON lines (max 100), one per second. Rate-limited.
+
+    Each line: {"id": i, "timestamp": ..., "parrot": random_code}
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    if n < 1 or n > 100:
+        return jsonify({"error": "n must be between 1 and 100."}), 400
+    codes = [sc.code for sc in pruned_status_codes()]
+
+    def _stream_generator():
+        for i in range(n):
+            line = json.dumps({
+                "id": i,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "parrot": random.choice(codes),
+            })
+            yield line + '\n'
+            if i < n - 1:
+                time.sleep(1)
+
+    return Response(_stream_generator(), mimetype='application/x-ndjson')
+
+
+@app.route('/api/jitter')
+def api_jitter():
+    """Random delay in ms range, then respond. Rate-limited.
+
+    Query params:
+      min -- minimum delay in ms (default 100, max 10000)
+      max -- maximum delay in ms (default 2000, max 10000)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    min_ms = request.args.get('min', 100, type=int)
+    max_ms = request.args.get('max', 2000, type=int)
+    if min_ms < 0 or max_ms < 0:
+        return jsonify({"error": "min and max must be non-negative."}), 400
+    if min_ms > 10000 or max_ms > 10000:
+        return jsonify({"error": "min and max must not exceed 10000 ms."}), 400
+    if min_ms > max_ms:
+        return jsonify({"error": "min must not exceed max."}), 400
+    delay_ms = random.randint(min_ms, max_ms)
+    time.sleep(delay_ms / 1000.0)
+    return jsonify({
+        "delay_ms": delay_ms,
+        "range": {"min": min_ms, "max": max_ms},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route('/api/unstable')
+def api_unstable():
+    """Randomly return 200 or 500 based on failure_rate. Rate-limited.
+
+    Query params:
+      failure_rate -- probability of failure, 0.0 to 1.0 (default 0.5)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    failure_rate = request.args.get('failure_rate', 0.5, type=float)
+    if failure_rate < 0.0 or failure_rate > 1.0:
+        return jsonify({"error": "failure_rate must be between 0.0 and 1.0."}), 400
+    failed = random.random() < failure_rate
+    if failed:
+        return jsonify({
+            "status": "error",
+            "code": 500,
+            "failure_rate": failure_rate,
+            "message": "Simulated server failure.",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 500
+    return jsonify({
+        "status": "ok",
+        "code": 200,
+        "failure_rate": failure_rate,
+        "message": "Request succeeded.",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
 
 
 @app.route('/return/<int:code>')
@@ -1037,16 +1666,25 @@ def http_parrot(status_code):
     curl_cmd = f"curl -i {request.host_url}return/{status_code}"
     faq_entries = build_faq_entries(status_code, description, info, extra, related)
     eli5 = extra.get('eli5', '')
+    # Build lesson links for related codes
+    learn_links = {}
+    for rel_code, _diff in related:
+        pair_key = tuple(sorted([status_code, rel_code]))
+        slug = f"{pair_key[0]}-vs-{pair_key[1]}"
+        if slug in CONFUSION_PAIRS_BY_SLUG:
+            learn_links[rel_code] = slug
     return render_template('http_parrot.html', status_code=status_code,
                            description=description, image=image, info=info,
                            extra=extra, http_example=http_example,
                            prev_code=prev_code, next_code=next_code,
                            related=related, curl_cmd=curl_cmd,
-                           faq_entries=faq_entries, eli5=eli5), code
+                           faq_entries=faq_entries, eli5=eli5,
+                           learn_links=learn_links), code
 
 
 @app.route('/<status_code>.jpg')
 def http_parrot_image(status_code):
+    """Serve the parrot image for a given status code directly."""
     image = find_image(status_code)
     if not image:
         abort(404)
@@ -1241,12 +1879,18 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/daily', '/practice', '/flowchart',
-                 '/compare', '/tester', '/cheatsheet', '/headers',
-                 '/cors-checker', '/collection', '/playground', '/api-docs']:
+    for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
+                 '/flowchart', '/compare', '/learn', '/paths', '/tester',
+                 '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
+                 '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
+                 '/profile', '/review', '/fault-simulator', '/webhook-inspector']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
+    for pair in CONFUSION_PAIRS:
+        pages.append({'loc': base + '/learn/' + pair['slug'], 'priority': '0.6'})
+    for lp in LEARNING_PATHS:
+        pages.append({'loc': base + '/paths/' + lp['id'], 'priority': '0.6'})
     xml = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for p in pages:
@@ -1257,6 +1901,14 @@ def sitemap():
     return resp
 
 
+@app.route('/coffee')
+def coffee():
+    """Hidden easter egg: a teapot that can't brew coffee. Returns 418."""
+    # Fake "failed brew attempts" counter seeded from Unix timestamp
+    brew_attempts = int(time.time()) % 9000 + 1000
+    return render_template('coffee.html', brew_attempts=brew_attempts), 418
+
+
 @app.route('/robots.txt')
 def robots():
     """Serve robots.txt."""
@@ -1265,15 +1917,90 @@ def robots():
         "Allow: /\n"
         "Disallow: /api/check-url\n"
         "Disallow: /api/check-cors\n"
+        "Disallow: /api/security-audit\n"
+        "Disallow: /api/trace-redirects\n"
         "Disallow: /api/mock-response\n"
         "Disallow: /api/diff\n"
         "Disallow: /api/search\n"
+        "Disallow: /api/delay/\n"
+        "Disallow: /api/drip\n"
+        "Disallow: /api/stream/\n"
+        "Disallow: /api/jitter\n"
+        "Disallow: /api/unstable\n"
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"
+        "Disallow: /api/bin/\n"
+        "Disallow: /bin/\n"
         f"\nSitemap: {request.url_root}sitemap.xml\n"
     )
     return app.response_class(content, mimetype='text/plain')
+
+
+@app.route('/webhook-inspector')
+def webhook_inspector():
+    """Render the Webhook Inspector page for creating and viewing request bins."""
+    return render_template('webhook_inspector.html')
+
+
+@app.route('/api/bin/create', methods=['POST'])
+def create_bin():
+    """Create a new webhook bin and return its ID and hook URL.
+
+    Rate-limited to prevent abuse. Prunes expired bins on each call.
+    Returns JSON with bin_id and url fields.
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    _prune_expired_bins()
+    bin_id = secrets.token_urlsafe(6)[:8]
+    _webhook_bins[bin_id] = {'created': time.time(), 'requests': []}
+    hook_url = request.url_root.rstrip('/') + '/bin/' + bin_id + '/hook'
+    return jsonify({'bin_id': bin_id, 'url': hook_url}), 201
+
+
+@app.route('/bin/<bin_id>/hook', methods=['GET', 'POST', 'PUT', 'DELETE',
+           'PATCH', 'HEAD', 'OPTIONS'])
+def capture_hook(bin_id):
+    """Capture any incoming request into the specified bin.
+
+    Strips sensitive headers (Authorization, Cookie, etc.) before storing.
+    Stores up to 50 requests per bin; older requests beyond the cap are
+    silently discarded (newest requests kept).
+    """
+    b = _webhook_bins.get(bin_id)
+    if not b:
+        return jsonify({"error": "Bin not found or expired"}), 404
+    if time.time() - b['created'] > _WEBHOOK_BIN_TTL:
+        del _webhook_bins[bin_id]
+        return jsonify({"error": "Bin not found or expired"}), 404
+    safe_headers = {k: v for k, v in request.headers
+                    if k.lower() not in _WEBHOOK_STRIP_HEADERS}
+    entry = {
+        'method': request.method,
+        'url': request.url,
+        'headers': safe_headers,
+        'query': dict(request.args),
+        'body': request.get_data(as_text=True),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    }
+    b['requests'].append(entry)
+    # Keep only the most recent N requests
+    if len(b['requests']) > _WEBHOOK_BIN_MAX_REQUESTS:
+        b['requests'] = b['requests'][-_WEBHOOK_BIN_MAX_REQUESTS:]
+    return jsonify({"status": "captured"}), 200
+
+
+@app.route('/api/bin/<bin_id>')
+def get_bin(bin_id):
+    """Return JSON array of captured requests for the given bin."""
+    b = _webhook_bins.get(bin_id)
+    if not b:
+        return jsonify({"error": "Bin not found or expired"}), 404
+    if time.time() - b['created'] > _WEBHOOK_BIN_TTL:
+        del _webhook_bins[bin_id]
+        return jsonify({"error": "Bin not found or expired"}), 404
+    return jsonify(b['requests'])
 
 
 if __name__ == '__main__':

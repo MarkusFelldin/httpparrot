@@ -62,6 +62,16 @@ STATUS_EXTRA = {
             "go": 'w.WriteHeader(http.StatusOK)\nw.Write([]byte("OK"))',
         },
         "eli5": "You asked for something and got exactly what you wanted. Like asking mom for a cookie and she hands you one right away. Everything worked perfectly!",
+        "common_mistakes": [
+            {
+                "mistake": "Returning 200 with an error body like {\"error\": \"not found\"}",
+                "consequence": "Monitoring tools won't detect errors. Clients treat it as success and may display broken data.",
+            },
+            {
+                "mistake": "Using 200 for every response and encoding the real status in the JSON body",
+                "consequence": "Breaks HTTP caching, proxies, and browser built-in error handling. Clients must parse the body to detect failures.",
+            },
+        ],
     },
     "201": {
         "examples": [
@@ -76,6 +86,16 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusCreated)",
         },
         "eli5": "You asked someone to build you a LEGO house, and they did! Now there's a brand new LEGO house that didn't exist before. It was just created, fresh and new!",
+        "common_mistakes": [
+            {
+                "mistake": "Returning 201 without a Location header pointing to the new resource",
+                "consequence": "Clients have no way to find the created resource. The Location header is how REST APIs communicate where the new thing lives.",
+            },
+            {
+                "mistake": "Using 201 for idempotent operations that return an existing resource",
+                "consequence": "201 means 'created something new.' If the resource already existed, use 200 or 409 instead.",
+            },
+        ],
     },
     "202": {
         "examples": [
@@ -116,6 +136,16 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusNoContent)",
         },
         "eli5": "You asked your friend to throw away your drawing, and they did. But they just nod silently — there's nothing to hand back to you because, well, it's gone!",
+        "common_mistakes": [
+            {
+                "mistake": "Including a response body with 204",
+                "consequence": "The HTTP spec says 204 MUST NOT contain a body. Some clients will ignore it; others will break. If you need to send data, use 200.",
+            },
+            {
+                "mistake": "Using 204 when the client needs confirmation details",
+                "consequence": "Clients get no feedback about what happened. Use 200 with a body if the client needs to know specifics like a timestamp or ID.",
+            },
+        ],
     },
     "205": {
         "examples": [
@@ -206,6 +236,16 @@ STATUS_EXTRA = {
             "go": "http.Redirect(w, r, url, http.StatusMovedPermanently)",
         },
         "eli5": "Your friend moved to a new house — forever! Now every time you want to visit them, you go to the new address. The old house has a sign on the door saying 'We moved to 123 New Street!'",
+        "common_mistakes": [
+            {
+                "mistake": "Using 301 for temporary moves",
+                "consequence": "Browsers cache 301 permanently. Users will never see the original URL again, even after you remove the redirect.",
+            },
+            {
+                "mistake": "Using 301 for POST endpoints",
+                "consequence": "Most browsers change POST to GET on 301 redirect, losing the request body. Use 308 to preserve the method.",
+            },
+        ],
     },
     "302": {
         "examples": [
@@ -220,6 +260,16 @@ STATUS_EXTRA = {
             "go": "http.Redirect(w, r, \"/login\", http.StatusFound)",
         },
         "eli5": "You go to the toy store but it's closed for painting. There's a note saying 'Go to our other store down the street for today!' Tomorrow they'll be back here though.",
+        "common_mistakes": [
+            {
+                "mistake": "Using 302 when you mean 301 (permanent redirect)",
+                "consequence": "Search engines won't transfer page rank to the new URL. Users keep hitting the old URL, adding latency from the redirect hop.",
+            },
+            {
+                "mistake": "Creating redirect loops (A -> B -> A)",
+                "consequence": "Browsers will detect the loop and show an error. Always verify redirect targets don't point back.",
+            },
+        ],
     },
     "303": {
         "examples": [
@@ -247,6 +297,16 @@ STATUS_EXTRA = {
             "go": "w.WriteHeader(http.StatusNotModified)",
         },
         "eli5": "You ask your teacher 'Did the homework change since yesterday?' and the teacher says 'Nope, same as before!' So you just use the copy you already have.",
+        "common_mistakes": [
+            {
+                "mistake": "Including a body in a 304 response",
+                "consequence": "304 MUST NOT contain a body. The whole point is to save bandwidth. Sending a body defeats the purpose and may confuse clients.",
+            },
+            {
+                "mistake": "Sending 304 without proper ETag or Last-Modified headers",
+                "consequence": "Clients have no way to validate their cache. They may serve stale content forever or never cache at all.",
+            },
+        ],
     },
     "305": {
         "examples": [
@@ -284,6 +344,16 @@ STATUS_EXTRA = {
             "node": "res.redirect(307, '/new-endpoint');",
             "go": 'http.Redirect(w, r, "/new-endpoint", http.StatusTemporaryRedirect)',
         },
+        "common_mistakes": [
+            {
+                "mistake": "Using 307 when the move is permanent",
+                "consequence": "Clients will keep checking the original URL every time. Use 308 for permanent method-preserving redirects.",
+            },
+            {
+                "mistake": "Using 302 instead of 307 for POST redirects",
+                "consequence": "302 lets browsers change POST to GET, losing the request body. 307 guarantees the method is preserved.",
+            },
+        ],
     },
     "308": {
         "examples": [
@@ -311,6 +381,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Bad Request", http.StatusBadRequest)',
         },
         "eli5": "You tried to order a pizza but said 'I want a pizza with blarghhh topping.' The pizza place doesn't understand what you're asking for because it doesn't make sense!",
+        "common_mistakes": [
+            {
+                "mistake": "Using 400 as a catch-all for any client error",
+                "consequence": "Hides the real issue. Use 401, 403, 404, 409, 422 etc. for specific problems so clients can react appropriately.",
+            },
+            {
+                "mistake": "Returning 400 without explaining what was wrong",
+                "consequence": "Clients have no idea how to fix their request. Always include a clear error message or validation details.",
+            },
+        ],
     },
     "401": {
         "examples": [
@@ -325,6 +405,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Unauthorized", http.StatusUnauthorized)',
         },
         "eli5": "You try to walk into a secret clubhouse, but the guard says 'What's the password?' You don't know it, so you can't come in. Tell them who you are first!",
+        "common_mistakes": [
+            {
+                "mistake": "Using 401 when the user IS authenticated but lacks permission",
+                "consequence": "That's 403. 401 means 'not authenticated at all' and should trigger a login prompt.",
+            },
+            {
+                "mistake": "Returning 401 without the WWW-Authenticate header",
+                "consequence": "The HTTP spec requires WWW-Authenticate with 401. Without it, clients don't know what auth scheme to use.",
+            },
+        ],
     },
     "402": {
         "examples": [
@@ -352,6 +442,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Forbidden", http.StatusForbidden)',
         },
         "eli5": "The guard at the clubhouse knows exactly who you are, but says 'Sorry, you're not allowed in the VIP room.' You can see the door, but you're just not on the list!",
+        "common_mistakes": [
+            {
+                "mistake": "Using 403 to hide the existence of a resource",
+                "consequence": "Use 404 instead if you don't want to confirm the resource exists. 403 reveals that something is there but guarded.",
+            },
+            {
+                "mistake": "Confusing 403 with 401",
+                "consequence": "401 means 'who are you?' (not authenticated). 403 means 'I know who you are, but you can't do this' (not authorized).",
+            },
+        ],
     },
     "404": {
         "examples": [
@@ -366,6 +466,16 @@ STATUS_EXTRA = {
             "go": 'http.NotFound(w, r)',
         },
         "eli5": "Imagine you ask the librarian for a book, but that book doesn't exist in the library. The librarian shrugs and says 'Sorry, never heard of it!'",
+        "common_mistakes": [
+            {
+                "mistake": "Returning 404 for validation errors",
+                "consequence": "Clients can't distinguish 'URL wrong' from 'resource doesn't exist.' Use 400 or 422 for validation failures.",
+            },
+            {
+                "mistake": "Returning a 200 with a 'not found' message instead of 404",
+                "consequence": "Search engines index the error page as real content. Monitoring misses the failure. Use the proper status code.",
+            },
+        ],
     },
     "405": {
         "examples": [
@@ -379,6 +489,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)',
         },
         "eli5": "You try to open a door by pushing, but there's a big sign that says 'PULL ONLY.' The door is right there, but you're doing it the wrong way!",
+        "common_mistakes": [
+            {
+                "mistake": "Returning 405 without the Allow header listing valid methods",
+                "consequence": "The HTTP spec requires the Allow header with 405. Without it, clients must guess which methods are supported.",
+            },
+            {
+                "mistake": "Confusing 405 with 404",
+                "consequence": "405 means the URL exists but the method is wrong. 404 means the URL itself doesn't exist. The distinction matters for debugging.",
+            },
+        ],
     },
     "406": {
         "examples": [
@@ -431,6 +551,16 @@ STATUS_EXTRA = {
             "node": "res.status(409).json({ error: 'Username already exists' });",
             "go": 'http.Error(w, "Conflict", http.StatusConflict)',
         },
+        "common_mistakes": [
+            {
+                "mistake": "Using 400 instead of 409 for duplicate resource conflicts",
+                "consequence": "400 means the request syntax is wrong. 409 tells the client the request was valid but conflicts with the current state.",
+            },
+            {
+                "mistake": "Not explaining how to resolve the conflict in the response body",
+                "consequence": "Clients get 'conflict' but don't know what conflicted or how to fix it. Include the conflicting field or resource version.",
+            },
+        ],
     },
     "410": {
         "examples": [
@@ -598,6 +728,16 @@ STATUS_EXTRA = {
             "node": "res.status(422).json({ errors: { email: 'invalid' } });",
             "go": "w.WriteHeader(http.StatusUnprocessableEntity)",
         },
+        "common_mistakes": [
+            {
+                "mistake": "Using 400 instead of 422 for semantic validation errors",
+                "consequence": "400 means the syntax is wrong (malformed JSON). 422 means the syntax is fine but the content fails validation (invalid email).",
+            },
+            {
+                "mistake": "Returning 422 without structured validation errors",
+                "consequence": "Clients can't programmatically show field-level errors. Include a machine-readable error object like {\"errors\": {\"field\": \"reason\"}}.",
+            },
+        ],
     },
     "423": {
         "examples": [
@@ -675,6 +815,16 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Retry-After", "60")\nhttp.Error(w, "Too Many Requests", 429)',
         },
         "eli5": "You keep asking 'Are we there yet? Are we there yet? Are we there yet?' so many times that your parents finally say 'STOP ASKING! Wait 5 minutes before you ask again!'",
+        "common_mistakes": [
+            {
+                "mistake": "Not including a Retry-After header",
+                "consequence": "Clients have no idea when to try again. They may retry immediately, making the overload worse. Always include Retry-After.",
+            },
+            {
+                "mistake": "Rate limiting without providing rate limit headers (X-RateLimit-Remaining, etc.)",
+                "consequence": "Clients can't proactively slow down before hitting the limit. Good APIs tell you how many requests you have left.",
+            },
+        ],
     },
     "431": {
         "examples": [
@@ -777,6 +927,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Internal Server Error", http.StatusInternalServerError)',
         },
         "eli5": "The ice cream machine at the restaurant just broke. It's nobody's fault outside — something went wrong inside the machine. The worker says 'Sorry, something broke in the back. We're fixing it!'",
+        "common_mistakes": [
+            {
+                "mistake": "Catching all exceptions and returning 500 with the stack trace",
+                "consequence": "Leaks internal implementation details (file paths, library versions, database names). Log the trace server-side, return a generic message.",
+            },
+            {
+                "mistake": "Using 500 for expected errors like invalid input",
+                "consequence": "500 means something broke on the server. If the client sent bad data, use 4xx. False 500s trigger on-call alerts and mask real outages.",
+            },
+        ],
     },
     "501": {
         "examples": [
@@ -804,6 +964,16 @@ STATUS_EXTRA = {
             "go": 'http.Error(w, "Bad Gateway", http.StatusBadGateway)',
         },
         "eli5": "You tell your big sister to ask mom for a cookie. Your sister goes to mom, but mom says something confusing that doesn't make sense. Your sister comes back and says 'I tried, but I got a weird answer!'",
+        "common_mistakes": [
+            {
+                "mistake": "Returning 502 from application code",
+                "consequence": "502 should come from proxies/load balancers, not your app. If your code has an error, that's 500. 502 means the gateway got a bad response from upstream.",
+            },
+            {
+                "mistake": "Confusing 502 with 503",
+                "consequence": "502 means the upstream returned garbage. 503 means the service is temporarily unavailable. The fix is different: 502 = check upstream health; 503 = wait and retry.",
+            },
+        ],
     },
     "503": {
         "examples": [
@@ -818,6 +988,16 @@ STATUS_EXTRA = {
             "go": 'w.Header().Set("Retry-After", "300")\nhttp.Error(w, "Service Unavailable", 503)',
         },
         "eli5": "Picture a restaurant so busy they put up a 'Please wait to be seated' sign. The kitchen is still there, just too slammed right now. Come back in a little bit!",
+        "common_mistakes": [
+            {
+                "mistake": "Not including a Retry-After header",
+                "consequence": "Clients and crawlers don't know when to come back. Search engines may de-index your site if they keep seeing 503 without guidance.",
+            },
+            {
+                "mistake": "Using 503 as a permanent error",
+                "consequence": "503 implies 'try again later.' If the service is gone for good, use 410 (Gone) or remove the endpoint entirely.",
+            },
+        ],
     },
     "504": {
         "examples": [
@@ -832,6 +1012,16 @@ STATUS_EXTRA = {
             "go": "// Set http.Server.ReadTimeout and WriteTimeout",
         },
         "eli5": "You ask your sister to ask mom for a cookie, but mom is taking a nap and won't wake up. Your sister waits and waits, and finally gives up and says 'Sorry, mom didn't answer in time!'",
+        "common_mistakes": [
+            {
+                "mistake": "Confusing 504 with 408 (Request Timeout)",
+                "consequence": "408 means the client was too slow sending the request. 504 means the upstream server was too slow responding. Different root cause, different fix.",
+            },
+            {
+                "mistake": "Setting proxy timeouts too low",
+                "consequence": "Legitimate slow requests (reports, exports, file uploads) get killed prematurely. Tune timeouts per-endpoint when possible.",
+            },
+        ],
     },
     "505": {
         "examples": [

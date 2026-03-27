@@ -4,14 +4,15 @@
     <title>{% block title %}HTTP Parrots{% endblock %}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="view-transition" content="same-origin">
     {% block meta %}{% endblock %}
     <link rel="canonical" href="{{ request.url.split('?')[0] }}">
     <link rel="alternate" type="application/rss+xml" title="HTTP Parrots RSS Feed" href="/feed.xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="/static/style.css" as="style">
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" as="style" id="font-preload">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet"></noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" as="style" id="font-preload">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"></noscript>
     <script nonce="{{ csp_nonce }}">
     (function(){var l=document.getElementById('font-preload');if(l){l.onload=function(){l.onload=null;l.rel='stylesheet';};}})();
     </script>
@@ -20,6 +21,59 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <script nonce="{{ csp_nonce }}">
+    /* Holiday Plumage — Seasonal Theme Detection */
+    (function() {
+        var now = new Date();
+        var m = now.getMonth(); /* 0-indexed */
+        var d = now.getDate();
+        var season = null;
+
+        /* Winter: Dec 15 - Jan 5 */
+        if ((m === 11 && d >= 15) || (m === 0 && d <= 5)) {
+            season = 'season-winter';
+        }
+        /* Halloween: Oct 25 - Nov 1 */
+        else if ((m === 9 && d >= 25) || (m === 10 && d <= 1)) {
+            season = 'season-halloween';
+        }
+        /* April Fools: Apr 1 */
+        else if (m === 3 && d === 1) {
+            season = 'season-april-fools';
+        }
+        /* Valentine's: Feb 14 */
+        else if (m === 1 && d === 14) {
+            season = 'season-valentine';
+        }
+
+        if (season) {
+            document.body.classList.add(season);
+            /* Track seasonal easter egg */
+            var eggMap = {
+                'season-winter': 'season_winter',
+                'season-halloween': 'season_halloween',
+                'season-april-fools': 'season_april',
+                'season-valentine': 'season_valentine'
+            };
+            var eggId = eggMap[season];
+            if (eggId) {
+                var eggs = [];
+                try { eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]'); } catch(e) {}
+                if (eggs.indexOf(eggId) === -1) {
+                    eggs.push(eggId);
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') {
+                        ParrotXP.award(50, 'seasonal_egg');
+                    } else {
+                        /* Queue XP award for after ParrotXP loads */
+                        window._seasonalEggPending = true;
+                    }
+                }
+            }
+        }
+        window._httpparrotSeason = season;
+    })();
+    </script>
     <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="site-header-compact" role="banner">
         <div class="header-inner">
@@ -32,22 +86,57 @@
                     <span class="hamburger-line"></span>
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
-                    <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
-                    <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
-                    <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
-                    <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
-                    <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
-                    <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
-                    <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
-                    <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
-                    <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
-                    <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
-                    <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
-                    <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
+                            <a href="/daily" role="menuitem" {% if request.path == '/daily' %}aria-current="page"{% endif %}>Daily Challenge</a>
+                            <a href="/weekly" role="menuitem" {% if request.path == '/weekly' %}aria-current="page"{% endif %}>Weekly Challenge</a>
+                            <a href="/practice" role="menuitem" {% if request.path == '/practice' %}aria-current="page"{% endif %}>Practice</a>
+                            <a href="/debug" role="menuitem" {% if request.path == '/debug' %}aria-current="page"{% endif %}>Debug Exercises</a>
+                            <a href="/review" role="menuitem" {% if request.path == '/review' %}aria-current="page"{% endif %}>Review</a>
+                            <a href="/learn" role="menuitem" {% if request.path.startswith('/learn') %}aria-current="page"{% endif %}>Confusion Pairs</a>
+                            <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
+                            <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/tester" role="menuitem" {% if request.path == '/tester' %}aria-current="page"{% endif %}>URL Tester</a>
+                            <a href="/headers" role="menuitem" {% if request.path == '/headers' %}aria-current="page"{% endif %}>Header Explainer</a>
+                            <a href="/cors-checker" role="menuitem" {% if request.path == '/cors-checker' %}aria-current="page"{% endif %}>CORS Checker</a>
+                            <a href="/security-audit" role="menuitem" {% if request.path == '/security-audit' %}aria-current="page"{% endif %}>Security Audit</a>
+                            <a href="/trace" role="menuitem" {% if request.path == '/trace' %}aria-current="page"{% endif %}>Redirect Tracer</a>
+                            <a href="/playground" role="menuitem" {% if request.path == '/playground' %}aria-current="page"{% endif %}>Playground</a>
+                            <a href="/curl-import" role="menuitem" {% if request.path == '/curl-import' %}aria-current="page"{% endif %}>cURL Import</a>
+                            <a href="/fault-simulator" role="menuitem" {% if request.path == '/fault-simulator' %}aria-current="page"{% endif %}>Fault Simulator</a>
+                            <a href="/webhook-inspector" role="menuitem" {% if request.path == '/webhook-inspector' %}aria-current="page"{% endif %}>Webhooks</a>
+                        </div>
+                    </div>
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
+                        <div class="nav-dropdown-menu" role="menu">
+                            <a href="/compare" role="menuitem" {% if request.path == '/compare' %}aria-current="page"{% endif %}>Compare</a>
+                            <a href="/personality" role="menuitem" {% if request.path == '/personality' %}aria-current="page"{% endif %}>Personality Quiz</a>
+                            <a href="/collection" role="menuitem" {% if request.path == '/collection' %}aria-current="page"{% endif %}>Parrotdex</a>
+                            <a href="/cheatsheet" role="menuitem" {% if request.path == '/cheatsheet' %}aria-current="page"{% endif %}>Cheat Sheet</a>
+                            <a href="/api-docs" role="menuitem" {% if request.path == '/api-docs' %}aria-current="page"{% endif %}>API Docs</a>
+                            <a href="/profile" role="menuitem" {% if request.path == '/profile' %}aria-current="page"{% endif %}>Profile</a>
+                        </div>
+                    </div>
                 </nav>
             </div>
             {% block header_right %}
             <div class="header-right">
+                <a href="/profile" class="xp-badge" id="xp-badge" title="View your profile" aria-label="View your XP profile">
+                    <span class="xp-badge-icon" aria-hidden="true">&#x1F99C;</span>
+                    <span class="xp-badge-rank" id="xp-badge-rank">Fledgling</span>
+                    <span class="xp-badge-xp" id="xp-badge-xp">0 XP</span>
+                </a>
+                <button class="sound-toggle-btn" id="sound-toggle" type="button" title="Toggle sound effects" aria-label="Toggle sound effects" aria-pressed="false">
+                    <span id="sound-toggle-icon" aria-hidden="true">&#x1F507;</span>
+                </button>
                 <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
                 <div role="search">
                     <input type="text" id="global-search" class="search-input search-input-sm" placeholder="Search... ( / )" autocomplete="off" aria-label="Search status codes">
@@ -57,18 +146,33 @@
         </div>
         <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
         <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" role="navigation">
+            <div class="mobile-nav-group-label">Learn</div>
             <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+            <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily Challenge</a>
+            <a href="/weekly" {% if request.path == '/weekly' %}class="nav-active" aria-current="page"{% endif %}>Weekly Challenge</a>
             <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
-            <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily</a>
+            <a href="/debug" {% if request.path == '/debug' %}class="nav-active" aria-current="page"{% endif %}>Debug Exercises</a>
+            <a href="/review" {% if request.path == '/review' %}class="nav-active" aria-current="page"{% endif %}>Review</a>
+            <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Confusion Pairs</a>
+            <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
-            <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
-            <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>Tester</a>
-            <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Headers</a>
-            <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS</a>
-            <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
+            <div class="mobile-nav-group-label">Tools</div>
+            <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
+            <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
+            <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS Checker</a>
+            <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Security Audit</a>
+            <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Redirect Tracer</a>
             <a href="/playground" {% if request.path == '/playground' %}class="nav-active" aria-current="page"{% endif %}>Playground</a>
+            <a href="/curl-import" {% if request.path == '/curl-import' %}class="nav-active" aria-current="page"{% endif %}>cURL Import</a>
+            <a href="/fault-simulator" {% if request.path == '/fault-simulator' %}class="nav-active" aria-current="page"{% endif %}>Fault Simulator</a>
+            <a href="/webhook-inspector" {% if request.path == '/webhook-inspector' %}class="nav-active" aria-current="page"{% endif %}>Webhooks</a>
+            <div class="mobile-nav-group-label">More</div>
+            <a href="/compare" {% if request.path == '/compare' %}class="nav-active" aria-current="page"{% endif %}>Compare</a>
+            <a href="/personality" {% if request.path == '/personality' %}class="nav-active" aria-current="page"{% endif %}>Personality Quiz</a>
+            <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
-            <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API</a>
+            <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API Docs</a>
+            <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
         </nav>
     </header>
 
@@ -144,6 +248,932 @@
                 btn.focus();
             }
         });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Nav dropdown menus */
+    (function() {
+        var triggers = document.querySelectorAll('.nav-dropdown-trigger');
+        function closeAll() {
+            triggers.forEach(function(t) {
+                t.setAttribute('aria-expanded', 'false');
+                var menu = t.nextElementSibling;
+                if (menu) menu.classList.remove('is-open');
+            });
+        }
+        triggers.forEach(function(trigger) {
+            trigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var menu = trigger.nextElementSibling;
+                var isOpen = menu.classList.contains('is-open');
+                closeAll();
+                if (!isOpen) {
+                    trigger.setAttribute('aria-expanded', 'true');
+                    menu.classList.add('is-open');
+                }
+            });
+        });
+        document.addEventListener('click', closeAll);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeAll();
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* ParrotXP — global XP tracking system (all state in localStorage) */
+    (function() {
+        var RANKS = [
+            {xp: 0, title: 'Fledgling'},
+            {xp: 100, title: 'Nestling'},
+            {xp: 300, title: 'Feathered Apprentice'},
+            {xp: 600, title: 'Wing Cadet'},
+            {xp: 1000, title: 'Parrot Scout'},
+            {xp: 2000, title: 'Plume Knight'},
+            {xp: 3500, title: 'Wing Commander'},
+            {xp: 5500, title: 'Sky Captain'},
+            {xp: 8000, title: 'Grand Macaw'},
+            {xp: 12000, title: 'Legendary Lorikeet'}
+        ];
+
+        function getTotal() {
+            return parseInt(localStorage.getItem('httpparrot_xp') || '0', 10);
+        }
+
+        function getActivity() {
+            try {
+                return JSON.parse(localStorage.getItem('httpparrot_activity') || '[]');
+            } catch(e) { return []; }
+        }
+
+        function getRankInfo(xp) {
+            var rank = RANKS[0];
+            var level = 1;
+            for (var i = 0; i < RANKS.length; i++) {
+                if (xp >= RANKS[i].xp) { rank = RANKS[i]; level = i + 1; }
+            }
+            var nextRank = level < RANKS.length ? RANKS[level] : null;
+            return {rank: rank.title, level: level, nextXp: nextRank ? nextRank.xp : null, currentThreshold: rank.xp};
+        }
+
+        function getLevel() {
+            return getRankInfo(getTotal()).level;
+        }
+
+        function getRank() {
+            return getRankInfo(getTotal()).rank;
+        }
+
+        function award(amount, action) {
+            if (!amount || amount <= 0) return;
+            var total = getTotal() + amount;
+            localStorage.setItem('httpparrot_xp', String(total));
+            var activity = getActivity();
+            var today = new Date().toISOString().slice(0, 10);
+            activity.push({date: today, action: action || 'unknown', xp: amount});
+            /* Keep only last 90 days of activity */
+            var cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            var cutoffStr = cutoff.toISOString().slice(0, 10);
+            activity = activity.filter(function(e) { return e.date >= cutoffStr; });
+            localStorage.setItem('httpparrot_activity', JSON.stringify(activity));
+            updateBadge();
+        }
+
+        function updateBadge() {
+            var total = getTotal();
+            var info = getRankInfo(total);
+            var rankEl = document.getElementById('xp-badge-rank');
+            var xpEl = document.getElementById('xp-badge-xp');
+            if (rankEl) rankEl.textContent = info.rank;
+            if (xpEl) xpEl.textContent = total + ' XP';
+        }
+
+        /* --- Feathers (Achievement Badges) --- */
+        var FEATHERS = [
+            {id: 'first_flight', name: 'First Flight', desc: 'Earn any XP', icon: '\uD83D\uDD30', bonus: 10},
+            {id: 'quiz_whiz', name: 'Quiz Whiz', desc: 'Get 10 quiz questions correct', icon: '\uD83E\uDDE0', bonus: 25},
+            {id: 'perfect_10', name: 'Perfect 10', desc: 'Score 10/10 on a single quiz round', icon: '\uD83C\uDFC6', bonus: 50},
+            {id: 'streak_starter', name: 'Streak Starter', desc: '7-day daily streak', icon: '\uD83D\uDD25', bonus: 50},
+            {id: 'on_fire', name: 'On Fire', desc: '14-day daily streak', icon: '\u2B50', bonus: 100},
+            {id: 'centurion', name: 'Centurion', desc: 'Earn 100+ total XP', icon: '\uD83D\uDEE1\uFE0F', bonus: 25},
+            {id: 'wing_commander', name: 'Wing Commander', desc: 'Reach Wing Commander rank', icon: '\uD83E\uDE96', bonus: 100},
+            {id: 'completionist', name: 'Completionist', desc: 'Collect all 72 parrots in Parrotdex', icon: '\uD83C\uDF1F', bonus: 200},
+            {id: 'error_expert', name: 'Error Expert', desc: 'Visit all 4xx codes', icon: '\uD83D\uDEA8', bonus: 50},
+            {id: 'server_sage', name: 'Server Sage', desc: 'Visit all 5xx codes', icon: '\uD83D\uDDA5\uFE0F', bonus: 50},
+            {id: 'egg_hunter', name: 'Egg Hunter', desc: 'Find 5 easter eggs', icon: '\uD83E\uDD5A', bonus: 75},
+            {id: 'scholar', name: 'Scholar', desc: 'Complete 10 practice scenarios', icon: '\uD83C\uDF93', bonus: 50},
+            {id: 'night_owl', name: 'Night Owl', desc: 'Use the site between midnight and 5 AM', icon: '\uD83E\uDD89', bonus: 25},
+            {id: 'speed_demon', name: 'Speed Demon', desc: 'Answer daily challenge within 5 seconds', icon: '\u26A1', bonus: 75},
+            {id: 'frozen_solid', name: 'Frozen Solid', desc: 'Use a streak freeze for the first time', icon: '\u2744\uFE0F', bonus: 50},
+            {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75}
+        ];
+
+        var CODES_4XX = ['400','401','402','403','404','405','406','407','408','409','410','411','412','413','414','415','416','417','418','421','422','423','424','425','426','428','429','431','451'];
+        var CODES_5XX = ['500','501','502','503','504','505','506','507','508','510','511'];
+
+        function getFeathers() {
+            try { return JSON.parse(localStorage.getItem('httpparrot_feathers') || '[]'); }
+            catch(e) { return []; }
+        }
+
+        function saveFeathers(list) {
+            localStorage.setItem('httpparrot_feathers', JSON.stringify(list));
+        }
+
+        function spawnCelebrationConfetti(originEl) {
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var count = 20 + Math.floor(Math.random() * 11); /* 20-30 particles */
+            var colors = ['#00c9a7', '#00b4d8', '#7b61ff', '#9b59b6', '#48cae4', '#2dd4a8'];
+            for (var i = 0; i < count; i++) {
+                var p = document.createElement('div');
+                p.className = 'celebration-confetti';
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = 60 + Math.random() * 120;
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 40 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        function showFeatherToast(feather) {
+            var toast = document.createElement('div');
+            toast.className = 'feather-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            toast.innerHTML = '<span class="feather-toast-icon">' + feather.icon + '</span>'
+                + '<span class="feather-toast-text"><strong>' + feather.name + '</strong><br>'
+                + feather.desc + '<br><small>+' + feather.bonus + ' bonus XP</small></span>';
+            document.body.appendChild(toast);
+            setTimeout(function() {
+                toast.classList.add('feather-toast-visible');
+                spawnCelebrationConfetti(toast);
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
+            }, 50);
+            setTimeout(function() {
+                toast.classList.remove('feather-toast-visible');
+                setTimeout(function() { toast.remove(); }, 400);
+            }, 4000);
+        }
+
+        var RANK_ICONS = {
+            'Fledgling': '\uD83D\uDC23',
+            'Nestling': '\uD83D\uDC25',
+            'Feathered Apprentice': '\uD83E\uDEB6',
+            'Wing Cadet': '\uD83E\uDD85',
+            'Parrot Scout': '\uD83E\uDD9C',
+            'Plume Knight': '\u2694\uFE0F',
+            'Wing Commander': '\uD83E\uDE96',
+            'Sky Captain': '\u2708\uFE0F',
+            'Grand Macaw': '\uD83D\uDC51',
+            'Legendary Lorikeet': '\uD83C\uDF1F'
+        };
+
+        var RANK_BONUS_XP = {
+            'Nestling': 10,
+            'Feathered Apprentice': 15,
+            'Wing Cadet': 20,
+            'Parrot Scout': 30,
+            'Plume Knight': 40,
+            'Wing Commander': 50,
+            'Sky Captain': 75,
+            'Grand Macaw': 100,
+            'Legendary Lorikeet': 150
+        };
+
+        function spawnGoldParticles() {
+            for (var i = 0; i < 30; i++) {
+                var p = document.createElement('div');
+                p.className = 'rank-up-gold-particle';
+                p.style.left = (Math.random() * 100) + 'vw';
+                p.style.top = '0px';
+                p.style.setProperty('--fall-dist', (80 + Math.random() * 200) + 'px');
+                p.style.animationDelay = (Math.random() * 0.5) + 's';
+                var shades = ['#ffd700', '#ffb300', '#ffe066', '#fff3b0'];
+                p.style.background = shades[Math.floor(Math.random() * shades.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
+        function showRankUpBanner(rankTitle) {
+            var icon = RANK_ICONS[rankTitle] || '\uD83C\uDF1F';
+            var banner = document.createElement('div');
+            banner.className = 'rank-up-banner';
+            banner.setAttribute('role', 'status');
+            banner.setAttribute('aria-live', 'assertive');
+            banner.innerHTML = '<span class="rank-up-banner-icon">' + icon + '</span>'
+                + '<span class="rank-up-banner-text">Rank Up! You are now a <strong>' + rankTitle + '</strong>!</span>';
+            document.body.appendChild(banner);
+            /* Award bonus XP for ranking up */
+            var bonusXp = RANK_BONUS_XP[rankTitle] || 0;
+            if (bonusXp > 0) {
+                var t = getTotal() + bonusXp;
+                localStorage.setItem('httpparrot_xp', String(t));
+                var act = getActivity();
+                act.push({date: new Date().toISOString().slice(0, 10), action: 'rank_up_bonus', xp: bonusXp});
+                localStorage.setItem('httpparrot_activity', JSON.stringify(act));
+            }
+            setTimeout(function() {
+                banner.classList.add('rank-up-visible');
+                spawnGoldParticles();
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
+            }, 50);
+            setTimeout(function() {
+                banner.classList.remove('rank-up-visible');
+                setTimeout(function() { banner.remove(); }, 600);
+            }, 4000);
+        }
+
+        var XP_MILESTONES = [100, 500, 1000, 5000, 10000];
+
+        function checkXpMilestoneFlash(oldTotal, newTotal) {
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            for (var i = 0; i < XP_MILESTONES.length; i++) {
+                if (oldTotal < XP_MILESTONES[i] && newTotal >= XP_MILESTONES[i]) {
+                    badge.classList.remove('xp-flash');
+                    /* Force reflow to restart animation */
+                    void badge.offsetWidth;
+                    badge.classList.add('xp-flash');
+                    /* Floating number */
+                    var floater = document.createElement('span');
+                    floater.className = 'xp-float-number';
+                    floater.textContent = '+' + (newTotal - oldTotal);
+                    badge.style.position = 'relative';
+                    badge.appendChild(floater);
+                    floater.addEventListener('animationend', function() { this.remove(); });
+                    badge.addEventListener('animationend', function() {
+                        badge.classList.remove('xp-flash');
+                    }, {once: true});
+                    break;
+                }
+            }
+        }
+
+        function checkFeathers() {
+            var earned = getFeathers();
+            var total = getTotal();
+            var rankBefore = getRankInfo(total).rank;
+            var activity = getActivity();
+            var newlyEarned = [];
+
+            function has(id) { return earned.indexOf(id) !== -1; }
+
+            /* First Flight */
+            if (!has('first_flight') && total > 0) newlyEarned.push('first_flight');
+
+            /* Centurion */
+            if (!has('centurion') && total >= 100) newlyEarned.push('centurion');
+
+            /* Wing Commander */
+            if (!has('wing_commander') && getRankInfo(total).rank === 'Wing Commander') newlyEarned.push('wing_commander');
+
+            /* Quiz Whiz */
+            var quizCorrect = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
+            if (!has('quiz_whiz') && quizCorrect >= 10) newlyEarned.push('quiz_whiz');
+
+            /* Perfect 10 — check via stored flag */
+            if (!has('perfect_10') && localStorage.getItem('httpparrot_perfect_quiz') === 'true') newlyEarned.push('perfect_10');
+
+            /* Streak Starter & On Fire — daily streak from activity */
+            var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })
+                .map(function(e) { return e.date; })
+                .filter(function(v, i, a) { return a.indexOf(v) === i; })
+                .sort();
+            var streak = 0;
+            if (dailyDays.length > 0) {
+                streak = 1;
+                for (var si = dailyDays.length - 1; si > 0; si--) {
+                    var d1 = new Date(dailyDays[si]);
+                    var d2 = new Date(dailyDays[si - 1]);
+                    if ((d1 - d2) / 86400000 === 1) streak++; else break;
+                }
+            }
+            if (!has('streak_starter') && streak >= 7) newlyEarned.push('streak_starter');
+            if (!has('on_fire') && streak >= 14) newlyEarned.push('on_fire');
+
+            /* Completionist */
+            var parrotdex = [];
+            try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+            if (!has('completionist') && parrotdex.length >= 72) newlyEarned.push('completionist');
+
+            /* Error Expert — all 4xx */
+            if (!has('error_expert')) {
+                var has4xx = CODES_4XX.every(function(c) { return parrotdex.indexOf(c) !== -1; });
+                if (has4xx) newlyEarned.push('error_expert');
+            }
+
+            /* Server Sage — all 5xx */
+            if (!has('server_sage')) {
+                var has5xx = CODES_5XX.every(function(c) { return parrotdex.indexOf(c) !== -1; });
+                if (has5xx) newlyEarned.push('server_sage');
+            }
+
+            /* Egg Hunter */
+            var eggs = [];
+            try { eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]'); } catch(e) {}
+            if (!has('egg_hunter') && eggs.length >= 5) newlyEarned.push('egg_hunter');
+
+            /* Scholar */
+            var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
+            if (!has('scholar') && practiceCount >= 10) newlyEarned.push('scholar');
+
+            /* Night Owl */
+            var hour = new Date().getHours();
+            if (!has('night_owl') && hour >= 0 && hour < 5) newlyEarned.push('night_owl');
+
+            /* Speed Demon — check via stored flag */
+            if (!has('speed_demon') && localStorage.getItem('httpparrot_speed_demon') === 'true') newlyEarned.push('speed_demon');
+
+            /* Frozen Solid — check via stored flag set when a streak freeze is used */
+            if (!has('frozen_solid') && localStorage.getItem('httpparrot_freeze_used') === 'true') newlyEarned.push('frozen_solid');
+
+            /* Memory Master — 50 spaced repetition reviews completed */
+            if (!has('memory_master')) {
+                var reviewData = null;
+                try { reviewData = JSON.parse(localStorage.getItem('httpparrot_review')); } catch(e) {}
+                if (reviewData && reviewData.total_reviews >= 50) newlyEarned.push('memory_master');
+            }
+
+            /* Award bonus XP and show toasts for new feathers */
+            if (newlyEarned.length > 0) {
+                for (var fi = 0; fi < newlyEarned.length; fi++) {
+                    earned.push(newlyEarned[fi]);
+                    var featherDef = null;
+                    for (var fj = 0; fj < FEATHERS.length; fj++) {
+                        if (FEATHERS[fj].id === newlyEarned[fi]) { featherDef = FEATHERS[fj]; break; }
+                    }
+                    if (featherDef) {
+                        /* Award bonus XP without recursion */
+                        var bonusTotal = getTotal() + featherDef.bonus;
+                        localStorage.setItem('httpparrot_xp', String(bonusTotal));
+                        var bonusActivity = getActivity();
+                        bonusActivity.push({date: new Date().toISOString().slice(0, 10), action: 'feather_bonus', xp: featherDef.bonus});
+                        localStorage.setItem('httpparrot_activity', JSON.stringify(bonusActivity));
+                        showFeatherToast(featherDef);
+                    }
+                }
+                saveFeathers(earned);
+                updateBadge();
+            }
+            /* Detect rank change and show rank-up banner */
+            var rankAfter = getRankInfo(getTotal()).rank;
+            if (rankAfter !== rankBefore) {
+                showRankUpBanner(rankAfter);
+                updateBadge();
+            }
+        }
+
+        function awardWithFeathers(amount, action) {
+            if (!amount || amount <= 0) return;
+            var oldTotal = getTotal();
+            var total = oldTotal + amount;
+            localStorage.setItem('httpparrot_xp', String(total));
+            var activity = getActivity();
+            var today = new Date().toISOString().slice(0, 10);
+            activity.push({date: today, action: action || 'unknown', xp: amount});
+            var cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            var cutoffStr = cutoff.toISOString().slice(0, 10);
+            activity = activity.filter(function(e) { return e.date >= cutoffStr; });
+            localStorage.setItem('httpparrot_activity', JSON.stringify(activity));
+            updateBadge();
+            checkXpMilestoneFlash(oldTotal, total);
+            checkFeathers();
+        }
+
+        window.ParrotXP = {
+            award: awardWithFeathers,
+            getTotal: getTotal,
+            getLevel: getLevel,
+            getRank: getRank,
+            getRankInfo: getRankInfo,
+            getActivity: getActivity,
+            getFeathers: getFeathers,
+            checkFeathers: checkFeathers,
+            spawnCelebrationConfetti: spawnCelebrationConfetti,
+            showRankUpBanner: showRankUpBanner,
+            checkXpMilestoneFlash: checkXpMilestoneFlash,
+            XP_MILESTONES: XP_MILESTONES,
+            RANKS: RANKS,
+            FEATHERS: FEATHERS
+        };
+
+        updateBadge();
+        /* Check feathers on every page load for time-based badges like Night Owl */
+        checkFeathers();
+        /* Award pending seasonal egg XP if queued before ParrotXP loaded */
+        if (window._seasonalEggPending) {
+            window._seasonalEggPending = false;
+            ParrotXP.award(50, 'seasonal_egg');
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* ParrotSound — Procedural sound effects via Web Audio API */
+    (function() {
+        var STORAGE_KEY = 'httpparrot_sound';
+        var ctx = null;
+        var enabled = false;
+
+        /* Respect prefers-reduced-motion: never enable sound */
+        var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function loadState() {
+            if (reducedMotion) { enabled = false; return; }
+            try { enabled = localStorage.getItem(STORAGE_KEY) === 'on'; } catch(e) { enabled = false; }
+        }
+
+        function saveState() {
+            try { localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off'); } catch(e) {}
+        }
+
+        function getCtx() {
+            if (!ctx) {
+                try {
+                    var AC = window.AudioContext || window.webkitAudioContext;
+                    if (AC) ctx = new AC();
+                } catch(e) {}
+            }
+            if (ctx && ctx.state === 'suspended') {
+                try { ctx.resume(); } catch(e) {}
+            }
+            return ctx;
+        }
+
+        function playTone(freq, startTime, duration, type, vol) {
+            var c = getCtx();
+            if (!c) return;
+            var osc = c.createOscillator();
+            var gain = c.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(vol || 0.12, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        }
+
+        function squawk() {
+            if (!enabled) return;
+            var c = getCtx();
+            if (!c) return;
+            var t = c.currentTime;
+            var osc = c.createOscillator();
+            var gain = c.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, t);
+            osc.frequency.linearRampToValueAtTime(1200, t + 0.05);
+            osc.frequency.linearRampToValueAtTime(600, t + 0.15);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start(t);
+            osc.stop(t + 0.15);
+        }
+
+        function correct() {
+            if (!enabled) return;
+            var c = getCtx();
+            if (!c) return;
+            var t = c.currentTime;
+            playTone(523, t, 0.15, 'sine', 0.1);
+            playTone(659, t + 0.12, 0.15, 'sine', 0.1);
+            playTone(784, t + 0.24, 0.2, 'sine', 0.1);
+        }
+
+        function wrong() {
+            if (!enabled) return;
+            var c = getCtx();
+            if (!c) return;
+            var t = c.currentTime;
+            playTone(400, t, 0.2, 'sawtooth', 0.08);
+            playTone(300, t + 0.18, 0.25, 'sawtooth', 0.08);
+        }
+
+        function jingle() {
+            if (!enabled) return;
+            var c = getCtx();
+            if (!c) return;
+            var t = c.currentTime;
+            playTone(523, t, 0.12, 'sine', 0.1);
+            playTone(659, t + 0.1, 0.12, 'sine', 0.1);
+            playTone(784, t + 0.2, 0.12, 'sine', 0.1);
+            playTone(1047, t + 0.3, 0.25, 'sine', 0.12);
+        }
+
+        function click() {
+            if (!enabled) return;
+            var c = getCtx();
+            if (!c) return;
+            var t = c.currentTime;
+            playTone(600, t, 0.06, 'sine', 0.06);
+        }
+
+        function toggle() {
+            if (reducedMotion) { enabled = false; saveState(); updateToggleBtn(); return; }
+            enabled = !enabled;
+            saveState();
+            updateToggleBtn();
+            if (enabled) {
+                /* Ensure AudioContext is created on user gesture */
+                getCtx();
+                click();
+            }
+        }
+
+        function isEnabled() {
+            return enabled;
+        }
+
+        function updateToggleBtn() {
+            var icon = document.getElementById('sound-toggle-icon');
+            var btn = document.getElementById('sound-toggle');
+            if (icon) icon.innerHTML = enabled ? '&#x1F50A;' : '&#x1F507;';
+            if (btn) btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        }
+
+        loadState();
+
+        /* Init toggle button */
+        var toggleBtn = document.getElementById('sound-toggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() { toggle(); });
+        }
+        updateToggleBtn();
+
+        window.ParrotSound = {
+            squawk: squawk,
+            correct: correct,
+            wrong: wrong,
+            jingle: jingle,
+            click: click,
+            toggle: toggle,
+            isEnabled: isEnabled
+        };
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Holiday Plumage — Seasonal Effects */
+    (function() {
+        var season = window._httpparrotSeason;
+        if (!season) return;
+
+        /* Halloween: ghost emoji in footer */
+        if (season === 'season-halloween') {
+            var footer = document.querySelector('.footer-inner');
+            if (footer) {
+                var ghost = document.createElement('span');
+                ghost.className = 'halloween-ghost';
+                ghost.textContent = '\uD83D\uDC7B';
+                ghost.setAttribute('aria-hidden', 'true');
+                footer.appendChild(ghost);
+            }
+        }
+
+        /* April Fools: scramble status codes and banner */
+        if (season === 'season-april-fools') {
+            var banner = document.createElement('div');
+            banner.className = 'april-fools-banner';
+            banner.setAttribute('role', 'status');
+            banner.innerHTML = '<span>April Fools! All status codes are scrambled... or are they?</span>';
+            var header = document.querySelector('.site-header-compact');
+            if (header) header.parentNode.insertBefore(banner, header.nextSibling);
+
+            /* Shuffle .img-status-code-text content */
+            var codeTexts = document.querySelectorAll('.img-status-code-text');
+            if (codeTexts.length > 1) {
+                var originals = [];
+                for (var i = 0; i < codeTexts.length; i++) originals.push(codeTexts[i].textContent);
+                var shuffled = originals.slice();
+                for (var j = shuffled.length - 1; j > 0; j--) {
+                    var k = Math.floor(Math.random() * (j + 1));
+                    var tmp = shuffled[j]; shuffled[j] = shuffled[k]; shuffled[k] = tmp;
+                }
+                for (var s = 0; s < codeTexts.length; s++) codeTexts[s].textContent = shuffled[s];
+
+                /* Revert after 10 seconds */
+                setTimeout(function() {
+                    for (var r = 0; r < codeTexts.length; r++) codeTexts[r].textContent = originals[r];
+                    banner.innerHTML = '<span>Just kidding!</span>';
+                    banner.classList.add('april-fools-revert');
+                    setTimeout(function() { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 3000);
+                }, 10000);
+            }
+        }
+
+        /* Valentine's: heart confetti on quiz correct answers */
+        if (season === 'season-valentine') {
+            window._valentineHeartConfetti = function(originEl) {
+                if (!originEl) return;
+                var rect = originEl.getBoundingClientRect();
+                var cx = rect.left + rect.width / 2;
+                var cy = rect.top + rect.height / 2;
+                for (var h = 0; h < 15; h++) {
+                    var p = document.createElement('div');
+                    p.className = 'valentine-heart';
+                    p.style.left = cx + 'px';
+                    p.style.top = cy + 'px';
+                    var angle = Math.random() * Math.PI * 2;
+                    var dist = 40 + Math.random() * 100;
+                    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                    p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                    p.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+                    document.body.appendChild(p);
+                    p.addEventListener('animationend', function() { this.remove(); });
+                }
+            };
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var footerInner = document.querySelector('.footer-inner');
+        if (!footerInner) return;
+        var now = new Date();
+        var h = now.getHours();
+        var m = now.getMinutes();
+        var msg = null;
+        var eggId = null;
+        /* 4:04 AM or PM +/- 1 min */
+        if ((h === 4 || h === 16) && m >= 3 && m <= 5) {
+            msg = "It's 4:04 \u2014 even time can't find this page";
+            eggId = 'time_404';
+        }
+        /* 2:00 AM or PM +/- 1 min */
+        else if ((h === 2 || h === 14) && m <= 1) {
+            msg = "200 OK, but the parrot is napping \uD83D\uDCA4";
+            eggId = 'time_200';
+        }
+        else if ((h === 1 || h === 13) && m >= 59) {
+            msg = "200 OK, but the parrot is napping \uD83D\uDCA4";
+            eggId = 'time_200';
+        }
+        /* 5:00 PM +/- 1 min */
+        else if (h === 17 && m <= 1) {
+            msg = "It's 5xx o'clock somewhere";
+            eggId = 'time_5xx';
+        }
+        else if (h === 16 && m >= 59) {
+            msg = "It's 5xx o'clock somewhere";
+            eggId = 'time_5xx';
+        }
+        if (msg && eggId) {
+            var sep = document.createElement('span');
+            sep.className = 'footer-sep';
+            sep.textContent = '\u00B7';
+            footerInner.appendChild(sep);
+            var span = document.createElement('span');
+            span.className = 'footer-time-egg';
+            span.textContent = msg;
+            footerInner.appendChild(span);
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf(eggId) === -1) { eggs.push(eggId); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Console Parrot API — window.parrot easter egg */
+    (function() {
+        var PARROT_ART = [
+            '         ___',
+            '        (o o)',
+            '       (  V  )',
+            '      /--m-m--\\',
+            '     / HTTP     \\',
+            '    |  Parrots   |',
+            '     \\__________/'
+        ].join('\n');
+
+        var SQUAWKS = [
+            '200 OK? More like 200 O-Caw!',
+            'This parrot has been 301 Moved Permanently... to your heart.',
+            '404: Crackers Not Found.',
+            '418: I am a teaparrot.',
+            '500: Internal Server Squawk.',
+            '204: No Content? No crackers either!',
+            '429: Too Many Requests for treats!',
+            '301: Redirecting you to the nearest bird feeder.',
+            '403: Forbidden to leave without petting me.',
+            '502: Bad Gateway? Bad birdseed!',
+            '503: Service Unavailable — parrot is napping.',
+            '401: Unauthorized to view these feathers.',
+            '408: Request Timeout — this parrot got bored waiting.',
+            '451: Unavailable For Legal Reasons — no crackers in court.',
+            '226: IM Used — this parrot has been recycled.'
+        ];
+
+        var FORTUNES = [
+            'You will encounter a 200 OK when you least expect it.',
+            'A mysterious 301 will redirect your career path.',
+            'Beware the 403 Forbidden — some doors are not meant to be opened.',
+            'A 404 in your future: you will search for your keys and not find them.',
+            'The 418 teapot smiles upon you — drink more tea.',
+            'A 500 Internal Server Error lurks in your deploy pipeline.',
+            'Your next API call will return 201 Created — something new begins.',
+            'The 304 Not Modified suggests: if it ain\'t broke, don\'t fix it.',
+            'A 429 Too Many Requests warns: pace yourself today.',
+            'The spirits of RFC 2616 bless your caching headers.',
+            'You will discover a missing semicolon at 3 AM.',
+            'A wild CORS error appears in your future. Bring headers.',
+            'Your load balancer will smile upon you with 200s all day.',
+            'Trust the 202 Accepted — patience is a virtue.',
+            'The 503 fairy says: your server needs rest too.',
+            'An unexpected 307 will take you somewhere wonderful.'
+        ];
+
+        var LORE = [
+            'RFC 2324 (Hyper Text Coffee Pot Control Protocol) was published on April 1, 1998.',
+            'HTTP status code 418 "I\'m a teapot" was an April Fools\' joke that stuck around.',
+            'The 451 code is named after Ray Bradbury\'s Fahrenheit 451.',
+            'Tim Berners-Lee wrote the first HTTP client and server in 1990.',
+            'HTTP/0.9 only had one method: GET. No headers, no status codes.',
+            'The 204 No Content response must NOT include a message body.',
+            'RFC 7231 obsoleted RFC 2616 in June 2014 after 15 years.',
+            'The 100 Continue status was added to avoid sending large bodies the server would reject.',
+            'HTTP/2 was standardized in RFC 7540 in May 2015, based on Google\'s SPDY.',
+            'The 206 Partial Content response enables video streaming and download resumption.',
+            'RFC 6585 introduced 428, 429, 431, and 511 in April 2012.',
+            'The 300 Multiple Choices is the only 3xx code with an optional body.',
+            'HTTP/3 uses QUIC (UDP-based) instead of TCP for transport.',
+            'Roy Fielding coined "REST" in his 2000 doctoral dissertation at UC Irvine.',
+            'The 409 Conflict status is commonly used for version control conflicts in APIs.'
+        ];
+
+        var STATUS_CATEGORIES = {
+            '1': {name: 'Informational', color: '#48cae4'},
+            '2': {name: 'Success', color: '#2dd4a8'},
+            '3': {name: 'Redirection', color: '#f9c74f'},
+            '4': {name: 'Client Error', color: '#ff6b6b'},
+            '5': {name: 'Server Error', color: '#a78bfa'}
+        };
+
+        var eggTriggered = false;
+
+        function registerEgg() {
+            if (eggTriggered) return;
+            eggTriggered = true;
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf('console_parrot') === -1) {
+                eggs.push('console_parrot');
+                localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            }
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+        }
+
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        console.log(
+            '%c' + PARROT_ART + '\n\n  Welcome, developer! Try window.parrot.help()\n',
+            'color: #00c9a7; font-family: monospace; font-size: 12px; line-height: 1.3;'
+        );
+
+        window.parrot = Object.freeze({
+            help: function() {
+                registerEgg();
+                console.log('%cParrot Console API', 'color: #00c9a7; font-size: 16px; font-weight: bold;');
+                console.table([
+                    {command: 'parrot.help()', description: 'Show this help table'},
+                    {command: 'parrot.squawk()', description: 'Random parrot one-liner'},
+                    {command: 'parrot.fortune()', description: 'HTTP-themed fortune cookie'},
+                    {command: 'parrot.status(code)', description: 'Mini status code card (e.g. parrot.status(404))'},
+                    {command: 'parrot.lore()', description: 'Random RFC / HTTP trivia'}
+                ]);
+            },
+            squawk: function() {
+                registerEgg();
+                var msg = pick(SQUAWKS);
+                console.log(
+                    '%c\uD83E\uDD9C ' + msg,
+                    'color: #f9c74f; font-size: 14px; font-weight: bold; padding: 4px 0;'
+                );
+                return msg;
+            },
+            fortune: function() {
+                registerEgg();
+                var f = pick(FORTUNES);
+                console.log(
+                    '%c\uD83E\uDD6E ' + f,
+                    'color: #a78bfa; font-size: 14px; font-style: italic; padding: 4px 0;'
+                );
+                return f;
+            },
+            status: function(code) {
+                registerEgg();
+                code = String(code);
+                var cat = STATUS_CATEGORIES[code[0]];
+                if (!cat) {
+                    console.log('%cUnknown status code: ' + code, 'color: #ff6b6b;');
+                    return;
+                }
+                console.log(
+                    '%c ' + code + ' %c ' + cat.name + ' ',
+                    'background: ' + cat.color + '; color: #000; font-weight: bold; font-size: 16px; padding: 4px 8px; border-radius: 4px 0 0 4px;',
+                    'background: #1a1a1f; color: ' + cat.color + '; font-size: 14px; padding: 4px 8px; border-radius: 0 4px 4px 0;'
+                );
+            },
+            lore: function() {
+                registerEgg();
+                var l = pick(LORE);
+                console.log(
+                    '%c\uD83D\uDCDC ' + l,
+                    'color: #48cae4; font-size: 13px; padding: 4px 0;'
+                );
+                return l;
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* HTTP Keyboard Combo — Protocol Handshake easter egg */
+    (function() {
+        var httpSeq = ['h','t','t','p'];
+        var httpBuf = [];
+        var httpTimer = null;
+
+        document.addEventListener('keydown', function(e) {
+            var tag = document.activeElement ? document.activeElement.tagName : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            httpBuf.push(e.key.toLowerCase());
+            if (httpTimer) clearTimeout(httpTimer);
+            httpTimer = setTimeout(function() { httpBuf = []; }, 2000);
+
+            if (httpBuf.length > 4) httpBuf = httpBuf.slice(-4);
+
+            if (httpBuf.length === 4 &&
+                httpBuf[0] === httpSeq[0] &&
+                httpBuf[1] === httpSeq[1] &&
+                httpBuf[2] === httpSeq[2] &&
+                httpBuf[3] === httpSeq[3]) {
+                httpBuf = [];
+                if (httpTimer) clearTimeout(httpTimer);
+                showHandshake();
+            }
+        });
+
+        function showHandshake() {
+            var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+            if (eggs.indexOf('http_handshake') === -1) {
+                eggs.push('http_handshake');
+                localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            }
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+
+            var overlay = document.createElement('div');
+            overlay.className = 'handshake-overlay';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'TCP Handshake Animation');
+
+            overlay.innerHTML =
+                '<div class="handshake-scene">' +
+                    '<div class="handshake-parrot handshake-client">' +
+                        '<div class="handshake-label">Client</div>' +
+                        '<div class="handshake-bird">\uD83E\uDD9C</div>' +
+                    '</div>' +
+                    '<div class="handshake-messages">' +
+                        '<div class="handshake-msg handshake-syn" id="hs-syn">SYN &rarr;</div>' +
+                        '<div class="handshake-msg handshake-synack" id="hs-synack">&larr; SYN-ACK</div>' +
+                        '<div class="handshake-msg handshake-ack" id="hs-ack">ACK &rarr;</div>' +
+                        '<div class="handshake-msg handshake-ok" id="hs-ok">200 OK</div>' +
+                    '</div>' +
+                    '<div class="handshake-parrot handshake-server">' +
+                        '<div class="handshake-label">Server</div>' +
+                        '<div class="handshake-bird" style="transform: scaleX(-1)">\uD83E\uDD9C</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="handshake-connected" id="hs-connected">Connection Established!</div>';
+
+            document.body.appendChild(overlay);
+
+            requestAnimationFrame(function() {
+                overlay.classList.add('handshake-active');
+            });
+
+            setTimeout(function() { document.getElementById('hs-syn').classList.add('hs-visible'); }, 400);
+            setTimeout(function() { document.getElementById('hs-synack').classList.add('hs-visible'); }, 1100);
+            setTimeout(function() { document.getElementById('hs-ack').classList.add('hs-visible'); }, 1800);
+            setTimeout(function() { document.getElementById('hs-ok').classList.add('hs-visible'); }, 2400);
+            setTimeout(function() { document.getElementById('hs-connected').classList.add('hs-visible'); }, 3000);
+
+            setTimeout(function() {
+                overlay.classList.remove('handshake-active');
+                overlay.classList.add('handshake-dismissing');
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                }, 500);
+            }, 5000);
+        }
     })();
     </script>
     {% block scripts %}{% endblock %}

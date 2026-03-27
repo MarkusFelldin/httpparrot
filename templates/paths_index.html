@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Learning Paths - HTTP Parrots{% endblock %}
+{% block subtitle %}Guided Learning Paths{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Follow curated learning paths to master HTTP status codes step by step. Beginner to advanced difficulty levels.">
+{% endblock %}
+
+{% block head %}
+<style nonce="{{ csp_nonce }}">
+.paths-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+.paths-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+.paths-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0 0 0.5rem;
+}
+.paths-header p {
+    color: #a0a0b0;
+    font-size: 1.05rem;
+    margin: 0;
+}
+.paths-grid {
+    display: grid;
+    gap: 1.5rem;
+}
+.path-card {
+    display: block;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 1.75rem;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.path-card:hover, .path-card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    border-color: rgba(255,255,255,0.15);
+}
+.path-card-top {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+.path-card-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #f0f0f0;
+    margin: 0;
+}
+.path-difficulty {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+.path-difficulty-beginner {
+    background: rgba(45,212,168,0.15);
+    color: #2dd4a8;
+}
+.path-difficulty-intermediate {
+    background: rgba(249,199,79,0.15);
+    color: #f9c74f;
+}
+.path-difficulty-advanced {
+    background: rgba(167,139,250,0.15);
+    color: #a78bfa;
+}
+.path-card-desc {
+    color: #a0a0b0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 1.25rem;
+}
+.path-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.path-step-count {
+    font-size: 0.85rem;
+    color: #888;
+}
+.path-progress-wrap {
+    flex: 1;
+    max-width: 200px;
+}
+.path-progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.path-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00c9a7, #48cae4);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    width: 0%;
+}
+.path-progress-label {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 0.25rem;
+    text-align: right;
+}
+.path-complete-badge {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #2dd4a8;
+}
+.path-complete-badge.visible {
+    display: flex;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+    <main class="paths-container" id="main-content" role="main">
+        <div class="paths-header">
+            <h1>Learning Paths</h1>
+            <p>Follow a curated path from start to finish. Each path guides you through status code pages, practice scenarios, debug exercises, confusion-pair lessons, and quizzes.</p>
+        </div>
+
+        <div class="paths-grid">
+            {% for path in paths %}
+            <a href="/paths/{{ path.id }}" class="path-card" data-path-id="{{ path.id }}">
+                <div class="path-card-top">
+                    <h2 class="path-card-title">{{ path.title }}</h2>
+                    <span class="path-difficulty path-difficulty-{{ path.difficulty }}">{{ path.difficulty }}</span>
+                </div>
+                <p class="path-card-desc">{{ path.description }}</p>
+                <div class="path-card-meta">
+                    <span class="path-step-count">{{ path.steps|length }} steps</span>
+                    <div class="path-progress-wrap">
+                        <div class="path-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="{{ path.steps|length }}" aria-label="{{ path.title }} progress">
+                            <div class="path-progress-fill" id="progress-{{ path.id }}"></div>
+                        </div>
+                        <div class="path-progress-label" id="progress-label-{{ path.id }}">0 / {{ path.steps|length }}</div>
+                    </div>
+                    <span class="path-complete-badge" id="complete-{{ path.id }}" aria-label="Path complete">&#x1FAB6; Complete</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </main>
+
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var paths = {{ paths | tojson }};
+        paths.forEach(function(path) {
+            var key = 'httpparrot_path_' + path.id;
+            var done;
+            try { done = JSON.parse(localStorage.getItem(key) || '[]'); }
+            catch(e) { done = []; }
+            var count = 0;
+            for (var i = 0; i < path.steps.length; i++) {
+                if (done.indexOf(i) !== -1) count++;
+            }
+            var pct = path.steps.length > 0 ? Math.round(count / path.steps.length * 100) : 0;
+            var fill = document.getElementById('progress-' + path.id);
+            var label = document.getElementById('progress-label-' + path.id);
+            var badge = document.getElementById('complete-' + path.id);
+            if (fill) fill.style.width = pct + '%';
+            if (label) label.textContent = count + ' / ' + path.steps.length;
+            var bar = fill && fill.parentElement;
+            if (bar) {
+                bar.setAttribute('aria-valuenow', String(count));
+            }
+            if (count === path.steps.length && path.steps.length > 0) {
+                if (badge) badge.classList.add('visible');
+                if (label) label.style.display = 'none';
+            }
+        });
+    })();
+    </script>
+{% endblock %}
