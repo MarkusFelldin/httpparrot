@@ -9920,10 +9920,10 @@ class TestInteractiveParrotClick:
         assert 'eli5Text' in html
 
     def test_speech_bubble_includes_fun_facts(self, client):
-        """Speech bubble should include fun facts about HTTP."""
+        """Speech bubble should include generic HTTP fun facts."""
         resp = client.get('/200')
         html = resp.data.decode()
-        assert 'funFacts' in html
+        assert 'genericFacts' in html
         assert 'Tim Berners-Lee' in html
 
 
@@ -11393,3 +11393,195 @@ class TestTouchFeedbackDetailParrot:
             css = f.read()
         assert '.parrot-clickable:active' in css
         assert 'scale(0.96)' in css
+
+
+class TestSearchInputCSSConsistency:
+    """Search input styles should be consistent across header and homepage."""
+
+    def test_search_input_sm_has_border_radius(self):
+        """Header .search-input-sm should use var(--radius-sm) for border-radius."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Find the .search-input-sm block and verify border-radius
+        import re
+        match = re.search(r'\.search-input-sm\s*\{[^}]+\}', css)
+        assert match, '.search-input-sm rule not found'
+        block = match.group(0)
+        assert 'border-radius: var(--radius-sm)' in block
+
+    def test_search_input_sm_tablet_min_width(self):
+        """On tablet (768-992px), .search-input-sm should have min-width: 140px."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '(min-width: 768px) and (max-width: 992px)' in css
+        # The breakpoint should contain the min-width rule for search-input-sm
+        import re
+        match = re.search(
+            r'@media\s*\(min-width:\s*768px\)\s*and\s*\(max-width:\s*992px\)\s*\{([^}]+\})',
+            css,
+        )
+        assert match, 'Tablet breakpoint (768-992px) not found'
+        block = match.group(1)
+        assert '.search-input-sm' in block
+        assert 'min-width: 140px' in block
+
+
+class TestPlaygroundLayoutBreakpoints:
+    """Playground layout should adapt to narrow tablet and prevent overflow."""
+
+    def test_playground_900px_breakpoint_exists(self):
+        """A 900px breakpoint should switch .playground-layout to single column."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@media (max-width: 900px)' in css
+        import re
+        match = re.search(
+            r'@media\s*\(max-width:\s*900px\)\s*\{([^}]+\})+',
+            css,
+        )
+        assert match, '900px breakpoint not found'
+        block = match.group(0)
+        assert '.playground-layout' in block
+        assert 'grid-template-columns: 1fr' in block
+
+    def test_playground_preview_static_at_900px(self):
+        """At 900px breakpoint, .playground-preview should be position: static."""
+        with open('static/style.css') as f:
+            css = f.read()
+        import re
+        match = re.search(
+            r'@media\s*\(max-width:\s*900px\)\s*\{([^}]+\})+',
+            css,
+        )
+        assert match, '900px breakpoint not found'
+        block = match.group(0)
+        assert '.playground-preview' in block
+        assert 'position: static' in block
+
+    def test_playground_raw_overflow_x(self):
+        """Base .playground-raw should have overflow-x: auto and max-width: 100%."""
+        with open('static/style.css') as f:
+            css = f.read()
+        import re
+        assert '.playground-raw' in css
+        assert 'overflow-x: auto' in css
+
+
+# --- Issue Fix Verification Tests ---
+
+class TestPOTDBadgeCSS:
+    """Verify the Parrot of the Day CSS ribbon/badge exists on featured cards."""
+
+    def test_featured_before_pseudo_element_exists(self):
+        """CSS should define .parrot.featured::before with POTD badge text."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured::before' in css
+
+    def test_featured_before_has_potd_content(self):
+        """The ::before pseudo-element should say 'Parrot of the day'."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # The content property should reference 'Parrot of the day'
+        assert "content: 'Parrot of the day'" in css
+
+    def test_featured_before_is_positioned(self):
+        """The POTD badge should be absolutely positioned inside the card."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured::before' in css
+        assert 'position: absolute' in css
+
+    def test_featured_class_applied_in_homepage(self, client):
+        """Homepage should have a card with the 'featured' CSS class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'class="parrot parrot-' in html
+        assert ' featured' in html
+
+    def test_featured_card_has_green_border(self):
+        """Featured card should have a distinct green border color."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.parrot.featured' in css
+        assert 'border-color' in css
+
+
+class TestKonamiEasterEgg:
+    """Verify the Konami code easter egg listener and overlay exist."""
+
+    def test_konami_code_listener_exists(self, client):
+        """Homepage should have the Konami code keydown listener."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'konamiCode' in html
+        assert "['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a']" in html
+
+    def test_party_parrot_overlay_html_exists(self, client):
+        """Homepage should have the party-parrot-overlay div."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="party-parrot-overlay"' in html
+        assert 'id="party-parrot-container"' in html
+        assert 'id="party-parrot-text"' in html
+        assert 'PARTY PARROT MODE' in html
+
+    def test_party_parrot_overlay_css_exists(self):
+        """CSS should define styles for the party parrot overlay."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '#party-parrot-overlay' in css
+        assert '#party-parrot-overlay.active' in css
+
+    def test_konami_activates_party_function(self, client):
+        """Konami code should call activatePartyParrot function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'activatePartyParrot' in html
+
+    def test_konami_saves_easter_egg(self, client):
+        """Konami code should save 'konami' to eggs_found in localStorage."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "eggs.indexOf('konami')" in html
+        assert 'eggs_found' in html
+
+
+class TestFunFactsPool:
+    """Verify the fun facts pool includes code-specific data."""
+
+    def test_fun_facts_include_generic_facts(self, client):
+        """Detail page should include generic HTTP fun facts."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'genericFacts' in html
+        assert 'Tim Berners-Lee' in html
+
+    def test_fun_facts_include_code_specific_facts(self, client):
+        """Detail page should include code-specific facts from examples/case_studies."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'codeSpecificFacts' in html
+
+    def test_fun_facts_include_eli5_text(self, client):
+        """Detail page should include ELI5 text in the fun facts pool."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'eli5Text' in html
+        assert 'codeSpecificFacts.push' in html
+
+    def test_fun_facts_include_examples_for_code_with_extras(self, client):
+        """Detail page with extra examples should inject them into codeSpecificFacts."""
+        resp = client.get('/404')
+        html = resp.data.decode()
+        # 404 has examples in STATUS_EXTRA, they should appear in codeSpecificFacts
+        assert 'codeSpecificFacts' in html
+
+    def test_fun_facts_pool_has_more_than_ten_generic(self, client):
+        """The generic facts pool should have more than 10 entries."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        # Count occurrences of entries in genericFacts array
+        assert 'Roy Fielding' in html
+        assert 'HTTPS was introduced' in html
+        assert 'Cookies were invented' in html
