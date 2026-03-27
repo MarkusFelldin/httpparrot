@@ -570,7 +570,7 @@ body > main, body > .container-fluid { flex: 1; }
   }
 
   .header-inner {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0.5rem;
   }
 
@@ -580,6 +580,7 @@ body > main, body > .container-fluid { flex: 1; }
     flex: 1;
     min-width: 0;
     gap: 0.5rem;
+    overflow: hidden;
   }
 
   .header-subtitle {
@@ -590,12 +591,22 @@ body > main, body > .container-fluid { flex: 1; }
     margin-left: auto;
     flex-shrink: 1;
     min-width: 0;
+    gap: 0.25rem;
   }
 
+  /* Hide search in header on mobile — use homepage search instead */
   .header-right .search-input {
-    flex: 1;
-    width: auto;
-    min-width: 0;
+    display: none;
+  }
+
+  /* Compact XP badge: hide text, show icon only */
+  .xp-badge-rank,
+  .xp-badge-xp {
+    display: none;
+  }
+
+  .xp-badge {
+    padding: 0.2rem 0.4rem;
   }
 
   .detail-nav {

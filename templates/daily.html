@@ -69,7 +69,8 @@
         </div>
 
         <div class="daily-already" id="daily-already" style="display:none;">
-            <div class="daily-already-text">You already answered today's challenge!</div>
+            <div class="daily-already-text">You already answered today's challenge! Come back tomorrow.</div>
+            <a href="/" class="btn-back" style="margin-top:0.75rem;display:inline-block;">Back to Home</a>
         </div>
     </main>
 {% endblock %}
@@ -257,6 +258,16 @@
 
         updateStreakDisplay(state.streak);
         updateFreezeDisplay(state.freezesAvailable);
+        saveState(state);
+
+        // Wire milestone overlay dismiss permanently (not just inside showMilestoneCelebration)
+        var milestoneOverlay = document.getElementById('milestone-overlay');
+        var milestoneDismiss = document.getElementById('milestone-dismiss');
+        function dismissMilestone() { milestoneOverlay.style.display = 'none'; }
+        if (milestoneDismiss) milestoneDismiss.addEventListener('click', dismissMilestone);
+        if (milestoneOverlay) milestoneOverlay.addEventListener('click', function(e) {
+            if (e.target === milestoneOverlay) dismissMilestone();
+        });
 
         // If already answered today, show the result
         if (state.lastDay === DAY_NUMBER && state.answered) {
