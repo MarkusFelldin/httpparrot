@@ -42,10 +42,11 @@
 
 {% block content %}
     <main id="main-content" class="container-fluid parrot-grid" role="main">
-        <!-- Parrot of the Day -->
-        <section class="potd-section" id="potd-section" aria-label="Parrot of the Day">
-            <div class="potd-card">
-                <div class="potd-badge">Parrot of the Day</div>
+        <!-- Bento Dashboard -->
+        <section class="bento-dashboard" id="bento-dashboard" aria-label="Dashboard">
+            <!-- Parrot of the Day tile (spans 2 cols) -->
+            <div class="bento-tile bento-tile--potd" id="potd-section">
+                <div class="bento-tile-badge">Parrot of the Day</div>
                 <a href="/{{ featured }}" class="potd-link" aria-label="Parrot of the Day: {{ featured }} {{ featured_description }}">
                     <div class="potd-image">
                         <img src="/static/{{ featured_image }}" alt="{{ featured }} {{ featured_description }}" width="600" height="500" fetchpriority="high">
@@ -59,6 +60,88 @@
                     </div>
                 </a>
                 <button class="potd-share-btn" id="potd-share" title="Share today's parrot" aria-label="Share today's parrot">Share today's parrot</button>
+            </div>
+
+            <!-- Daily Challenge tile -->
+            <div class="bento-tile bento-tile--daily" id="bento-daily">
+                <div class="bento-tile-header">
+                    <span class="bento-tile-icon" aria-hidden="true">&#x1F525;</span>
+                    <span class="bento-tile-title">Daily Challenge</span>
+                </div>
+                <div class="bento-tile-body">
+                    <div class="bento-streak-count" id="bento-streak-count">0</div>
+                    <div class="bento-streak-label">day streak</div>
+                </div>
+                <a href="/daily" class="bento-tile-action">Play Now</a>
+            </div>
+
+            <!-- XP Progress tile -->
+            <div class="bento-tile bento-tile--xp" id="bento-xp">
+                <div class="bento-tile-header">
+                    <span class="bento-tile-icon" aria-hidden="true">&#x2B50;</span>
+                    <span class="bento-tile-title">XP Progress</span>
+                </div>
+                <div class="bento-tile-body">
+                    <div class="bento-rank-name" id="bento-rank-name">Hatchling</div>
+                    <div class="bento-xp-bar-wrap">
+                        <div class="bento-xp-bar" id="bento-xp-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="XP progress to next rank">
+                            <div class="bento-xp-bar-fill" id="bento-xp-fill"></div>
+                        </div>
+                        <div class="bento-xp-text" id="bento-xp-text">0 / 0 XP</div>
+                    </div>
+                </div>
+                <a href="/profile" class="bento-tile-action">View Profile</a>
+            </div>
+
+            <!-- Quick Tools tile -->
+            <div class="bento-tile bento-tile--tools" id="bento-tools">
+                <div class="bento-tile-header">
+                    <span class="bento-tile-icon" aria-hidden="true">&#x1F6E0;&#xFE0F;</span>
+                    <span class="bento-tile-title">Quick Tools</span>
+                </div>
+                <div class="bento-tools-grid">
+                    <a href="/quiz" class="bento-tool-link" aria-label="Quiz">
+                        <span class="bento-tool-icon" aria-hidden="true">&#x1F9E0;</span>
+                        <span>Quiz</span>
+                    </a>
+                    <a href="/practice" class="bento-tool-link" aria-label="Practice">
+                        <span class="bento-tool-icon" aria-hidden="true">&#x1F3AF;</span>
+                        <span>Practice</span>
+                    </a>
+                    <a href="/debug" class="bento-tool-link" aria-label="Debug">
+                        <span class="bento-tool-icon" aria-hidden="true">&#x1F41B;</span>
+                        <span>Debug</span>
+                    </a>
+                    <a href="/playground" class="bento-tool-link" aria-label="Playground">
+                        <span class="bento-tool-icon" aria-hidden="true">&#x1F680;</span>
+                        <span>Playground</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Learning Paths tile -->
+            <div class="bento-tile bento-tile--paths" id="bento-paths">
+                <div class="bento-tile-header">
+                    <span class="bento-tile-icon" aria-hidden="true">&#x1F4DA;</span>
+                    <span class="bento-tile-title">Learning Paths</span>
+                </div>
+                <div class="bento-tile-body">
+                    <div class="bento-paths-list" id="bento-paths-list">
+                        <div class="bento-path-item" data-path-id="http-foundations">
+                            <span class="bento-path-name">HTTP Foundations</span>
+                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-http-foundations"></div></div>
+                        </div>
+                        <div class="bento-path-item" data-path-id="error-whisperer">
+                            <span class="bento-path-name">Error Whisperer</span>
+                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-error-whisperer"></div></div>
+                        </div>
+                        <div class="bento-path-item" data-path-id="redirect-master">
+                            <span class="bento-path-name">Redirect Master</span>
+                            <div class="bento-path-bar"><div class="bento-path-bar-fill" id="bento-path-fill-redirect-master"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <a href="/paths" class="bento-tile-action">Continue Learning</a>
             </div>
         </section>
 
@@ -134,9 +217,13 @@
                 if (show) visible++;
             });
             noResults.style.display = visible ? 'none' : 'block';
-            /* Hide POTD section when filtering or searching */
+            /* Hide dashboard when filtering or searching */
             if (potdSection) {
                 potdSection.style.display = (q || activeCat !== 'all') ? 'none' : '';
+            }
+            var bentoDash = document.getElementById('bento-dashboard');
+            if (bentoDash) {
+                bentoDash.style.display = (q || activeCat !== 'all') ? 'none' : '';
             }
             updateURL();
         }
@@ -519,6 +606,58 @@
                 if (eggs.indexOf(code) === -1) { eggs.push(code); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
             }
         });
+    })();
+    </script>
+
+    <!-- Bento Dashboard Initialization -->
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        /* Daily streak */
+        try {
+            var dailyState = JSON.parse(localStorage.getItem('daily_state') || '{}');
+            var streakEl = document.getElementById('bento-streak-count');
+            if (streakEl && dailyState.streak) {
+                streakEl.textContent = dailyState.streak;
+            }
+        } catch(e) {}
+
+        /* XP Progress */
+        try {
+            if (typeof ParrotXP !== 'undefined') {
+                var total = ParrotXP.getTotal();
+                var info = ParrotXP.getRankInfo(total);
+                var rankEl = document.getElementById('bento-rank-name');
+                if (rankEl) rankEl.textContent = info.rank;
+                var fillEl = document.getElementById('bento-xp-fill');
+                var textEl = document.getElementById('bento-xp-text');
+                var barEl = document.getElementById('bento-xp-bar');
+                if (info.nextXp !== null) {
+                    var progressInLevel = total - info.currentThreshold;
+                    var levelRange = info.nextXp - info.currentThreshold;
+                    var pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
+                    if (fillEl) fillEl.style.width = pct + '%';
+                    if (textEl) textEl.textContent = progressInLevel + ' / ' + levelRange + ' XP';
+                    if (barEl) barEl.setAttribute('aria-valuenow', pct);
+                } else {
+                    if (fillEl) fillEl.style.width = '100%';
+                    if (textEl) textEl.textContent = 'MAX RANK';
+                    if (barEl) barEl.setAttribute('aria-valuenow', 100);
+                }
+            }
+        } catch(e) {}
+
+        /* Learning Paths progress */
+        try {
+            var pathIds = ['http-foundations', 'error-whisperer', 'redirect-master'];
+            var stepCounts = { 'http-foundations': 14, 'error-whisperer': 17, 'redirect-master': 18 };
+            pathIds.forEach(function(pid) {
+                var done = JSON.parse(localStorage.getItem('httpparrot_path_' + pid) || '[]');
+                var total = stepCounts[pid] || 1;
+                var pct = Math.min(100, Math.round((done.length / total) * 100));
+                var bar = document.getElementById('bento-path-fill-' + pid);
+                if (bar) bar.style.width = pct + '%';
+            });
+        } catch(e) {}
     })();
     </script>
 

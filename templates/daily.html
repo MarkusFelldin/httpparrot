@@ -303,9 +303,11 @@
                 if (wasCorrect) {
                     fb.textContent = 'Correct!';
                     fb.className = 'quiz-feedback right';
+                    if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
                 } else {
                     fb.textContent = 'Nope! It was ' + CORRECT_CODE + ' ' + CORRECT_NAME;
                     fb.className = 'quiz-feedback nope';
+                    if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
                 }
 
                 showResult(wasCorrect, state.streak);

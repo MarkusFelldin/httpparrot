@@ -48,6 +48,10 @@
                     <div class="profile-stat-value" id="stat-practice-completed">0</div>
                     <div class="profile-stat-label">Practice Completed</div>
                 </div>
+                <div class="profile-stat-card">
+                    <div class="profile-stat-value" id="stat-review-due" style="color:#7b61ff">0</div>
+                    <div class="profile-stat-label"><a href="/review" style="color:inherit;text-decoration:none">Due for Review</a></div>
+                </div>
             </div>
         </section>
 
@@ -104,6 +108,7 @@
                 <div class="xp-action-row"><span class="xp-action-name">Practice scenario correct</span><span class="xp-action-value">+15 XP</span></div>
                 <div class="xp-action-row"><span class="xp-action-name">Debug exercise bug found</span><span class="xp-action-value">+20 XP</span></div>
                 <div class="xp-action-row"><span class="xp-action-name">Trace a redirect chain</span><span class="xp-action-value">+5 XP</span></div>
+                <div class="xp-action-row"><span class="xp-action-name">Spaced repetition review correct</span><span class="xp-action-value">+15 XP</span></div>
                 <div class="xp-action-row"><span class="xp-action-name">Easter egg found</span><span class="xp-action-value">+100 XP</span></div>
             </div>
         </section>
@@ -147,6 +152,21 @@
     document.getElementById('stat-quiz-answers').textContent = quizCount;
     document.getElementById('stat-practice-completed').textContent = practiceCount;
     document.getElementById('stat-codes-visited').textContent = visitCount;
+
+    /* Due for review */
+    var reviewDueEl = document.getElementById('stat-review-due');
+    if (reviewDueEl) {
+        var reviewData = null;
+        try { reviewData = JSON.parse(localStorage.getItem('httpparrot_review')); } catch(e) {}
+        if (reviewData && reviewData.items) {
+            var todayStr = new Date().toISOString().slice(0, 10);
+            var dueCount = 0;
+            for (var key in reviewData.items) {
+                if (reviewData.items[key].next_review <= todayStr) dueCount++;
+            }
+            reviewDueEl.textContent = dueCount;
+        }
+    }
 
     /* Daily streak */
     var dailyDays = activity.filter(function(e) { return e.action === 'daily_correct'; })

@@ -7089,3 +7089,876 @@ class TestScoreToGrade:
             assert 'fix' in check
             assert 'status' in check
             assert check['status'] in ('pass', 'fail')
+
+
+# --- Fault Simulator page ---
+
+class TestFaultSimulatorPage:
+    def test_page_renders(self, client):
+        resp = client.get('/fault-simulator')
+        assert resp.status_code == 200
+        assert b'Fault Simulator' in resp.data
+
+    def test_page_has_endpoint_sections(self, client):
+        resp = client.get('/fault-simulator')
+        html = resp.data.decode()
+        assert 'section-delay' in html
+        assert 'section-drip' in html
+        assert 'section-stream' in html
+        assert 'section-jitter' in html
+        assert 'section-unstable' in html
+
+    def test_page_has_try_buttons(self, client):
+        resp = client.get('/fault-simulator')
+        html = resp.data.decode()
+        assert 'delay-btn' in html
+        assert 'drip-btn' in html
+        assert 'stream-btn' in html
+        assert 'jitter-btn' in html
+        assert 'unstable-btn' in html
+
+    def test_nav_link_exists(self, client):
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/fault-simulator"' in html
+        assert 'Faults' in html
+
+    def test_sitemap_contains_fault_simulator(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/fault-simulator' in resp.data
+
+    def test_robots_disallows_fault_apis(self, client):
+        resp = client.get('/robots.txt')
+        text = resp.data.decode()
+        assert '/api/delay/' in text
+        assert '/api/drip' in text
+        assert '/api/stream/' in text
+        assert '/api/jitter' in text
+        assert '/api/unstable' in text
+
+
+# --- Fault Simulation: Delay endpoint ---
+
+class TestApiDelay:
+    def test_delay_returns_json(self, client):
+        resp = client.get('/api/delay/0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 0
+        assert 'timestamp' in data
+
+    def test_delay_valid_seconds(self, client):
+        resp = client.get('/api/delay/1')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 1
+
+    def test_delay_max_boundary(self, client):
+        resp = client.get('/api/delay/10')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay'] == 10
+
+    def test_delay_exceeds_max(self, client):
+        resp = client.get('/api/delay/11')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_delay_negative(self, client):
+        resp = client.get('/api/delay/-1')
+        assert resp.status_code == 400 or resp.status_code == 404
+
+    def test_delay_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/delay/0')
+        resp = client.get('/api/delay/0')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+
+# --- Fault Simulation: Drip endpoint ---
+
+class TestApiDrip:
+    def test_drip_default_params(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10')
+        assert resp.status_code == 200
+        assert len(resp.data) == 10
+
+    def test_drip_returns_correct_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=100')
+        assert resp.status_code == 200
+        assert len(resp.data) == 100
+
+    def test_drip_content_type(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10')
+        assert 'octet-stream' in resp.content_type
+
+    def test_drip_exceeds_max_duration(self, client):
+        resp = client.get('/api/drip?duration=31&numbytes=10')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_drip_exceeds_max_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=10241')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_drip_zero_duration(self, client):
+        resp = client.get('/api/drip?duration=0&numbytes=10')
+        assert resp.status_code == 400
+
+    def test_drip_zero_bytes(self, client):
+        resp = client.get('/api/drip?duration=1&numbytes=0')
+        assert resp.status_code == 400
+
+    def test_drip_negative_params(self, client):
+        resp = client.get('/api/drip?duration=-1&numbytes=10')
+        assert resp.status_code == 400
+
+    def test_drip_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/drip?duration=1&numbytes=1')
+        resp = client.get('/api/drip?duration=1&numbytes=1')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Stream endpoint ---
+
+class TestApiStream:
+    def test_stream_returns_lines(self, client):
+        resp = client.get('/api/stream/3')
+        assert resp.status_code == 200
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        assert len(lines) == 3
+
+    def test_stream_json_lines(self, client):
+        import json
+        resp = client.get('/api/stream/2')
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        for line in lines:
+            data = json.loads(line)
+            assert 'id' in data
+            assert 'timestamp' in data
+            assert 'parrot' in data
+
+    def test_stream_content_type(self, client):
+        resp = client.get('/api/stream/1')
+        assert 'ndjson' in resp.content_type
+
+    def test_stream_exceeds_max(self, client):
+        resp = client.get('/api/stream/101')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_stream_zero(self, client):
+        resp = client.get('/api/stream/0')
+        assert resp.status_code == 400
+
+    def test_stream_single_line(self, client):
+        import json
+        resp = client.get('/api/stream/1')
+        assert resp.status_code == 200
+        lines = [l for l in resp.data.decode().strip().split('\n') if l]
+        assert len(lines) == 1
+        data = json.loads(lines[0])
+        assert data['id'] == 0
+
+    def test_stream_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/stream/1')
+        resp = client.get('/api/stream/1')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Jitter endpoint ---
+
+class TestApiJitter:
+    def test_jitter_default_params(self, client):
+        resp = client.get('/api/jitter?min=0&max=0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['delay_ms'] == 0
+        assert 'range' in data
+        assert 'timestamp' in data
+
+    def test_jitter_returns_within_range(self, client):
+        resp = client.get('/api/jitter?min=100&max=200')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert 100 <= data['delay_ms'] <= 200
+
+    def test_jitter_exceeds_max(self, client):
+        resp = client.get('/api/jitter?min=0&max=10001')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_jitter_min_exceeds_max_value(self, client):
+        resp = client.get('/api/jitter?min=500&max=100')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_jitter_negative(self, client):
+        resp = client.get('/api/jitter?min=-1&max=100')
+        assert resp.status_code == 400
+
+    def test_jitter_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/jitter?min=0&max=0')
+        resp = client.get('/api/jitter?min=0&max=0')
+        assert resp.status_code == 429
+
+
+# --- Fault Simulation: Unstable endpoint ---
+
+class TestApiUnstable:
+    def test_unstable_returns_200_or_500(self, client):
+        resp = client.get('/api/unstable?failure_rate=0.5')
+        assert resp.status_code in (200, 500)
+        data = resp.get_json()
+        assert 'status' in data
+        assert 'failure_rate' in data
+        assert 'timestamp' in data
+
+    def test_unstable_zero_failure_rate(self, client):
+        resp = client.get('/api/unstable?failure_rate=0.0')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['status'] == 'ok'
+
+    def test_unstable_full_failure_rate(self, client):
+        resp = client.get('/api/unstable?failure_rate=1.0')
+        assert resp.status_code == 500
+        data = resp.get_json()
+        assert data['status'] == 'error'
+
+    def test_unstable_invalid_rate_too_high(self, client):
+        resp = client.get('/api/unstable?failure_rate=1.5')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_unstable_invalid_rate_negative(self, client):
+        resp = client.get('/api/unstable?failure_rate=-0.1')
+        assert resp.status_code == 400
+
+    def test_unstable_default_rate(self, client):
+        resp = client.get('/api/unstable')
+        assert resp.status_code in (200, 500)
+        data = resp.get_json()
+        assert data['failure_rate'] == 0.5
+
+    def test_unstable_rate_limited(self, client):
+        for _ in range(10):
+            client.get('/api/unstable?failure_rate=0')
+        resp = client.get('/api/unstable?failure_rate=0')
+        assert resp.status_code == 429
+
+
+# --- Procedural Sound Toggle (ParrotSound) ---
+
+class TestParrotSoundSystem:
+    """Verify ParrotSound object is defined and wired into templates."""
+
+    def test_parrot_sound_defined_in_base(self, client):
+        """Base template should define the ParrotSound global object."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'window.ParrotSound' in html
+
+    def test_parrot_sound_squawk_method(self, client):
+        """ParrotSound should expose a squawk method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'squawk: squawk' in html
+
+    def test_parrot_sound_correct_method(self, client):
+        """ParrotSound should expose a correct method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'correct: correct' in html
+
+    def test_parrot_sound_wrong_method(self, client):
+        """ParrotSound should expose a wrong method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'wrong: wrong' in html
+
+    def test_parrot_sound_jingle_method(self, client):
+        """ParrotSound should expose a jingle method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'jingle: jingle' in html
+
+    def test_parrot_sound_click_method(self, client):
+        """ParrotSound should expose a click method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'click: click' in html
+
+    def test_parrot_sound_is_enabled_method(self, client):
+        """ParrotSound should expose an isEnabled method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'isEnabled: isEnabled' in html
+
+    def test_parrot_sound_toggle_method(self, client):
+        """ParrotSound should expose a toggle method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'toggle: toggle' in html
+
+    def test_sound_toggle_button_in_header(self, client):
+        """Header should contain the sound toggle button (on subpages)."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="sound-toggle"' in html
+        assert 'sound-toggle-btn' in html
+
+    def test_sound_toggle_icon_in_header(self, client):
+        """Sound toggle button should contain the icon span."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'id="sound-toggle-icon"' in html
+
+    def test_sound_toggle_aria_pressed(self, client):
+        """Sound toggle button should have aria-pressed attribute."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'aria-pressed=' in html
+
+    def test_localstorage_key_referenced(self, client):
+        """ParrotSound should use httpparrot_sound localStorage key."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_sound' in html
+
+    def test_reduced_motion_check(self, client):
+        """ParrotSound should check prefers-reduced-motion."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'prefers-reduced-motion' in html
+
+    def test_audio_context_lazy_creation(self, client):
+        """ParrotSound should lazily create AudioContext."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'AudioContext' in html
+        assert 'webkitAudioContext' in html
+
+    def test_oscillator_usage(self, client):
+        """ParrotSound should use OscillatorNode for sounds."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'createOscillator' in html
+
+    def test_gain_node_usage(self, client):
+        """ParrotSound should use GainNode for volume control."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'createGain' in html
+
+
+class TestParrotSoundWiring:
+    """Verify sound triggers are wired into quiz, daily, and practice templates."""
+
+    def test_quiz_correct_sound(self, client):
+        """Quiz should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_quiz_wrong_sound(self, client):
+        """Quiz should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_daily_correct_sound(self, client):
+        """Daily should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_daily_wrong_sound(self, client):
+        """Daily should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/daily')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_practice_correct_sound(self, client):
+        """Practice should trigger ParrotSound.correct() on correct answers."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'ParrotSound.correct()' in html
+
+    def test_practice_wrong_sound(self, client):
+        """Practice should trigger ParrotSound.wrong() on wrong answers."""
+        resp = client.get('/practice')
+        html = resp.data.decode()
+        assert 'ParrotSound.wrong()' in html
+
+    def test_feather_toast_jingle(self, client):
+        """Feather toast should trigger ParrotSound.jingle()."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotSound.jingle()' in html
+
+    def test_rank_up_jingle(self, client):
+        """Rank-up banner should trigger ParrotSound.jingle()."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        # Both feather toast and rank-up banner call jingle
+        count = html.count('ParrotSound.jingle()')
+        assert count >= 2, f"Expected at least 2 jingle calls, found {count}"
+
+    def test_sound_gated_by_is_enabled(self, client):
+        """All sound triggers should check ParrotSound.isEnabled() first."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotSound.isEnabled()' in html
+
+
+# --- Bento Dashboard ---
+
+class TestBentoDashboard:
+    """Tests for the bento grid dashboard on the homepage."""
+
+    def test_dashboard_section_present(self, client):
+        """Homepage should have a bento dashboard section."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-dashboard' in html
+
+    def test_daily_challenge_tile_present(self, client):
+        """Dashboard should have a daily challenge tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--daily' in html
+        assert 'bento-streak-count' in html
+        assert 'Daily Challenge' in html
+
+    def test_daily_challenge_tile_links_to_daily(self, client):
+        """Daily challenge tile should link to /daily."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/daily"' in html
+        assert 'Play Now' in html
+
+    def test_xp_progress_tile_present(self, client):
+        """Dashboard should have an XP progress tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--xp' in html
+        assert 'bento-rank-name' in html
+        assert 'XP Progress' in html
+
+    def test_xp_progress_tile_has_progress_bar(self, client):
+        """XP progress tile should have a progress bar."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-xp-bar' in html
+        assert 'bento-xp-fill' in html
+        assert 'progressbar' in html
+
+    def test_quick_tools_tile_present(self, client):
+        """Dashboard should have a quick tools tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--tools' in html
+        assert 'Quick Tools' in html
+
+    def test_quick_tools_has_quiz_link(self, client):
+        """Quick tools tile should link to quiz."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/quiz"' in html
+
+    def test_quick_tools_has_practice_link(self, client):
+        """Quick tools tile should link to practice."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/practice"' in html
+
+    def test_quick_tools_has_debug_link(self, client):
+        """Quick tools tile should link to debug."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/debug"' in html
+
+    def test_quick_tools_has_playground_link(self, client):
+        """Quick tools tile should link to playground."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/playground"' in html
+
+    def test_learning_paths_tile_present(self, client):
+        """Dashboard should have a learning paths tile."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--paths' in html
+        assert 'Learning Paths' in html
+        assert 'Continue Learning' in html
+
+    def test_learning_paths_links_to_paths(self, client):
+        """Learning paths tile should link to /paths."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/paths"' in html
+
+    def test_potd_integrated_in_dashboard(self, client):
+        """Parrot of the Day should be integrated into the bento dashboard."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'bento-tile--potd' in html
+        assert 'Parrot of the Day' in html
+
+    def test_parrot_grid_still_present(self, client):
+        """The existing parrot card grid should still exist below the dashboard."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'id="parrot-grid"' in html
+
+    def test_bento_dashboard_has_aria_label(self, client):
+        """Dashboard section should have an aria-label for accessibility."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Dashboard"' in html
+
+    def test_tool_links_have_aria_labels(self, client):
+        """Quick tool links should have aria-labels."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'aria-label="Quiz"' in html
+        assert 'aria-label="Practice"' in html
+        assert 'aria-label="Debug"' in html
+        assert 'aria-label="Playground"' in html
+
+
+class TestBentoDashboardCSS:
+    """Tests for the bento dashboard responsive CSS."""
+
+    def test_bento_dashboard_grid_css_exists(self):
+        """CSS should define the bento-dashboard grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-dashboard' in css
+        assert 'grid-template-columns' in css
+
+    def test_bento_tile_css_exists(self):
+        """CSS should define bento-tile styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-tile' in css
+
+    def test_bento_responsive_tablet(self):
+        """CSS should have tablet responsive breakpoint for bento grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'repeat(2, 1fr)' in css
+
+    def test_bento_responsive_mobile(self):
+        """CSS should have mobile responsive breakpoint for single-column bento grid."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.bento-dashboard' in css
+
+    def test_bento_tile_min_height(self):
+        """Bento tiles should have a minimum height for touch-friendliness."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'min-height' in css
+
+    def test_bento_potd_spans_columns(self):
+        """POTD tile should span 2 columns on desktop."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'grid-column: span 2' in css
+
+
+# --- Spaced Repetition Review page ---
+
+class TestReviewPage:
+    """Tests for the /review spaced repetition review page."""
+
+    def test_review_page_returns_200(self, client):
+        resp = client.get('/review')
+        assert resp.status_code == 200
+
+    def test_review_page_title(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Spaced Repetition Review' in html
+        assert 'Review - HTTP Parrots' in html
+
+    def test_review_page_has_h1(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert '<h1>' in html
+        assert 'Spaced Repetition Review' in html
+
+    def test_review_page_has_stats_bar(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-stats-bar' in html
+        assert 'review-due' in html
+        assert 'review-correct' in html
+        assert 'review-wrong' in html
+        assert 'review-remaining' in html
+
+    def test_review_page_has_due_today_counter(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Due Today' in html
+
+    def test_review_page_has_session_stats(self, client):
+        """Stats bar should show correct/wrong/remaining counters."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Correct' in html
+        assert 'Wrong' in html
+        assert 'Remaining' in html
+
+    def test_review_page_has_review_area(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-area' in html
+
+    def test_review_page_has_scenario_data(self, client):
+        """Review page should contain scenario data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'scenario_' in html
+
+    def test_review_page_has_debug_data(self, client):
+        """Review page should contain debug exercise data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'debug_' in html
+
+    def test_review_page_has_confusion_data(self, client):
+        """Review page should contain confusion pair data for JS to consume."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'confusion_' in html
+
+    def test_review_page_leitner_box_intervals(self, client):
+        """Review page should define Leitner box intervals."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'BOX_INTERVALS' in html
+
+    def test_review_page_localstorage_key(self, client):
+        """Review page should use the httpparrot_review localStorage key."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'httpparrot_review' in html
+
+    def test_review_page_xp_integration(self, client):
+        """Review page should award XP for correct answers."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'ParrotXP.award' in html
+        assert 'review_correct' in html
+
+    def test_review_page_complete_message(self, client):
+        """Review page should have a 'Review Complete!' message."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Review Complete!' in html
+
+    def test_review_page_empty_state(self, client):
+        """Review page should handle empty queue state."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'No items due for review' in html
+
+    def test_review_page_box_indicator(self, client):
+        """Review page should show the current Leitner box level."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-box-indicator' in html
+
+    def test_review_page_has_type_badges(self, client):
+        """Review page should distinguish item types with badges."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'type-scenario' in html
+        assert 'type-debug' in html
+        assert 'type-confusion' in html
+
+    def test_review_page_explanation_visibility(self, client):
+        """Review page should have explanation div that toggles visibility."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-explanation' in html
+
+    def test_review_page_next_button(self, client):
+        """Review page should have a next item button."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-next-btn' in html
+        assert 'Next Item' in html
+
+    def test_review_page_has_option_buttons(self, client):
+        """Review page should render option buttons."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'review-option-btn' in html
+
+    def test_review_page_inline_style_has_nonce(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'style nonce=' in html
+
+    def test_review_page_inline_script_has_nonce(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'script nonce=' in html
+
+    def test_review_csp_header(self, client):
+        resp = client.get('/review')
+        csp = resp.headers.get('Content-Security-Policy', '')
+        assert "default-src 'self'" in csp
+        assert "'nonce-" in csp
+
+    def test_review_page_meta_description(self, client):
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'spaced repetition' in html.lower()
+
+    def test_review_nav_link_present(self, client):
+        """Desktop nav should have a Review link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'href="/review"' in html
+        assert '>Review<' in html
+
+    def test_review_nav_link_in_mobile_nav(self, client):
+        """Both desktop and mobile navs should have a Review link."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert html.count('href="/review"') >= 2
+
+    def test_review_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        body = resp.data.decode()
+        assert '/review</loc>' in body
+
+    def test_review_page_tracks_total_reviews(self, client):
+        """Review page should track total_reviews for the Memory Master badge."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'total_reviews' in html
+
+
+class TestReviewLeitnerSystem:
+    """Tests for the Leitner box system data structure and behaviour."""
+
+    def test_review_page_defines_five_boxes(self, client):
+        """Leitner system should define intervals for 5 boxes."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        # Box intervals: 1:1, 2:3, 3:7, 4:14, 5:30
+        assert '1: 1' in html
+        assert '2: 3' in html
+        assert '3: 7' in html
+        assert '4: 14' in html
+        assert '5: 30' in html
+
+    def test_review_page_init_items_function(self, client):
+        """Review page should have initItems function to seed new items."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'initItems' in html
+
+    def test_review_page_record_answer_function(self, client):
+        """Review page should have recordAnswer function."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'recordAnswer' in html
+
+    def test_review_page_get_due_items_function(self, client):
+        """Review page should have getDueItems function."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'getDueItems' in html
+
+    def test_review_item_structure(self, client):
+        """Review items should have box_level, next_review, last_answer."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'box_level' in html
+        assert 'next_review' in html
+        assert 'last_answer' in html
+
+    def test_review_correct_moves_up_box(self, client):
+        """Correct answer should move item up a box (Math.min(5, ...))."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'Math.min(5' in html
+
+    def test_review_wrong_resets_to_box_1(self, client):
+        """Wrong answer should reset item to box 1."""
+        resp = client.get('/review')
+        html = resp.data.decode()
+        assert 'box_level = 1' in html
+
+
+class TestMemoryMasterBadge:
+    """Tests for the Memory Master feather badge."""
+
+    def test_memory_master_feather_defined(self, client):
+        """Memory Master feather should be in the FEATHERS array."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'memory_master' in html
+        assert 'Memory Master' in html
+
+    def test_memory_master_feather_check(self, client):
+        """checkFeathers should check total_reviews >= 50."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'total_reviews' in html
+        assert '>= 50' in html
+
+    def test_memory_master_feather_desc(self, client):
+        """Memory Master should describe 50 spaced repetition reviews."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Complete 50 spaced repetition reviews' in html
+
+
+class TestProfileReviewIntegration:
+    """Tests for the review system integration in the profile page."""
+
+    def test_profile_has_due_for_review_stat(self, client):
+        """Profile page should show a 'Due for Review' stat."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'stat-review-due' in html
+        assert 'Due for Review' in html
+
+    def test_profile_review_link(self, client):
+        """Profile Due for Review should link to /review."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'href="/review"' in html
+
+    def test_profile_review_reads_localstorage(self, client):
+        """Profile page should read httpparrot_review from localStorage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_review' in html
+
+    def test_profile_xp_breakdown_includes_review(self, client):
+        """Profile XP breakdown should list review XP."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Spaced repetition review correct' in html
+        assert '+15 XP' in html

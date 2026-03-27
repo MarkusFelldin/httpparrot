@@ -124,6 +124,7 @@
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
                         if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'quiz_correct');
+                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
                     } else {
                         btn.classList.add('wrong');
                         btns.forEach(function(b) {
@@ -134,6 +135,7 @@
                         history.push(false);
                         fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
                         fb.className = 'quiz-feedback nope';
+                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
                     }
 
                     document.getElementById('score').textContent = score;

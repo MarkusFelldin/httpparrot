@@ -486,9 +486,11 @@
                 correct++;
                 document.getElementById('practice-correct').textContent = correct;
                 if (typeof ParrotXP !== 'undefined') ParrotXP.award(15, 'practice_correct');
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
             } else {
                 wrong++;
                 document.getElementById('practice-wrong').textContent = wrong;
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
             }
 
             answered++;

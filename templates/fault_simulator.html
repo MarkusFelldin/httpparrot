@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Fault Simulator - HTTP Parrots{% endblock %}
+{% block subtitle %}Fault Simulator{% endblock %}
+
+{% block meta %}
+    <meta name="description" content="Simulate network faults: delays, slow streaming, jitter, and random failures. Tools for testing HTTP client resilience.">
+{% endblock %}
+
+{% block content %}
+    <main id="main-content" class="docs-container" role="main">
+        <div class="docs-intro">
+            <h1>Fault Simulator</h1>
+            <p>Test how your HTTP clients handle delays, slow streams, jitter, and random failures. All endpoints are rate-limited.</p>
+        </div>
+
+        <div class="docs-section" id="section-delay">
+            <h2>Delay</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/delay/{seconds}</span>
+                <div class="docs-desc">
+                    Wait N seconds (max 10), then respond with JSON. Useful for testing timeout handling.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl {{ request.url_root }}api/delay/3</div>
+                </div>
+                <div class="fault-sim-try" id="try-delay">
+                    <label for="delay-input">Seconds (0-10):</label>
+                    <input type="number" id="delay-input" class="fault-sim-input" value="2" min="0" max="10" step="1">
+                    <button class="fault-sim-btn" id="delay-btn" type="button">Try it</button>
+                    <div class="fault-sim-progress" id="delay-progress" aria-live="polite">
+                        <div class="fault-sim-progress-bar" id="delay-bar"></div>
+                    </div>
+                    <pre class="fault-sim-result" id="delay-result" aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section" id="section-drip">
+            <h2>Drip</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/drip?duration=5&amp;numbytes=1024</span>
+                <div class="docs-desc">
+                    Stream bytes slowly over the specified duration. Max duration 30s, max 10KB. Useful for testing streaming and progress handling.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl {{ request.url_root }}api/drip?duration=5&amp;numbytes=1024</div>
+                </div>
+                <div class="fault-sim-try" id="try-drip">
+                    <label for="drip-duration">Duration (s):</label>
+                    <input type="number" id="drip-duration" class="fault-sim-input" value="3" min="1" max="30" step="1">
+                    <label for="drip-bytes">Bytes:</label>
+                    <input type="number" id="drip-bytes" class="fault-sim-input" value="512" min="1" max="10240" step="1">
+                    <button class="fault-sim-btn" id="drip-btn" type="button">Try it</button>
+                    <div class="fault-sim-progress" id="drip-progress" aria-live="polite">
+                        <div class="fault-sim-progress-bar" id="drip-bar"></div>
+                    </div>
+                    <pre class="fault-sim-result" id="drip-result" aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section" id="section-stream">
+            <h2>Stream</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/stream/{n}</span>
+                <div class="docs-desc">
+                    Stream n JSON lines (max 100), one per second. Each line contains an id, timestamp, and a random parrot status code.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl {{ request.url_root }}api/stream/5</div>
+                </div>
+                <div class="fault-sim-try" id="try-stream">
+                    <label for="stream-input">Lines (1-100):</label>
+                    <input type="number" id="stream-input" class="fault-sim-input" value="5" min="1" max="100" step="1">
+                    <button class="fault-sim-btn" id="stream-btn" type="button">Try it</button>
+                    <div class="fault-sim-progress" id="stream-progress" aria-live="polite">
+                        <div class="fault-sim-progress-bar" id="stream-bar"></div>
+                    </div>
+                    <pre class="fault-sim-result" id="stream-result" aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section" id="section-jitter">
+            <h2>Jitter</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/jitter?min=100&amp;max=2000</span>
+                <div class="docs-desc">
+                    Random delay within a millisecond range, then respond. Max 10s (10000ms). Useful for testing variable latency tolerance.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl "{{ request.url_root }}api/jitter?min=100&amp;max=2000"</div>
+                </div>
+                <div class="fault-sim-try" id="try-jitter">
+                    <label for="jitter-min">Min (ms):</label>
+                    <input type="number" id="jitter-min" class="fault-sim-input" value="100" min="0" max="10000" step="100">
+                    <label for="jitter-max">Max (ms):</label>
+                    <input type="number" id="jitter-max" class="fault-sim-input" value="2000" min="0" max="10000" step="100">
+                    <button class="fault-sim-btn" id="jitter-btn" type="button">Try it</button>
+                    <div class="fault-sim-progress" id="jitter-progress" aria-live="polite">
+                        <div class="fault-sim-progress-bar" id="jitter-bar"></div>
+                    </div>
+                    <pre class="fault-sim-result" id="jitter-result" aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section" id="section-unstable">
+            <h2>Unstable</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/unstable?failure_rate=0.5</span>
+                <div class="docs-desc">
+                    Randomly return 200 or 500 based on the failure rate (0.0 to 1.0). Useful for testing retry logic and error handling.
+                </div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl "{{ request.url_root }}api/unstable?failure_rate=0.3"</div>
+                </div>
+                <div class="fault-sim-try" id="try-unstable">
+                    <label for="unstable-rate">Failure rate (0-1):</label>
+                    <input type="number" id="unstable-rate" class="fault-sim-input" value="0.5" min="0" max="1" step="0.1">
+                    <button class="fault-sim-btn" id="unstable-btn" type="button">Try it</button>
+                    <pre class="fault-sim-result" id="unstable-result" aria-live="polite"></pre>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        function $(id) { return document.getElementById(id); }
+
+        function showResult(el, text) {
+            el.textContent = text;
+        }
+
+        function animateProgress(barEl, progressEl, durationMs, onDone) {
+            progressEl.style.display = 'block';
+            barEl.style.width = '0%';
+            barEl.style.transition = 'none';
+            /* Force reflow */
+            void barEl.offsetWidth;
+            barEl.style.transition = 'width ' + durationMs + 'ms linear';
+            barEl.style.width = '100%';
+            if (onDone) {
+                setTimeout(function() {
+                    progressEl.style.display = 'none';
+                    barEl.style.width = '0%';
+                    onDone();
+                }, durationMs + 200);
+            }
+        }
+
+        /* Delay */
+        $('delay-btn').addEventListener('click', function() {
+            var seconds = parseInt($('delay-input').value) || 2;
+            var btn = $('delay-btn');
+            var resultEl = $('delay-result');
+            btn.disabled = true;
+            showResult(resultEl, 'Waiting ' + seconds + 's...');
+            var start = Date.now();
+
+            animateProgress($('delay-bar'), $('delay-progress'), seconds * 1000);
+
+            fetch('/api/delay/' + seconds).then(function(r) { return r.json(); }).then(function(data) {
+                var elapsed = Date.now() - start;
+                showResult(resultEl, 'Elapsed: ' + elapsed + 'ms\n' + JSON.stringify(data, null, 2));
+                btn.disabled = false;
+            }).catch(function(err) {
+                showResult(resultEl, 'Error: ' + err.message);
+                btn.disabled = false;
+            });
+        });
+
+        /* Drip */
+        $('drip-btn').addEventListener('click', function() {
+            var duration = parseInt($('drip-duration').value) || 3;
+            var numbytes = parseInt($('drip-bytes').value) || 512;
+            var btn = $('drip-btn');
+            var resultEl = $('drip-result');
+            btn.disabled = true;
+            showResult(resultEl, 'Dripping ' + numbytes + ' bytes over ' + duration + 's...');
+            var start = Date.now();
+
+            animateProgress($('drip-bar'), $('drip-progress'), duration * 1000);
+
+            fetch('/api/drip?duration=' + duration + '&numbytes=' + numbytes).then(function(r) {
+                return r.text();
+            }).then(function(text) {
+                var elapsed = Date.now() - start;
+                showResult(resultEl, 'Elapsed: ' + elapsed + 'ms\nReceived: ' + text.length + ' bytes');
+                btn.disabled = false;
+            }).catch(function(err) {
+                showResult(resultEl, 'Error: ' + err.message);
+                btn.disabled = false;
+            });
+        });
+
+        /* Stream */
+        $('stream-btn').addEventListener('click', function() {
+            var n = parseInt($('stream-input').value) || 5;
+            var btn = $('stream-btn');
+            var resultEl = $('stream-result');
+            btn.disabled = true;
+            showResult(resultEl, 'Streaming ' + n + ' lines...');
+            var start = Date.now();
+            var lines = [];
+
+            animateProgress($('stream-bar'), $('stream-progress'), n * 1000);
+
+            fetch('/api/stream/' + n).then(function(response) {
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+                function read() {
+                    return reader.read().then(function(result) {
+                        if (result.done) {
+                            var elapsed = Date.now() - start;
+                            showResult(resultEl, 'Elapsed: ' + elapsed + 'ms\nLines received: ' + lines.length + '\n' + lines.join('\n'));
+                            btn.disabled = false;
+                            return;
+                        }
+                        var chunk = decoder.decode(result.value, {stream: true});
+                        var parts = chunk.split('\n').filter(function(s) { return s.trim(); });
+                        for (var i = 0; i < parts.length; i++) {
+                            lines.push(parts[i]);
+                        }
+                        showResult(resultEl, 'Receiving... (' + lines.length + '/' + n + ' lines)\n' + lines.join('\n'));
+                        return read();
+                    });
+                }
+                return read();
+            }).catch(function(err) {
+                showResult(resultEl, 'Error: ' + err.message);
+                btn.disabled = false;
+            });
+        });
+
+        /* Jitter */
+        $('jitter-btn').addEventListener('click', function() {
+            var minMs = parseInt($('jitter-min').value) || 100;
+            var maxMs = parseInt($('jitter-max').value) || 2000;
+            var btn = $('jitter-btn');
+            var resultEl = $('jitter-result');
+            btn.disabled = true;
+            showResult(resultEl, 'Waiting for random delay (' + minMs + '-' + maxMs + 'ms)...');
+            var start = Date.now();
+
+            animateProgress($('jitter-bar'), $('jitter-progress'), maxMs);
+
+            fetch('/api/jitter?min=' + minMs + '&max=' + maxMs).then(function(r) { return r.json(); }).then(function(data) {
+                var elapsed = Date.now() - start;
+                showResult(resultEl, 'Elapsed: ' + elapsed + 'ms (server delay: ' + data.delay_ms + 'ms)\n' + JSON.stringify(data, null, 2));
+                btn.disabled = false;
+            }).catch(function(err) {
+                showResult(resultEl, 'Error: ' + err.message);
+                btn.disabled = false;
+            });
+        });
+
+        /* Unstable */
+        $('unstable-btn').addEventListener('click', function() {
+            var rate = parseFloat($('unstable-rate').value) || 0.5;
+            var btn = $('unstable-btn');
+            var resultEl = $('unstable-result');
+            btn.disabled = true;
+            showResult(resultEl, 'Calling unstable endpoint (failure_rate=' + rate + ')...');
+
+            fetch('/api/unstable?failure_rate=' + rate).then(function(r) { return r.json(); }).then(function(data) {
+                var prefix = data.code === 200 ? 'SUCCESS' : 'FAILURE';
+                showResult(resultEl, prefix + ' (HTTP ' + data.code + ')\n' + JSON.stringify(data, null, 2));
+                btn.disabled = false;
+            }).catch(function(err) {
+                showResult(resultEl, 'Error: ' + err.message);
+                btn.disabled = false;
+            });
+        });
+    })();
+    </script>
+{% endblock %}

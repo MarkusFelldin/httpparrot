@@ -13,8 +13,8 @@ from urllib.parse import urlparse
 from xml.sax.saxutils import escape as xml_escape
 
 import requests as req
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, send_from_directory, url_for)
+from flask import (Flask, Response, abort, g, jsonify, redirect,
+                   render_template, request, send_from_directory, url_for)
 from flask_compress import Compress
 from markupsafe import Markup, escape
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -825,6 +825,21 @@ def profile():
     return render_template('profile.html')
 
 
+@app.route('/review')
+def review():
+    """Render the spaced repetition review page.
+
+    Passes scenario and debug exercise data to the template so the
+    client-side Leitner box system can build review items from them.
+    """
+    return render_template(
+        'review.html',
+        scenarios=SCENARIOS,
+        debug_exercises=DEBUG_EXERCISES,
+        confusion_pairs=CONFUSION_PAIRS,
+    )
+
+
 @app.route('/cors-checker')
 def cors_checker():
     """Render the CORS Checker page for testing cross-origin policies."""
@@ -1303,6 +1318,141 @@ def mock_response():
     return resp
 
 
+@app.route('/fault-simulator')
+def fault_simulator():
+    """Render the fault simulation tools page."""
+    return render_template('fault_simulator.html')
+
+
+@app.route('/api/delay/<int:seconds>')
+def api_delay(seconds):
+    """Wait N seconds (max 10), then respond with JSON. Rate-limited."""
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    if seconds < 0 or seconds > 10:
+        return jsonify({"error": "Delay must be between 0 and 10 seconds."}), 400
+    time.sleep(seconds)
+    return jsonify({
+        "delay": seconds,
+        "message": f"Response delayed by {seconds} second(s).",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route('/api/drip')
+def api_drip():
+    """Stream bytes slowly over a duration. Rate-limited.
+
+    Query params:
+      duration -- total seconds to drip (default 5, max 30)
+      numbytes -- total bytes to send (default 1024, max 10240)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    duration = request.args.get('duration', 5, type=float)
+    numbytes = request.args.get('numbytes', 1024, type=int)
+    if duration <= 0 or duration > 30:
+        return jsonify({"error": "Duration must be between 0 and 30 seconds."}), 400
+    if numbytes <= 0 or numbytes > 10240:
+        return jsonify({"error": "numbytes must be between 1 and 10240."}), 400
+
+    def _drip_generator():
+        chunk_count = max(1, int(duration))
+        bytes_per_chunk = max(1, numbytes // chunk_count)
+        remainder = numbytes - (bytes_per_chunk * chunk_count)
+        interval = duration / chunk_count
+        for i in range(chunk_count):
+            size = bytes_per_chunk + (remainder if i == chunk_count - 1 else 0)
+            yield b'*' * size
+            if i < chunk_count - 1:
+                time.sleep(interval)
+
+    return Response(_drip_generator(), mimetype='application/octet-stream')
+
+
+@app.route('/api/stream/<int:n>')
+def api_stream(n):
+    """Stream n JSON lines (max 100), one per second. Rate-limited.
+
+    Each line: {"id": i, "timestamp": ..., "parrot": random_code}
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    if n < 1 or n > 100:
+        return jsonify({"error": "n must be between 1 and 100."}), 400
+    codes = [sc.code for sc in pruned_status_codes()]
+
+    def _stream_generator():
+        for i in range(n):
+            line = json.dumps({
+                "id": i,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "parrot": random.choice(codes),
+            })
+            yield line + '\n'
+            if i < n - 1:
+                time.sleep(1)
+
+    return Response(_stream_generator(), mimetype='application/x-ndjson')
+
+
+@app.route('/api/jitter')
+def api_jitter():
+    """Random delay in ms range, then respond. Rate-limited.
+
+    Query params:
+      min -- minimum delay in ms (default 100, max 10000)
+      max -- maximum delay in ms (default 2000, max 10000)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    min_ms = request.args.get('min', 100, type=int)
+    max_ms = request.args.get('max', 2000, type=int)
+    if min_ms < 0 or max_ms < 0:
+        return jsonify({"error": "min and max must be non-negative."}), 400
+    if min_ms > 10000 or max_ms > 10000:
+        return jsonify({"error": "min and max must not exceed 10000 ms."}), 400
+    if min_ms > max_ms:
+        return jsonify({"error": "min must not exceed max."}), 400
+    delay_ms = random.randint(min_ms, max_ms)
+    time.sleep(delay_ms / 1000.0)
+    return jsonify({
+        "delay_ms": delay_ms,
+        "range": {"min": min_ms, "max": max_ms},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.route('/api/unstable')
+def api_unstable():
+    """Randomly return 200 or 500 based on failure_rate. Rate-limited.
+
+    Query params:
+      failure_rate -- probability of failure, 0.0 to 1.0 (default 0.5)
+    """
+    if is_rate_limited(request.remote_addr):
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    failure_rate = request.args.get('failure_rate', 0.5, type=float)
+    if failure_rate < 0.0 or failure_rate > 1.0:
+        return jsonify({"error": "failure_rate must be between 0.0 and 1.0."}), 400
+    failed = random.random() < failure_rate
+    if failed:
+        return jsonify({
+            "status": "error",
+            "code": 500,
+            "failure_rate": failure_rate,
+            "message": "Simulated server failure.",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 500
+    return jsonify({
+        "status": "ok",
+        "code": 200,
+        "failure_rate": failure_rate,
+        "message": "Request succeeded.",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
 @app.route('/return/<int:code>')
 def return_status(code):
     """Return a JSON response with the given HTTP status code.
@@ -1594,7 +1744,7 @@ def sitemap():
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
                  '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
-                 '/profile']:
+                 '/profile', '/review', '/fault-simulator']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})
@@ -1633,6 +1783,11 @@ def robots():
         "Disallow: /api/mock-response\n"
         "Disallow: /api/diff\n"
         "Disallow: /api/search\n"
+        "Disallow: /api/delay/\n"
+        "Disallow: /api/drip\n"
+        "Disallow: /api/stream/\n"
+        "Disallow: /api/jitter\n"
+        "Disallow: /api/unstable\n"
         "Disallow: /return/\n"
         "Disallow: /echo\n"
         "Disallow: /redirect/\n"
