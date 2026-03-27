@@ -182,6 +182,32 @@
         </div>
 
         <div class="docs-section">
+            <h2>Fetch a URL (with body)</h2>
+            <div class="docs-endpoint">
+                <span class="docs-method docs-method-get">GET</span>
+                <span class="docs-path">/api/fetch-url?url={url}</span>
+                <div class="docs-desc">Makes a GET request to the given URL and returns the HTTP status code, headers, and the first 10 KB of the response body.</div>
+                <div class="docs-example">
+                    <div class="docs-example-label">Example</div>
+                    <div class="docs-code">curl "{{ request.url_root }}api/fetch-url?url=https://example.com"</div>
+                </div>
+                <div class="docs-response">
+                    <div class="docs-example-label">Response</div>
+                    <div class="docs-code">{
+  "code": 200,
+  "url": "https://example.com",
+  "headers": {"Content-Type": "text/html", "...": "..."},
+  "time_ms": 142,
+  "body": "&lt;!doctype html&gt;...",
+  "content_type": "text/html; charset=UTF-8",
+  "truncated": false
+}</div>
+                </div>
+                <div class="docs-desc">Returns the same error codes as /api/check-url. The body field is truncated to 10 KB; the truncated field indicates whether truncation occurred. Rate limited.</div>
+            </div>
+        </div>
+
+        <div class="docs-section">
             <h2>Check CORS headers</h2>
             <div class="docs-endpoint">
                 <span class="docs-method docs-method-get">GET</span>

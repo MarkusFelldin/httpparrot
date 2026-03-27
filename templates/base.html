@@ -367,6 +367,7 @@
             {id: 'frozen_solid', name: 'Frozen Solid', desc: 'Use a streak freeze for the first time', icon: '\u2744\uFE0F', bonus: 50},
             {id: 'memory_master', name: 'Memory Master', desc: 'Complete 50 spaced repetition reviews', icon: '\uD83E\uDDE0', bonus: 75},
             {id: 'parrot_petter', name: 'Parrot Petter', desc: 'Click any parrot on a detail page', icon: '\uD83D\uDC4B', bonus: 10},
+            {id: 'photo_memory', name: 'Photographic Memory', desc: 'Complete the 404 memory card game', icon: '\uD83E\uDDE0', bonus: 100},
             /* --- Meta-Feathers (achievements for earning other feathers) --- */
             {id: 'explorer', name: 'Explorer', desc: 'Visit at least one code from each category (1xx-5xx)', icon: '\uD83C\uDF0D', bonus: 150, meta: true},
             {id: 'polyglot', name: 'Polyglot', desc: 'Use quiz, practice, debug, AND review modes', icon: '\uD83D\uDD00', bonus: 200, meta: true},
@@ -410,6 +411,39 @@
             }
         }
 
+        function spawnFlockFormation(isLegendary) {
+            /* Respect prefers-reduced-motion */
+            if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            var count = isLegendary ? 15 : (5 + Math.floor(Math.random() * 4));
+            var container = document.createElement('div');
+            container.className = 'flock-formation-container';
+            if (isLegendary) container.classList.add('flock-formation-legendary');
+            document.body.appendChild(container);
+            for (var i = 0; i < count; i++) {
+                var bird = document.createElement('span');
+                bird.className = 'flock-parrot';
+                bird.setAttribute('aria-hidden', 'true');
+                bird.textContent = '\uD83E\uDD9C';
+                /* V-formation offset: lead parrot at center, others fan out */
+                var row = Math.floor((i + 1) / 2);
+                var side = (i % 2 === 0) ? 1 : -1;
+                if (i === 0) { row = 0; side = 0; }
+                var yOffset = row * 38;
+                var xOffset = side * row * 32;
+                bird.style.setProperty('--flock-y', yOffset + 'px');
+                bird.style.setProperty('--flock-x', xOffset + 'px');
+                bird.style.animationDelay = (i * 0.07) + 's';
+                if (i === 0) bird.classList.add('flock-parrot-lead');
+                if (isLegendary) {
+                    bird.classList.add('flock-parrot-golden');
+                    bird.style.animationDuration = '3s';
+                }
+                container.appendChild(bird);
+            }
+            var cleanupTime = isLegendary ? 4000 : 3000;
+            setTimeout(function() { container.remove(); }, cleanupTime);
+        }
+
         function showFeatherToast(feather) {
             var toast = document.createElement('div');
             toast.className = 'feather-toast';
@@ -422,6 +456,7 @@
             setTimeout(function() {
                 toast.classList.add('feather-toast-visible');
                 spawnCelebrationConfetti(toast);
+                spawnFlockFormation(false);
                 if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
             }, 50);
             setTimeout(function() {
@@ -491,6 +526,10 @@
             setTimeout(function() {
                 banner.classList.add('rank-up-visible');
                 spawnGoldParticles();
+                /* Legendary Lorikeet gets a golden mega-flock of 15 parrots */
+                if (rankTitle === 'Legendary Lorikeet') {
+                    spawnFlockFormation(true);
+                }
                 if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.jingle();
             }, 50);
             setTimeout(function() {
@@ -613,6 +652,9 @@
             /* Parrot Petter — first time clicking any parrot on a detail page */
             if (!has('parrot_petter') && localStorage.getItem('httpparrot_parrot_petted') === 'true') newlyEarned.push('parrot_petter');
 
+            /* Photographic Memory — completed the 404 memory card game */
+            if (!has('photo_memory') && localStorage.getItem('httpparrot_memory_game_complete') === 'true') newlyEarned.push('photo_memory');
+
             /* --- Meta-Feather checks --- */
             var META_IDS = ['explorer', 'polyglot', 'streak_lord', 'triple_threat', 'full_spectrum', 'parrot_polymath'];
 
@@ -734,6 +776,7 @@
             getFeathers: getFeathers,
             checkFeathers: checkFeathers,
             spawnCelebrationConfetti: spawnCelebrationConfetti,
+            spawnFlockFormation: spawnFlockFormation,
             showRankUpBanner: showRankUpBanner,
             checkXpMilestoneFlash: checkXpMilestoneFlash,
             XP_MILESTONES: XP_MILESTONES,

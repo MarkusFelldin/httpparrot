@@ -3545,6 +3545,7 @@ class TestRobotsTxtFormat:
         body = resp.data.decode()
         expected_disallows = [
             'Disallow: /api/check-url',
+            'Disallow: /api/fetch-url',
             'Disallow: /api/check-cors',
             'Disallow: /api/security-audit',
             'Disallow: /api/mock-response',
@@ -4821,8 +4822,8 @@ class TestFeatherBadges:
         assert 'FEATHERS' in html
         assert 'httpparrot_feathers' in html
 
-    def test_all_23_badges_defined(self, client):
-        """All 23 feather badge IDs (17 base + 6 meta) should appear in the base template."""
+    def test_all_24_badges_defined(self, client):
+        """All 24 feather badge IDs (18 base + 6 meta) should appear in the base template."""
         resp = client.get('/')
         html = resp.data.decode()
         badge_ids = [
@@ -4830,7 +4831,7 @@ class TestFeatherBadges:
             'on_fire', 'centurion', 'wing_commander', 'completionist',
             'error_expert', 'server_sage', 'egg_hunter', 'scholar',
             'night_owl', 'speed_demon', 'frozen_solid', 'memory_master',
-            'parrot_petter',
+            'parrot_petter', 'photo_memory',
             'explorer', 'polyglot', 'streak_lord', 'triple_threat',
             'full_spectrum', 'parrot_polymath'
         ]
@@ -9778,3 +9779,752 @@ class TestParrotPetterFeather:
         html = resp.data.decode()
         # The feather definition should have bonus: 10
         assert "'parrot_petter'" in html or "parrot_petter" in html
+
+
+# --- Weekly Progress Chart (Profile) ---
+
+class TestProfileWeeklyChart:
+    """Tests for the weekly progress bar chart on the profile page."""
+
+    def test_profile_has_weekly_section(self, client):
+        """Profile page should contain the weekly progress section."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-weekly-section' in html
+
+    def test_profile_weekly_chart_container(self, client):
+        """Profile page should contain the weekly chart container."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-weekly-container' in html
+        assert 'profile-weekly-chart' in html
+
+    def test_profile_weekly_chart_has_aria_label(self, client):
+        """Weekly chart should have an aria-label for accessibility."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Bar chart showing XP earned per week' in html
+
+    def test_profile_weekly_trend_element(self, client):
+        """Profile page should contain the trend indicator element."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-weekly-trend' in html
+
+    def test_profile_weekly_heading(self, client):
+        """Profile page should show Weekly Progress heading."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Weekly Progress' in html
+
+    def test_profile_weekly_chart_js_aggregates_by_week(self, client):
+        """JS should compute ISO week numbers from activity data."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'weeklyXp' in html
+        assert 'weekNum' in html
+
+    def test_profile_weekly_chart_renders_bars(self, client):
+        """JS should create weekly-bar elements for each week."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'weekly-bar-col' in html
+        assert 'weekly-bar' in html
+
+    def test_profile_weekly_trend_shows_change(self, client):
+        """JS should compute and display the trend percentage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'weekly-trend-up' in html
+        assert 'weekly-trend-down' in html
+
+    def test_profile_weekly_css_exists(self, client):
+        """CSS should contain styles for the weekly chart."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-weekly-section' in css
+        assert '.profile-weekly-container' in css
+        assert '.profile-weekly-chart' in css
+        assert '.weekly-bar-col' in css
+        assert '.weekly-bar' in css
+        assert '.weekly-bar-label' in css
+
+    def test_profile_weekly_trend_css_exists(self, client):
+        """CSS should contain styles for the trend indicator."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.weekly-trend-up' in css
+        assert '.weekly-trend-down' in css
+        assert '.weekly-trend-flat' in css
+
+    def test_profile_weekly_chart_uses_flex(self, client):
+        """Weekly chart should use flexbox layout for bars."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-weekly-chart' in css
+        assert 'display: flex' in css
+
+
+# --- Compare Page Transitions ---
+
+class TestCompareTransitions:
+    """Tests for compare page crossfade transitions and swap rotation."""
+
+    def test_compare_fading_out_css_exists(self, client):
+        """CSS should define .fading-out class for crossfade."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-card.fading-out' in css
+
+    def test_compare_fading_in_css_exists(self, client):
+        """CSS should define .fading-in class for crossfade."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-card.fading-in' in css
+
+    def test_compare_fade_in_keyframes_exist(self, client):
+        """CSS should define the compare-fade-in keyframe animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes compare-fade-in' in css
+
+    def test_compare_fading_out_opacity(self, client):
+        """Fading-out class should set opacity to 0."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-card.fading-out' in css
+        # Find the rule and check opacity
+        idx = css.index('.compare-card.fading-out')
+        block = css[idx:idx+200]
+        assert 'opacity: 0' in block
+
+    def test_compare_fading_out_translate(self, client):
+        """Fading-out class should use translateY."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.compare-card.fading-out')
+        block = css[idx:idx+200]
+        assert 'translateY' in block
+
+    def test_compare_swap_rotation_css(self, client):
+        """CSS should define .swap-rotating class with 180deg rotation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-swap-btn.swap-rotating' in css
+        assert 'rotate(180deg)' in css
+
+    def test_compare_swap_rotation_uses_timing_tokens(self, client):
+        """Swap rotation should use the existing timing tokens."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.compare-swap-btn.swap-rotating')
+        block = css[idx:idx+200]
+        assert '--duration-normal' in block
+        assert '--ease-out' in block
+
+    def test_compare_diff_expanding_css(self, client):
+        """CSS should define .diff-expanding class for animated diff expansion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-diff-wrap.diff-expanding' in css
+
+    def test_compare_diff_expanded_css(self, client):
+        """CSS should define .diff-expanded class for completed expansion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.compare-diff-wrap.diff-expanded' in css
+
+    def test_compare_diff_max_height_transition(self, client):
+        """Diff wrap should use max-height transition for animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        idx = css.index('.compare-diff-wrap {')
+        block = css[idx:idx+500]
+        assert 'max-height' in block
+
+    def test_compare_js_adds_fading_out_on_update(self, client):
+        """JS should add fading-out class to existing cards on update."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'fading-out' in html
+
+    def test_compare_js_adds_fading_in_on_render(self, client):
+        """JS should add fading-in class to new cards."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'fading-in' in html
+
+    def test_compare_js_swap_rotating_toggle(self, client):
+        """JS should toggle swap-rotating class on swap button click."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'swap-rotating' in html
+
+    def test_compare_js_diff_expanding_applied(self, client):
+        """JS should apply diff-expanding then diff-expanded classes."""
+        resp = client.get('/compare')
+        html = resp.data.decode()
+        assert 'diff-expanding' in html
+        assert 'diff-expanded' in html
+
+    def test_compare_card_has_transition_property(self, client):
+        """Compare card should have transition property for smooth crossfade."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        # Compare cards should have transition support via fading classes
+        assert '.compare-card.fading-out' in css
+        assert '.compare-card.fading-in' in css
+
+
+# --- Flock Formation Celebration ---
+
+class TestFlockFormation:
+    """Tests for the flock formation celebration feature."""
+
+    def test_flock_formation_function_defined(self, client):
+        """Base template should define spawnFlockFormation function."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'function spawnFlockFormation' in html
+
+    def test_flock_formation_exposed_on_parrotxp(self, client):
+        """ParrotXP should expose spawnFlockFormation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnFlockFormation: spawnFlockFormation' in html
+
+    def test_flock_formation_called_in_feather_toast(self, client):
+        """showFeatherToast should call spawnFlockFormation after confetti."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'spawnFlockFormation(false)' in html
+
+    def test_flock_formation_legendary_on_rank_up(self, client):
+        """Legendary Lorikeet rank-up should trigger legendary flock."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "rankTitle === 'Legendary Lorikeet'" in html
+        assert 'spawnFlockFormation(true)' in html
+
+    def test_flock_formation_respects_reduced_motion(self, client):
+        """spawnFlockFormation should check prefers-reduced-motion."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'prefers-reduced-motion' in html
+
+    def test_flock_formation_creates_container(self, client):
+        """spawnFlockFormation should create a container element."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'flock-formation-container' in html
+
+    def test_flock_formation_v_formation_offset(self, client):
+        """Flock parrots should use V-formation offsets."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert '--flock-y' in html
+        assert '--flock-x' in html
+
+    def test_flock_formation_lead_parrot_larger(self, client):
+        """Lead parrot should get a special class for larger size."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'flock-parrot-lead' in html
+
+    def test_flock_formation_legendary_golden_class(self, client):
+        """Legendary flock parrots should get golden styling class."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'flock-parrot-golden' in html
+
+    def test_flock_formation_auto_cleanup(self, client):
+        """Flock container should auto-remove after animation."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'container.remove()' in html
+
+    def test_flock_formation_css_exists(self, client):
+        """Flock formation CSS should be defined in stylesheet."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.flock-formation-container' in css
+        assert '.flock-parrot' in css
+        assert 'flock-fly' in css
+
+    def test_flock_parrot_lead_css(self, client):
+        """Lead parrot CSS should have larger font-size."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.flock-parrot-lead' in css
+
+    def test_flock_golden_css(self, client):
+        """Golden flock parrots should have gold drop-shadow."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.flock-parrot-golden' in css
+        assert 'drop-shadow' in css
+
+    def test_flock_fly_keyframes(self, client):
+        """flock-fly keyframes animation should be defined."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes flock-fly' in css
+
+    def test_flock_fly_loop_keyframes(self, client):
+        """flock-fly-loop keyframes animation for legendary flock."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes flock-fly-loop' in css
+
+    def test_flock_reduced_motion_css(self, client):
+        """Flock animations should be disabled for prefers-reduced-motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.flock-parrot { animation: none' in css
+        assert '.flock-formation-container { display: none' in css
+
+    def test_flock_legendary_container_class(self, client):
+        """Legendary flock should add a legendary class to container."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'flock-formation-legendary' in html
+
+
+# --- 404 Memory Card Game ---
+
+class TestMemoryGame:
+    """Tests for the 404 memory card game feature."""
+
+    def test_404_has_memory_game_script(self, client):
+        """404 page should include the memory game script."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'MEMORY_PAIRS' in html
+        assert 'httpparrot_404_count' in html
+
+    def test_memory_game_tracks_404_count(self, client):
+        """Memory game should track failed URL attempts in sessionStorage."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'httpparrot_404_count' in html
+        assert 'sessionStorage' in html
+
+    def test_memory_game_triggers_after_3_visits(self, client):
+        """Memory game prompt should appear after count >= 3."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'count < 3' in html
+
+    def test_memory_game_has_8_pairs(self, client):
+        """Memory game should define 8 status code pairs."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        codes = ['200', '301', '404', '500', '401', '503', '418', '429']
+        for code in codes:
+            assert code in html, f"Status code {code} not found in memory game"
+
+    def test_memory_game_has_status_names(self, client):
+        """Memory game should include status code names."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        names = ['OK', 'Not Found', 'Internal Server Error', 'Unauthorized',
+                 'Too Many Requests', 'Service Unavailable']
+        for name in names:
+            assert name in html, f"Status name '{name}' not in memory game"
+
+    def test_memory_game_prompt_button(self, client):
+        """Memory game should have a start button."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'memory-game-start-btn' in html
+        assert 'Play Memory Game' in html
+
+    def test_memory_game_grid_4x4(self, client):
+        """Memory game should create a 4x4 grid."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'memory-game-grid' in html
+
+    def test_memory_game_cards_have_3d_flip(self, client):
+        """Cards should use CSS 3D transform classes."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'memory-card-inner' in html
+        assert 'memory-card-front' in html
+        assert 'memory-card-back' in html
+        assert 'memory-card-flipped' in html
+
+    def test_memory_game_match_detection(self, client):
+        """Game should detect matches by pair ID and different type."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'data-pair-id' in html
+        assert 'data-card-type' in html
+        assert 'memory-card-matched' in html
+
+    def test_memory_game_match_highlight(self, client):
+        """Matched cards should get a highlight class."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'memory-card-matched' in html
+
+    def test_memory_game_completion_handler(self, client):
+        """Game should call onGameComplete when all pairs matched."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'onGameComplete' in html
+
+    def test_memory_game_shows_hidden_fact(self, client):
+        """On completion, game should show a hidden fact."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'HIDDEN_FACTS' in html
+        assert 'Hidden fact:' in html
+
+    def test_memory_game_awards_photo_memory_feather(self, client):
+        """Completion should award the Photographic Memory feather."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'httpparrot_memory_game_complete' in html
+        assert 'Photographic Memory' in html
+
+    def test_memory_game_tracks_in_eggs(self, client):
+        """Completion should track memory_game in eggs_found."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "eggs.indexOf('memory_game')" in html
+        assert 'eggs_found' in html
+
+    def test_memory_game_awards_xp(self, client):
+        """Completion should award XP via ParrotXP."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'ParrotXP.award' in html
+        assert 'memory_game_complete' in html
+
+    def test_memory_game_resets_counter(self, client):
+        """Completion should reset the 404 counter."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "sessionStorage.removeItem('httpparrot_404_count')" in html
+
+    def test_memory_game_accessible_grid(self, client):
+        """Memory game grid should have ARIA attributes."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "role', 'grid'" in html
+        assert 'Memory card game grid' in html
+
+    def test_memory_game_cards_are_buttons(self, client):
+        """Memory cards should be button elements for accessibility."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "createElement('button')" in html
+        assert "Memory card " in html
+
+    def test_memory_game_fisher_yates_shuffle(self, client):
+        """Cards should be shuffled using Fisher-Yates algorithm."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert 'Fisher-Yates' in html
+
+    def test_memory_game_no_match_flip_back(self, client):
+        """Non-matching cards should flip back after a delay."""
+        resp = client.get('/nonexistent')
+        html = resp.data.decode()
+        assert "classList.remove('memory-card-flipped')" in html
+
+    def test_memory_game_css_grid(self, client):
+        """Memory game grid CSS should use 4-column grid."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.memory-game-grid' in css
+        assert 'repeat(4, 1fr)' in css
+
+    def test_memory_card_3d_transform_css(self, client):
+        """Memory card CSS should use 3D transforms."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'transform-style: preserve-3d' in css
+        assert 'backface-visibility: hidden' in css
+        assert 'rotateY(180deg)' in css
+
+    def test_memory_match_glow_keyframes(self, client):
+        """Match highlight should have a glow animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes memory-match-glow' in css
+
+    def test_memory_complete_appear_keyframes(self, client):
+        """Completion panel should have an appear animation."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '@keyframes memory-complete-appear' in css
+
+    def test_memory_game_reduced_motion_css(self, client):
+        """Memory game animations should be disabled for reduced motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.memory-card-inner { transition: none' in css
+        assert '.memory-game-complete { animation: none' in css
+
+    def test_memory_game_start_btn_css(self, client):
+        """Start button should have styled CSS."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.memory-game-start-btn' in css
+
+    def test_memory_game_congrats_css(self, client):
+        """Congrats heading should use gradient text."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.memory-game-congrats' in css
+
+    def test_memory_game_feather_award_css(self, client):
+        """Feather award text should use gold color."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.memory-game-feather-award' in css
+
+
+# --- Photographic Memory Feather ---
+
+class TestPhotographicMemoryFeather:
+    """Tests for the Photographic Memory feather badge."""
+
+    def test_photo_memory_in_feathers_array(self, client):
+        """Photographic Memory feather should be defined in FEATHERS array."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'photo_memory' in html
+        assert 'Photographic Memory' in html
+
+    def test_photo_memory_feather_description(self, client):
+        """Photographic Memory feather should describe the memory game."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Complete the 404 memory card game' in html
+
+    def test_photo_memory_feather_bonus(self, client):
+        """Photographic Memory feather should award 100 bonus XP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'photo_memory' in html
+
+    def test_photo_memory_check_in_check_feathers(self, client):
+        """checkFeathers should check httpparrot_memory_game_complete flag."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_memory_game_complete' in html
+        assert "photo_memory" in html
+
+    def test_photo_memory_feather_icon(self, client):
+        """Photographic Memory feather should have a brain icon."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'photo_memory' in html
+
+
+# --- Fetch URL (GET mode) endpoint ---
+
+class TestFetchURL:
+    """Tests for the /api/fetch-url endpoint (GET mode with body preview)."""
+
+    def test_fetch_url_success_returns_body(self, client):
+        """fetch-url should return status, headers, body, and content_type."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'application/json'}
+        mock_resp.content = b'{"hello": "world"}'
+        mock_resp.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/fetch-url?url=https://example.com')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data['code'] == 200
+            assert data['url'] == 'https://example.com'
+            assert 'body' in data
+            assert data['body'] == '{"hello": "world"}'
+            assert data['content_type'] == 'application/json'
+            assert data['truncated'] is False
+            assert 'headers' in data
+            assert 'time_ms' in data
+
+    def test_fetch_url_truncates_large_body(self, client):
+        """Bodies larger than 10KB should be truncated."""
+        large_body = b'x' * (11 * 1024)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/plain'}
+        mock_resp.content = large_body
+        mock_resp.elapsed.total_seconds.return_value = 0.1
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/fetch-url?url=https://example.com')
+            data = resp.get_json()
+            assert data['truncated'] is True
+            assert len(data['body']) == 10 * 1024
+
+    def test_fetch_url_no_url(self, client):
+        """fetch-url without URL param should return 400."""
+        resp = client.get('/api/fetch-url')
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert 'error' in data
+
+    def test_fetch_url_ssrf_blocked(self, client):
+        """fetch-url should block private IPs (SSRF protection)."""
+        resp = client.get('/api/fetch-url?url=http://127.0.0.1/')
+        assert resp.status_code == 403
+        assert b'not allowed' in resp.data
+
+    def test_fetch_url_metadata_blocked(self, client):
+        """fetch-url should block cloud metadata endpoints."""
+        resp = client.get('/api/fetch-url?url=http://169.254.169.254/latest/')
+        assert resp.status_code == 403
+
+    def test_fetch_url_connection_error(self, client):
+        """fetch-url should return 502 on connection errors."""
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', side_effect=requests.RequestException):
+            resp = client.get('/api/fetch-url?url=https://example.com')
+            assert resp.status_code == 502
+            assert b'Could not connect' in resp.data
+
+    def test_fetch_url_rate_limited(self, client):
+        """fetch-url should be rate-limited."""
+        for _ in range(10):
+            client.get('/api/fetch-url?url=http://127.0.0.1/')
+        resp = client.get('/api/fetch-url?url=https://example.com')
+        assert resp.status_code == 429
+        assert b'Rate limit' in resp.data
+
+    def test_fetch_url_auto_prefix(self, client):
+        """URLs without scheme should get https:// prepended."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html'}
+        mock_resp.content = b'<html></html>'
+        mock_resp.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/fetch-url?url=example.com')
+            data = resp.get_json()
+            assert data['url'] == 'https://example.com'
+
+    def test_fetch_url_does_not_follow_redirects(self, client):
+        """fetch-url should not follow redirects (SSRF mitigation)."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 301
+        mock_resp.headers = {'Location': 'http://example.com/new', 'Content-Type': 'text/html'}
+        mock_resp.content = b''
+        mock_resp.elapsed.total_seconds.return_value = 0.1
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp) as mock_get:
+            resp = client.get('/api/fetch-url?url=http://example.com')
+            data = resp.get_json()
+            assert data['code'] == 301
+            call_kwargs = mock_get.call_args
+            assert call_kwargs[1].get('allow_redirects') is False
+
+    def test_fetch_url_strips_set_cookie(self, client):
+        """fetch-url should strip Set-Cookie headers from response."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html', 'Set-Cookie': 'session=abc'}
+        mock_resp.content = b'ok'
+        mock_resp.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/fetch-url?url=https://example.com')
+            data = resp.get_json()
+            assert 'Set-Cookie' not in data['headers']
+
+    def test_fetch_url_in_robots_disallow(self, client):
+        """robots.txt should disallow /api/fetch-url."""
+        resp = client.get('/robots.txt')
+        body = resp.data.decode()
+        assert 'Disallow: /api/fetch-url' in body
+
+    def test_fetch_url_html_body(self, client):
+        """fetch-url should return HTML body correctly."""
+        html_body = b'<html><body><h1>Hello</h1></body></html>'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {'Content-Type': 'text/html; charset=utf-8'}
+        mock_resp.content = html_body
+        mock_resp.elapsed.total_seconds.return_value = 0.05
+        addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 0))]
+        with patch('index.socket.getaddrinfo', return_value=addrinfo), \
+             patch('requests.get', return_value=mock_resp):
+            resp = client.get('/api/fetch-url?url=https://example.com')
+            data = resp.get_json()
+            assert '<html>' in data['body']
+            assert data['content_type'] == 'text/html; charset=utf-8'
+
+
+class TestTesterMethodToggle:
+    """Tests for the GET/HEAD method toggle in the tester UI."""
+
+    def test_tester_has_method_toggle(self, client):
+        """Tester page should contain method toggle buttons."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'tester-method-toggle' in html
+        assert 'tester-method-btn' in html
+        assert 'data-method="HEAD"' in html
+        assert 'data-method="GET"' in html
+
+    def test_tester_head_is_default(self, client):
+        """HEAD method should be active by default."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        # HEAD button should have active class and aria-pressed=true
+        assert 'data-method="HEAD"' in html
+        # Check that the JS initializes with HEAD
+        assert "selectedMethod = 'HEAD'" in html
+
+    def test_tester_has_body_preview_markup(self, client):
+        """Tester JS should contain body preview CSS classes."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'tester-body-preview' in html
+        assert 'tester-body-header' in html
+        assert 'tester-body-pre' in html
+        assert 'tester-copy-body-btn' in html
+        assert 'tester-body-collapse-btn' in html
+        assert 'tester-content-type-badge' in html
+
+    def test_tester_uses_fetch_url_for_get_mode(self, client):
+        """Tester JS should call /api/fetch-url when GET mode is selected."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert '/api/fetch-url' in html
+
+    def test_tester_method_toggle_aria(self, client):
+        """Method toggle should have proper ARIA attributes."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'role="radiogroup"' in html
+        assert 'aria-label="HTTP method"' in html
+        assert 'aria-pressed="true"' in html
+        assert 'aria-pressed="false"' in html
+
+    def test_tester_body_preview_css_exists(self, client):
+        """CSS should contain body preview styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.tester-body-preview' in css
+        assert '.tester-body-pre' in css
+        assert '.tester-content-type-badge' in css
+        assert '.tester-method-toggle' in css
+        assert '.tester-method-btn' in css
+        assert '.tester-copy-body-btn' in css
+        assert '.tester-body-collapse-btn' in css

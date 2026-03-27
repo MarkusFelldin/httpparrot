@@ -1381,6 +1381,50 @@ def check_url():
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
+@app.route('/api/fetch-url')
+def fetch_url():
+    """Make a GET request to a user-provided URL and return status, headers, and body.
+
+    Returns the first 10 KB of the response body (truncated if larger),
+    along with status_code, headers, time_ms, content_type, and a truncated flag.
+    Rate-limited and SSRF-protected via resolve_and_validate().
+    """
+    if is_rate_limited(request.remote_addr):
+        logger.warning('Rate limit exceeded for %s', request.remote_addr)
+        return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
+    url = request.args.get('url', '')
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    url = _ensure_scheme(url)
+    safe_url, hostname = resolve_and_validate(url)
+    if not safe_url:
+        logger.warning('SSRF blocked: %s from %s', url, request.remote_addr)
+        return jsonify({"error": "URL not allowed"}), 403
+    try:
+        resp = req.get(safe_url, allow_redirects=False, timeout=10, stream=True)
+        headers = {k: v for k, v in resp.headers.items()
+                   if k.lower() not in ('set-cookie',)}
+        content_type = resp.headers.get('Content-Type', '')
+        max_body = 10 * 1024  # 10 KB
+        body = resp.content[:max_body]
+        truncated = len(resp.content) > max_body
+        try:
+            body_text = body.decode('utf-8', errors='replace')
+        except Exception:
+            body_text = body.decode('latin-1', errors='replace')
+        return jsonify({
+            "code": resp.status_code,
+            "url": url,
+            "headers": headers,
+            "time_ms": round(resp.elapsed.total_seconds() * 1000),
+            "body": body_text,
+            "content_type": content_type,
+            "truncated": truncated,
+        })
+    except req.RequestException:
+        return jsonify({"error": "Could not connect to the provided URL"}), 502
+
+
 @app.route('/trace')
 def trace_page():
     """Render the Redirect Tracer page for visualizing redirect chains."""
@@ -1982,6 +2026,7 @@ def robots():
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /api/check-url\n"
+        "Disallow: /api/fetch-url\n"
         "Disallow: /api/check-cors\n"
         "Disallow: /api/security-audit\n"
         "Disallow: /api/trace-redirects\n"
