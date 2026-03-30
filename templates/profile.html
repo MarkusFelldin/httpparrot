@@ -97,27 +97,27 @@
             <h2>Stats</h2>
             <div class="profile-stats-grid" id="profile-stats-grid">
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-quiz-answers">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-quiz-answers">0</div>
                     <div class="profile-stat-label">Quiz Answers</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-daily-streak">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-daily-streak">0</div>
                     <div class="profile-stat-label">Daily Streak</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-freeze-count">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-freeze-count">0</div>
                     <div class="profile-stat-label"><span aria-hidden="true">&#x2744;&#xFE0F;</span> Freezes</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-codes-visited">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-codes-visited">0</div>
                     <div class="profile-stat-label">Codes Visited</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-practice-completed">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-practice-completed">0</div>
                     <div class="profile-stat-label">Practice Completed</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-review-due" style="color:#7b61ff">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-review-due" style="color:#7b61ff">0</div>
                     <div class="profile-stat-label"><a href="/review" style="color:inherit;text-decoration:none">Due for Review</a></div>
                 </div>
             </div>
@@ -146,7 +146,7 @@
 
         <section class="profile-heatmap-section" aria-label="Activity heatmap">
             <h2>Activity (Last 90 Days)</h2>
-            <div class="profile-heatmap-container" id="profile-heatmap-container">
+            <div class="profile-heatmap-container skeleton" id="profile-heatmap-container">
                 <div class="profile-heatmap" id="profile-heatmap" role="img" aria-label="Activity heatmap showing daily XP for the last 90 days"></div>
                 <div class="profile-heatmap-legend">
                     <span>Less</span>
@@ -162,7 +162,7 @@
 
         <section class="profile-weekly-section" id="profile-weekly-section" aria-label="Weekly progress chart">
             <h2>Weekly Progress</h2>
-            <div class="profile-weekly-container" id="profile-weekly-container">
+            <div class="profile-weekly-container skeleton" id="profile-weekly-container">
                 <div class="profile-weekly-chart" id="profile-weekly-chart" role="img" aria-label="Bar chart showing XP earned per week for the last 12 weeks"></div>
                 <div class="profile-weekly-trend" id="profile-weekly-trend" aria-live="polite"></div>
             </div>
@@ -503,9 +503,15 @@
     var quizCount = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
     var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
     var visitCount = activity.filter(function(e) { return e.action === 'page_visit'; }).length;
-    document.getElementById('stat-quiz-answers').textContent = quizCount;
-    document.getElementById('stat-practice-completed').textContent = practiceCount;
-    document.getElementById('stat-codes-visited').textContent = visitCount;
+    var statQuizEl = document.getElementById('stat-quiz-answers');
+    statQuizEl.textContent = quizCount;
+    statQuizEl.classList.remove('skeleton');
+    var statPracticeEl = document.getElementById('stat-practice-completed');
+    statPracticeEl.textContent = practiceCount;
+    statPracticeEl.classList.remove('skeleton');
+    var statVisitEl = document.getElementById('stat-codes-visited');
+    statVisitEl.textContent = visitCount;
+    statVisitEl.classList.remove('skeleton');
 
     /* Due for review */
     var reviewDueEl = document.getElementById('stat-review-due');
@@ -520,6 +526,7 @@
             }
             reviewDueEl.textContent = dueCount;
         }
+        reviewDueEl.classList.remove('skeleton');
     }
 
     /* Daily streak */
@@ -537,14 +544,17 @@
             if (diff === 1) { streak++; } else { break; }
         }
     }
-    document.getElementById('stat-daily-streak').textContent = streak;
+    var statStreakEl = document.getElementById('stat-daily-streak');
+    statStreakEl.textContent = streak;
+    statStreakEl.classList.remove('skeleton');
 
     /* Streak freeze count & milestones from daily state */
     var dailyState = null;
     try { dailyState = JSON.parse(localStorage.getItem('httpparrot_daily')); } catch(e) {}
+    var statFreezeEl = document.getElementById('stat-freeze-count');
     if (dailyState) {
         var freezes = dailyState.freezesAvailable || 0;
-        document.getElementById('stat-freeze-count').textContent = freezes;
+        statFreezeEl.textContent = freezes;
         var milestones = dailyState.milestonesHit || [];
         var MILESTONE_LABELS = {7: '7-Day Streak', 14: '14-Day Streak', 30: '30-Day Streak', 50: '50-Day Streak', 100: '100-Day Streak'};
         var list = document.getElementById('profile-milestones-list');
@@ -559,6 +569,7 @@
             });
         }
     }
+    statFreezeEl.classList.remove('skeleton');
 
     /* Heatmap */
     var heatmap = document.getElementById('profile-heatmap');
@@ -584,6 +595,7 @@
         cell.setAttribute('aria-label', key + ': ' + xpDay + ' XP');
         heatmap.appendChild(cell);
     }
+    document.getElementById('profile-heatmap-container').classList.remove('skeleton');
 
     /* Weekly Progress Chart */
     (function() {
@@ -668,6 +680,7 @@
                 trendEl.innerHTML = '<span class="weekly-trend-up" aria-label="New activity">\u25B2 New activity this week!</span>';
             }
         }
+        document.getElementById('profile-weekly-container').classList.remove('skeleton');
     })();
 
     /* Highlight current rank in ranks list */

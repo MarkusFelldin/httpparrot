@@ -61,6 +61,13 @@
             </div>
         </div>
 
+        <div class="empty-state" id="collection-empty" style="display:none">
+            <span class="empty-state-icon" aria-hidden="true">&#x1F99C;</span>
+            <h2 class="empty-state-title">Your Parrotdex is empty!</h2>
+            <p class="empty-state-text">Visit status code pages to start collecting parrots.</p>
+            <a href="/" class="btn-back">Browse Parrots</a>
+        </div>
+
         <div class="collection-grid" id="collection-grid">
             {% for code in all_codes %}
             <a href="/{{ code.code }}" class="collection-card" data-code="{{ code.code }}">

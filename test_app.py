@@ -8408,6 +8408,11 @@ class TestReviewPage:
         html = resp.data.decode()
         assert 'total_reviews' in html
 
+    def test_review_page_has_empty_state(self, client):
+        resp = client.get('/review')
+        assert resp.status_code == 200
+        assert b'empty-state' in resp.data
+
 
 class TestReviewLeitnerSystem:
     """Tests for the Leitner box system data structure and behaviour."""

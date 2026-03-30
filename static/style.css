@@ -1680,6 +1680,8 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 .code-example {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 0.5rem;
 }
 
@@ -1691,14 +1693,17 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 .code-lang {
   font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
 }
 .code-copy-btn {
   font-size: 0.6rem;
@@ -1721,9 +1726,12 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 .code-snippet {
+  position: relative;
+  counter-reset: line;
+  padding-left: 3rem;
   background: var(--bg-deep);
   border-radius: var(--radius-sm);
-  padding: 0.6rem 1rem;
+  padding: 0.6rem 1rem 0.6rem 3rem;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: rgba(255, 255, 255, 0.7);
@@ -5926,6 +5934,53 @@ body {
 
 .skeleton-line:last-child { width: 60%; }
 .skeleton-block { height: 120px; margin-bottom: 12px; }
+
+/* Empty state pattern */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--text-secondary);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.empty-state-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-text {
+  font-size: var(--text-md);
+  line-height: 1.5;
+  max-width: 400px;
+  margin: 0 auto 1.5rem;
+}
+
+/* Skeleton for stat values */
+.profile-stat-value.skeleton {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  min-height: 2rem;
+  min-width: 3rem;
+  position: relative;
+  overflow: hidden;
+  color: transparent;
+}
+
+.profile-stat-value.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
 
 /* Toast notification system */
 .toast-container {
