@@ -26,7 +26,9 @@ def clear_rate_limit():
     _webhook_bins.clear()
 
 
-# --- Page routes ---
+# ============================================================
+# PAGE ROUTE TESTS
+# ============================================================
 
 class TestPages:
     @pytest.mark.parametrize("path,expected_status,expected_text", [
@@ -103,7 +105,9 @@ class TestPages:
         assert 'href="/practice"' in client.get('/').data.decode()
 
 
-# --- Content negotiation ---
+# ============================================================
+# CONTENT NEGOTIATION TESTS
+# ============================================================
 
     def test_headers_page(self, client):
         """Header Explainer should render with script and nonce."""
@@ -158,7 +162,9 @@ class TestContentNegotiation:
         assert b'<!doctype html>' in resp.data
 
 
-# --- Direct image endpoint ---
+# ============================================================
+# DIRECT IMAGE ENDPOINT
+# ============================================================
 
 class TestImageEndpoint:
     def test_image_jpg(self, client):
@@ -171,7 +177,9 @@ class TestImageEndpoint:
         assert resp.status_code == 404
 
 
-# --- Random redirect ---
+# ============================================================
+# RANDOM REDIRECT
+# ============================================================
 
 class TestRandom:
     def test_random_redirects(self, client):
@@ -184,7 +192,9 @@ class TestRandom:
         assert resp.headers.get('Cache-Control') == 'no-store'
 
 
-# --- Status code returner ---
+# ============================================================
+# STATUS CODE RETURNER
+# ============================================================
 
 class TestReturnStatus:
     @pytest.mark.parametrize("code,expected", [
@@ -207,7 +217,9 @@ class TestReturnStatus:
         assert client.get(f'/return/{code}').status_code == 404
 
 
-# --- Security headers ---
+# ============================================================
+# SECURITY HEADERS
+# ============================================================
 
 class TestSecurityHeaders:
     def test_all_security_headers_present(self, client):
@@ -228,7 +240,9 @@ class TestSecurityHeaders:
         assert 'max-age=86400' in resp.headers.get('Cache-Control', '')
 
 
-# --- SSRF protection ---
+# ============================================================
+# SSRF PROTECTION
+# ============================================================
 
 class TestSSRFProtection:
     @pytest.mark.parametrize("ip", [
@@ -276,7 +290,9 @@ class TestSSRFProtection:
         assert resp.status_code == 403
 
 
-# --- Rate limiting ---
+# ============================================================
+# RATE LIMITING
+# ============================================================
 
 class TestRateLimiting:
     def test_rate_limit_allows_under_limit(self):
@@ -303,7 +319,9 @@ class TestRateLimiting:
         assert b'Rate limit' in resp.data
 
 
-# --- Data integrity ---
+# ============================================================
+# DATA INTEGRITY
+# ============================================================
 
 class TestDataIntegrity:
     def test_all_status_codes_have_descriptions(self):
@@ -327,7 +345,9 @@ class TestDataIntegrity:
             assert c[2].endswith('.jpg'), f"Code {c[0]} image not .jpg: {c[2]}"
 
 
-# --- Check-URL success path ---
+# ============================================================
+# CHECK-URL SUCCESS PATH
+# ============================================================
 
     def test_flowchart_result_codes_are_valid(self, client):
         """All status codes referenced in the flowchart should exist in the app."""
@@ -404,7 +424,9 @@ class TestCheckURLSuccess:
             assert b'Could not connect' in resp.data
 
 
-# --- Tester timing bar UI ---
+# ============================================================
+# TESTER TIMING BAR UI
+# ============================================================
 
     def test_does_not_follow_redirects(self, client):
         """URL tester should report first-hop status, not follow redirects."""
@@ -443,7 +465,9 @@ class TestTesterTimingBar:
         assert 'Very slow' in html
 
 
-# --- Return status edge cases ---
+# ============================================================
+# RETURN STATUS EDGE CASES
+# ============================================================
 
 class TestReturnStatusEdgeCases:
     def test_return_unlisted_code(self, client):
@@ -458,7 +482,9 @@ class TestReturnStatusEdgeCases:
         assert resp.status_code == 100
 
 
-# --- CSP nonce ---
+# ============================================================
+# CSP NONCE
+# ============================================================
 
 class TestCSPNonce:
     def test_csp_nonce_changes_per_request(self, client):
@@ -483,7 +509,9 @@ class TestCSPNonce:
         csp = resp.headers.get('Content-Security-Policy', '')
         nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
         assert f'nonce="{nonce}"'.encode() in resp.data
-# --- Resolve and validate edge cases ---
+# ============================================================
+# RESOLVE AND VALIDATE EDGE CASES
+# ============================================================
 
 
 class TestResolveValidateEdgeCases:
@@ -547,7 +575,9 @@ class TestResolveValidateEdgeCases:
         assert result is None
 
 
-# --- Rate limiter pruning ---
+# ============================================================
+# RATE LIMITER PRUNING
+# ============================================================
 
 class TestRateLimiterPruning:
     def test_all_detail_pages_render(self, client):
@@ -575,7 +605,9 @@ class TestRateLimiterPruning:
         index._rate_limit_last_prune = old_prune
 
 
-# --- RFC link filter ---
+# ============================================================
+# RFC LINK FILTER
+# ============================================================
 
 class TestRFCLinks:
     def test_single_rfc(self):
@@ -622,7 +654,9 @@ class TestRFCLinks:
         assert 'rel="noopener"' in rfc_link.group()
 
 
-# --- Keyboard navigation ---
+# ============================================================
+# KEYBOARD NAVIGATION
+# ============================================================
 
 class TestKeyboardNavigation:
     def test_homepage_has_grid_nav_script(self, client):
@@ -647,7 +681,9 @@ class TestKeyboardNavigation:
         assert '.parrot-card.grid-focus' in css
 
 
-# --- Scroll-driven animations ---
+# ============================================================
+# SCROLL-DRIVEN ANIMATIONS
+# ============================================================
 
 class TestScrollDrivenAnimations:
     def test_scroll_animations_css(self, client):
@@ -669,7 +705,9 @@ class TestScrollDrivenAnimations:
         assert 'will-reveal' in html
 
 
-# --- Related codes ---
+# ============================================================
+# RELATED CODES
+# ============================================================
 
 class TestRelatedCodes:
     def test_detail_page_with_related_shows_section(self, client):
@@ -716,7 +754,9 @@ class TestRelatedCodes:
             )
 
 
-# --- STATUS_EXTRA data ---
+# ============================================================
+# STATUS_EXTRA DATA
+# ============================================================
 
 class TestStatusExtra:
     def test_all_entries_have_required_keys(self):
@@ -743,7 +783,9 @@ class TestStatusExtra:
             assert len(data['examples']) > 0, f"{code} has empty examples list"
 
 
-# --- HTTP_EXAMPLES data ---
+# ============================================================
+# HTTP_EXAMPLES DATA
+# ============================================================
 
 class TestHTTPExamples:
     def test_all_entries_have_request_and_response(self):
@@ -773,7 +815,9 @@ class TestHTTPExamples:
             )
 
 
-# --- Detail page completeness ---
+# ============================================================
+# DETAIL PAGE COMPLETENESS
+# ============================================================
 
 class TestDetailPageCompleteness:
     def test_200_has_all_sections(self, client):
@@ -796,7 +840,9 @@ class TestDetailPageCompleteness:
         assert 'curl -i' in html
 
 
-# --- Cheat sheet ---
+# ============================================================
+# CHEAT SHEET
+# ============================================================
 
 class TestCheatsheet:
     def test_cheatsheet_contains_thumbnails(self, client):
@@ -817,7 +863,9 @@ class TestCheatsheet:
         assert 'Server Error' in html
 
 
-# --- Quiz data integrity ---
+# ============================================================
+# QUIZ DATA INTEGRITY
+# ============================================================
 
 class TestQuizDataIntegrity:
     def test_quiz_embeds_valid_data(self, client):
@@ -840,7 +888,9 @@ class TestQuizDataIntegrity:
             assert f'"{sc.code}"' in html, f"Quiz missing code {sc.code}"
 
 
-# --- Flowchart tree validation ---
+# ============================================================
+# FLOWCHART TREE VALIDATION
+# ============================================================
 
 class TestSEO:
     def test_sitemap_xml(self, client):
@@ -867,7 +917,9 @@ class TestSEO:
         assert 'DefinedTerm' in html
 
 
-# --- Echo / API endpoints ---
+# ============================================================
+# ECHO / API ENDPOINTS
+# ============================================================
 
     def test_sitemap_structure_and_content(self, client):
         """Sitemap should be valid XML with all public pages and no API endpoints."""
@@ -1112,7 +1164,6 @@ class TestDesignTokenUsage:
 
     def test_debug_style_no_hardcoded_colors(self, client):
         """debug.html style blocks should not have hardcoded color values."""
-        import re
         html = client.get('/debug').data.decode()
         style_match = re.search(r'<style[^>]*>(.*?)</style>', html, re.DOTALL)
         if style_match:
@@ -1150,7 +1201,9 @@ class TestRedirectChain:
         assert resp.status_code == 302
 
 
-# --- Delay parameter ---
+# ============================================================
+# DELAY PARAMETER
+# ============================================================
 
 class TestDelayParameter:
     def test_delay_zero_ignored(self, client):
@@ -1174,7 +1227,9 @@ class TestDelayParameter:
         assert resp.status_code == 200
 
 
-# --- Header Explainer ---
+# ============================================================
+# HEADER EXPLAINER
+# ============================================================
 
 class TestCORSChecker:
     def test_cors_checker_page_renders(self, client):
@@ -1315,7 +1370,9 @@ class TestCORSChecker:
         assert b'Disallow: /api/check-cors' in resp.data
 
 
-# --- Collection (Parrotdex) ---
+# ============================================================
+# COLLECTION (PARROTDEX)
+# ============================================================
 
 class TestCollection:
     def test_collection_page_renders(self, client):
@@ -1357,7 +1414,9 @@ class TestCollection:
         assert "localStorage.getItem('parrotdex')" in html
 
 
-# --- Quiz shareable results ---
+# ============================================================
+# QUIZ SHAREABLE RESULTS
+# ============================================================
 
     def test_collection_has_all_new_egg_cards(self, client):
         """Collection page should have all new and original egg cards with hints."""
@@ -1406,7 +1465,9 @@ class TestShareAndEmbed:
         assert '![HTTP 404' in html
 
 
-# --- ELI5 Toggle ---
+# ============================================================
+# ELI5 TOGGLE
+# ============================================================
 
 class TestELI5Toggle:
     def test_eli5_features_on_detail_pages(self, client):
@@ -1445,7 +1506,9 @@ class TestELI5Toggle:
             assert len(STATUS_EXTRA[code]['eli5']) > 20, f"ELI5 for {code} seems too short"
 
 
-# --- Daily HTTP Challenge ---
+# ============================================================
+# DAILY HTTP CHALLENGE
+# ============================================================
 
 class TestDailyChallenge:
     def test_daily_page_and_elements(self, client):
@@ -1469,7 +1532,9 @@ class TestDailyChallenge:
         assert strip_nonce(html1) == strip_nonce(html2)
 
 
-# --- FAQPage structured data ---
+# ============================================================
+# FAQPAGE STRUCTURED DATA
+# ============================================================
 
 class TestFAQSchema:
     def test_faq_structured_data(self, client):
@@ -1504,7 +1569,9 @@ class TestFAQSchema:
         assert faq_min[0]['question'] == 'What does HTTP 200 mean?'
 
 
-# --- Parrot of the Day on homepage ---
+# ============================================================
+# PARROT OF THE DAY ON HOMEPAGE
+# ============================================================
 
 class TestRSSFeed:
     def test_feed_autodiscovery_in_html(self, client):
@@ -1540,7 +1607,9 @@ class TestRSSFeed:
         assert '<description>' in xml
         assert '<language>en-us</language>' in xml
         assert '<lastBuildDate>' in xml
-# --- Quiz & Practice visual polish ---
+# ============================================================
+# QUIZ & PRACTICE VISUAL POLISH
+# ============================================================
 
 
 class TestQuizVisualFeedback:
@@ -1606,13 +1675,14 @@ class TestPracticeDifficultyTabs:
         assert 'practice-progress-text' in html
         assert 'role="progressbar"' in html
         # Cards should have data-difficulty matching one of the three levels
-        import re
         card_diffs = re.findall(r'class="practice-card"[^>]*data-difficulty="(\w+)"', html)
         assert len(card_diffs) > 0
         for diff in card_diffs:
             assert diff in ('beginner', 'intermediate', 'expert')
         assert "classList.add('visible')" in html or 'classList.add("visible"' in html
-# --- Detail page polish ---
+# ============================================================
+# DETAIL PAGE POLISH
+# ============================================================
 
     def test_practice_category_filters(self, client):
         """Practice page should have category filter buttons and data attributes."""
@@ -1708,7 +1778,9 @@ class TestHTTPExchangePanels:
         assert '.http-exchange-animated .http-hl-status' in css
 
 
-# --- Compare page enhancements ---
+# ============================================================
+# COMPARE PAGE ENHANCEMENTS
+# ============================================================
 
 class TestCompareEnhancements:
     def test_comparison_summaries_data_integrity(self):
@@ -1731,7 +1803,9 @@ class TestCompareEnhancements:
             )
 
 
-# --- Search API ---
+# ============================================================
+# SEARCH API
+# ============================================================
 
     def test_compare_combined(self, client):
         """Combined checks for /compare."""
@@ -1845,7 +1919,9 @@ class TestSearchAPI:
         assert 'Search status codes' in html
 
 
-# --- Response Playground ---
+# ============================================================
+# RESPONSE PLAYGROUND
+# ============================================================
 
     def test_api_docs_interactive_features(self, client):
         """API docs page has try-it panels, copy buttons, and enhanced sections."""
@@ -2048,7 +2124,9 @@ class TestMockResponse:
         assert b'Disallow: /api/mock-response' in resp.data
 
 
-# --- Responsive Design ---
+# ============================================================
+# RESPONSIVE DESIGN
+# ============================================================
 
 class TestResponsiveDesign:
     """Tests for responsive design: viewport meta, hamburger menu, and CSS media queries."""
@@ -2110,7 +2188,9 @@ class TestResponsiveDesign:
             assert 'mobile-nav' in html, f"mobile-nav missing on {page}"
 
 
-# --- Accessibility: ARIA & Semantic HTML ---
+# ============================================================
+# ACCESSIBILITY: ARIA & SEMANTIC HTML
+# ============================================================
 
     def test_homepage_combined(self, client):
         """Combined checks for /."""
@@ -2336,7 +2416,6 @@ class TestAccessibilityColorContrast:
 
     def test_color_contrast_sufficient(self):
         """Key CSS elements should have sufficient contrast (opacity >= 0.6)."""
-        import re
         with open('static/style.css', 'r') as f:
             css = f.read()
         assert 'header-subtitle' in css
@@ -2395,7 +2474,9 @@ class TestAccessibilityScreenReader:
         assert 'aria-label="Back to top"' in client.get('/200').data.decode()
 
 
-# --- CSS Media Queries ---
+# ============================================================
+# CSS MEDIA QUERIES
+# ============================================================
 
 class TestCSSMediaQueries:
     """Verify print, reduced-motion, and light-theme media queries exist in the stylesheet."""
@@ -2520,7 +2601,9 @@ class TestEdgeCaseCoverage:
         assert 'xml' in resp.content_type
 
 
-# --- Sitemap completeness ---
+# ============================================================
+# SITEMAP COMPLETENESS
+# ============================================================
 
 class TestSSRFIPv6MappedAddresses:
     """Verify SSRF protection against IPv6-mapped IPv4 private addresses."""
@@ -2861,7 +2944,9 @@ class TestPerformance:
         assert 'no-store' in resp.headers.get('Cache-Control', '')
 
 
-# --- Common Mistakes feature ---
+# ============================================================
+# COMMON MISTAKES FEATURE
+# ============================================================
 
     def test_static_style_css_combined(self, client):
         """Combined CSS checks."""
@@ -2982,7 +3067,9 @@ class TestCommonMistakes:
                     )
 
 
-# --- CSS Design Token Replacement ---
+# ============================================================
+# CSS DESIGN TOKEN REPLACEMENT
+# ============================================================
 
 class TestDesignTokenReplacement:
     """Tests for replacing hardcoded rgba(26,26,31,...) with design tokens."""
@@ -3041,7 +3128,9 @@ class TestDesignTokenReplacement:
         idx = css.index('.quiz-results-card')
         rule = css[idx:idx+200]
         assert 'var(--surface-1-solid)' in rule
-# --- Easter egg: Barrel Roll ---
+# ============================================================
+# EASTER EGG: BARREL ROLL
+# ============================================================
 
     def test_light_theme_selectors_present(self, client):
         """Light theme CSS block should contain overrides for all key components."""
@@ -3118,7 +3207,6 @@ class TestDesignTokenReplacement:
 
     def test_search_input_sm_styles(self):
         """Header .search-input-sm should use var(--radius-sm) and have tablet min-width."""
-        import re
         with open('static/style.css') as f:
             css = f.read()
         match = re.search(r'\.search-input-sm\s*\{[^}]+\}', css)
@@ -3134,7 +3222,6 @@ class TestDesignTokenReplacement:
 
     def test_playground_breakpoints_and_overflow(self):
         """900px breakpoint should switch to single column; raw should have overflow-x."""
-        import re
         with open('static/style.css') as f:
             css = f.read()
         assert '@media (max-width: 900px)' in css
@@ -3333,7 +3420,9 @@ class TestEasterEggs:
         assert 'footer-time-egg' in css
 
 
-# --- Easter egg: /coffee endpoint ---
+# ============================================================
+# EASTER EGG: /COFFEE ENDPOINT
+# ============================================================
 
 class TestCoffeeEasterEgg:
     def test_coffee_page_content(self, client):
@@ -3379,7 +3468,9 @@ class TestCoffeeEasterEgg:
         assert '<!-- try /coffee -->' not in client.get('/200').data.decode()
 
 
-# --- Parrotdex new egg entries ---
+# ============================================================
+# PARROTDEX NEW EGG ENTRIES
+# ============================================================
 
 class TestProfilePage:
     """Tests for the XP profile page."""
@@ -3598,7 +3689,9 @@ class TestRedirectTracer:
         assert b'/api/trace-redirects' in resp.data
 
 
-# --- XP award() calls wired into templates ---
+# ============================================================
+# XP AWARD() CALLS WIRED INTO TEMPLATES
+# ============================================================
 
 class TestXPAwardCalls:
     """Verify ParrotXP.award() is actually called in each template."""
@@ -3621,7 +3714,9 @@ class TestXPAwardCalls:
         assert 'httpparrot_speed_demon' in client.get('/daily').data.decode()
 
 
-# --- Achievement Badges (Feathers) ---
+# ============================================================
+# ACHIEVEMENT BADGES (FEATHERS)
+# ============================================================
 
 class TestFeatherBadges:
     """Verify Feathers system is defined and integrated."""
@@ -3741,7 +3836,9 @@ class TestSurfaceElevationSystem:
         assert '.parrot::after' in block
 
 
-# --- Debug exercises ---
+# ============================================================
+# DEBUG EXERCISES
+# ============================================================
 
 class TestDebugExercises:
     """Tests for the Debug This Response page."""
@@ -3870,7 +3967,6 @@ class TestDebugExerciseData:
 
     def test_request_contains_http_method(self):
         from debug_exercises import DEBUG_EXERCISES
-        import re
         method_re = re.compile(r'^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)')
         for ex in DEBUG_EXERCISES:
             assert method_re.match(ex['request']), \
@@ -3878,7 +3974,6 @@ class TestDebugExerciseData:
 
     def test_response_contains_status_line(self):
         from debug_exercises import DEBUG_EXERCISES
-        import re
         status_re = re.compile(r'^HTTP/\d\.\d\s+\d{3}')
         for ex in DEBUG_EXERCISES:
             assert status_re.match(ex['response']), \
@@ -3913,7 +4008,6 @@ class TestDebugExerciseCategories:
         assert 'data-category="errors"' in html
         assert 'data-category="headers"' in html
         assert 'data-category="api-design"' in html
-        import re
         card_cats = re.findall(r'data-category="([\w-]+)".*?class="debug-card"', html)
         card_cats2 = re.findall(r'class="debug-card"[^>]*data-category="([\w-]+)"', html)
         assert len(card_cats) > 0 or len(card_cats2) > 0
@@ -4014,7 +4108,9 @@ class TestConsoleParrotAPI:
         assert 'devtools' in html.lower()
 
 
-# --- HTTP Handshake Easter Egg ---
+# ============================================================
+# HTTP HANDSHAKE EASTER EGG
+# ============================================================
 
 class TestHTTPHandshakeEasterEgg:
     """Tests for the H-T-T-P keyboard combo handshake easter egg."""
@@ -4102,7 +4198,6 @@ class TestDesignSystemTokens:
     def test_no_hardcoded_values(self, client):
         """CSS should not have hardcoded border-radius, transitions, or font-family."""
         css = client.get('/static/style.css').data.decode()
-        import re
         for pattern, desc in [
             (r'border-radius:\s*4px\s*[;!]', 'border-radius: 4px'),
             (r'border-radius:\s*8px\s*[;!]', 'border-radius: 8px'),
@@ -4120,7 +4215,9 @@ class TestDesignSystemTokens:
         assert 'rgba(255,255,255,0.55)' not in css
 
 
-# --- Confusion Pair Lessons ---
+# ============================================================
+# CONFUSION PAIR LESSONS
+# ============================================================
 
 class TestConfusionPairsData:
     """Tests for confusion_pairs.py data module."""
@@ -4143,7 +4240,6 @@ class TestConfusionPairsData:
 
     def test_slug_format(self):
         from confusion_pairs import CONFUSION_PAIRS
-        import re
         slug_re = re.compile(r'^\d{3}-vs-\d{3}$')
         for pair in CONFUSION_PAIRS:
             assert slug_re.match(pair['slug']), f"Invalid slug format: {pair['slug']}"
@@ -4350,7 +4446,9 @@ class TestViewTransitions:
         assert 'animation: none !important' in rm_block
 
 
-# --- Streak Freeze & Milestone Celebrations ---
+# ============================================================
+# STREAK FREEZE & MILESTONE CELEBRATIONS
+# ============================================================
 
 class TestStreakFreeze:
     """Verify streak freeze logic is present in the daily template."""
@@ -4534,7 +4632,9 @@ class TestSeasonalCSS:
             assert hint in html.lower(), f"Missing seasonal hint: {hint}"
 
 
-# --- Learning Paths ---
+# ============================================================
+# LEARNING PATHS
+# ============================================================
 
 class TestLearningPathsData:
     """Validate the learning_paths.py data structure."""
@@ -4715,7 +4815,9 @@ class TestPathsNavAndSitemap:
             assert f'/paths/{path_id}' in xml
 
 
-# --- Security Audit ---
+# ============================================================
+# SECURITY AUDIT
+# ============================================================
 
 class TestSecurityAudit:
     def test_security_audit_page_renders(self, client):
@@ -5020,7 +5122,9 @@ class TestScoreToGrade:
             assert check['status'] in ('pass', 'fail')
 
 
-# --- Fault Simulator page ---
+# ============================================================
+# FAULT SIMULATOR PAGE
+# ============================================================
 
 class TestFaultSimulatorPage:
     def test_nav_link_exists(self, client):
@@ -5043,7 +5147,9 @@ class TestFaultSimulatorPage:
         assert '/api/unstable' in text
 
 
-# --- Fault Simulation: Delay endpoint ---
+# ============================================================
+# FAULT SIMULATION: DELAY ENDPOINT
+# ============================================================
 
     def test_fault_simulator_combined(self, client):
         """Combined checks for /fault-simulator."""
@@ -5100,7 +5206,9 @@ class TestApiDelay:
         assert b'Rate limit' in resp.data
 
 
-# --- Fault Simulation: Drip endpoint ---
+# ============================================================
+# FAULT SIMULATION: DRIP ENDPOINT
+# ============================================================
 
 class TestApiDrip:
     def test_drip_default_params(self, client):
@@ -5148,7 +5256,9 @@ class TestApiDrip:
         assert resp.status_code == 429
 
 
-# --- Fault Simulation: Stream endpoint ---
+# ============================================================
+# FAULT SIMULATION: STREAM ENDPOINT
+# ============================================================
 
 class TestApiStream:
     def test_stream_returns_lines(self, client):
@@ -5197,7 +5307,9 @@ class TestApiStream:
         assert resp.status_code == 429
 
 
-# --- Fault Simulation: Jitter endpoint ---
+# ============================================================
+# FAULT SIMULATION: JITTER ENDPOINT
+# ============================================================
 
 class TestApiJitter:
     def test_jitter_default_params(self, client):
@@ -5237,7 +5349,9 @@ class TestApiJitter:
         assert resp.status_code == 429
 
 
-# --- Fault Simulation: Unstable endpoint ---
+# ============================================================
+# FAULT SIMULATION: UNSTABLE ENDPOINT
+# ============================================================
 
 class TestApiUnstable:
     def test_unstable_returns_200_or_500(self, client):
@@ -5283,7 +5397,9 @@ class TestApiUnstable:
         assert resp.status_code == 429
 
 
-# --- Procedural Sound Toggle (ParrotSound) ---
+# ============================================================
+# PROCEDURAL SOUND TOGGLE (PARROTSOUND)
+# ============================================================
 
 class TestParrotSoundSystem:
     """Verify ParrotSound object is defined and wired into templates."""
@@ -5333,7 +5449,9 @@ class TestParrotSoundSystem:
         assert 'ParrotSound.isEnabled()' in html
 
 
-# --- Bento Dashboard ---
+# ============================================================
+# BENTO DASHBOARD
+# ============================================================
 
 class TestBentoDashboard:
     """Tests for the bento grid dashboard on the homepage."""
@@ -5389,7 +5507,9 @@ class TestBentoDashboard:
         assert 'grid-column: span 2' in css
 
 
-# --- Spaced Repetition Review page ---
+# ============================================================
+# SPACED REPETITION REVIEW PAGE
+# ============================================================
 
 class TestReviewPage:
     """Tests for the /review spaced repetition review page."""
@@ -5977,7 +6097,9 @@ class TestCheatsheetToolbar:
         assert '.cheat-no-results' in css
 
 
-# --- Next Up Recommender ---
+# ============================================================
+# NEXT UP RECOMMENDER
+# ============================================================
 
     def test_cheatsheet_combined(self, client):
         """Combined checks for /cheatsheet."""
@@ -6144,7 +6266,9 @@ class TestMetaFeathers:
         ]
         for esc in icon_escapes:
             assert esc in html, f"Meta-feather icon escape '{esc}' not found"
-# --- Case Studies ("In the Wild") feature ---
+# ============================================================
+# CASE STUDIES ("IN THE WILD") FEATURE
+# ============================================================
 
 
 class TestCaseStudies:
@@ -6269,7 +6393,9 @@ class TestCaseStudies:
         assert 'DMCA' in html or 'GitHub' in html
 
 
-# --- Keyboard Shortcuts Overlay ---
+# ============================================================
+# KEYBOARD SHORTCUTS OVERLAY
+# ============================================================
 
     def test_429_combined(self, client):
         """Combined checks for /429."""
@@ -6349,7 +6475,9 @@ class TestKeyboardShortcutsOverlay:
         assert 'Select answer' in html
         assert "tag === 'INPUT'" in html
         assert "tag === 'TEXTAREA'" in html
-# --- Mobile Polish CSS ---
+# ============================================================
+# MOBILE POLISH CSS
+# ============================================================
 
 
 class TestProfileFlockSharing:
@@ -6373,7 +6501,9 @@ class TestProfileFlockSharing:
         assert '<script>alert(1)</script>' not in html
 
 
-# --- Interactive Parrot Click ---
+# ============================================================
+# INTERACTIVE PARROT CLICK
+# ============================================================
 
     def test_profile_combined(self, client):
         """Combined checks for /profile."""
@@ -6610,7 +6740,9 @@ class TestProfileWeeklyTier:
         assert '.top3-feather' in css
 
 
-# --- Prestige System & Feather Progress ---
+# ============================================================
+# PRESTIGE SYSTEM & FEATHER PROGRESS
+# ============================================================
 
     def test_profile_combined(self, client):
         """Combined checks for /profile."""
@@ -6688,7 +6820,9 @@ class TestPrestigeSystem:
         assert '.goal-form' in css
         assert '.goal-display' in css
         assert '.goal-progress-bar' in css
-# --- Compare Page Transitions ---
+# ============================================================
+# COMPARE PAGE TRANSITIONS
+# ============================================================
 
 
 class TestCompareTransitions:
@@ -6723,7 +6857,9 @@ class TestCompareTransitions:
         # Compare cards should have transition support via fading classes
         assert '.compare-card.fading-out' in css
         assert '.compare-card.fading-in' in css
-# --- Flock Formation Celebration ---
+# ============================================================
+# FLOCK FORMATION CELEBRATION
+# ============================================================
 
     def test_compare_combined(self, client):
         """Combined checks for /compare."""
@@ -6756,7 +6892,9 @@ class TestFlockFormation:
         assert 'flock-parrot-golden' in html
         assert 'container.remove()' in html
         assert 'flock-formation-legendary' in html
-# --- 404 Memory Card Game ---
+# ============================================================
+# 404 MEMORY CARD GAME
+# ============================================================
 
     def test_static_style_css_combined(self, client):
         """Combined CSS checks."""
@@ -6838,7 +6976,9 @@ class TestMemoryGame:
         assert '.memory-game-start-btn' in css
         assert '.memory-game-congrats' in css
         assert '.memory-game-feather-award' in css
-# --- Photographic Memory Feather ---
+# ============================================================
+# PHOTOGRAPHIC MEMORY FEATHER
+# ============================================================
 
 
 class TestPhotographicMemoryFeather:
@@ -6855,7 +6995,9 @@ class TestPhotographicMemoryFeather:
         assert 'httpparrot_memory_game_complete' in html
         assert "photo_memory" in html
         assert 'photo_memory' in html
-# --- Fetch URL (GET mode) endpoint ---
+# ============================================================
+# FETCH URL (GET MODE) ENDPOINT
+# ============================================================
 
 
 class TestFetchURL:
@@ -7017,7 +7159,9 @@ class TestTesterMethodToggle:
         assert '.tester-body-collapse-btn' in css
 
 
-# --- Practice Results Summary ---
+# ============================================================
+# PRACTICE RESULTS SUMMARY
+# ============================================================
 
     def test_tester_combined(self, client):
         """Combined checks for /tester."""
@@ -7062,7 +7206,9 @@ class TestPracticeResultsSummary:
         assert 'httpparrots.com/practice' in html
         assert 'checkCompletion' in html
         assert "classList.remove('answered')" in html
-# --- Debug Results Summary ---
+# ============================================================
+# DEBUG RESULTS SUMMARY
+# ============================================================
 
     def test_debug_combined(self, client):
         """Combined checks for /debug."""
@@ -7095,7 +7241,6 @@ class TestBentoDashboardPolish:
         with open('static/style.css') as f:
             css = f.read()
         # Find the bento-tile transition block
-        import re
         match = re.search(r'\.bento-tile\s*\{[^}]*transition:[^;]*transform', css)
         assert match is not None, "bento-tile transition should include transform"
 
@@ -7131,7 +7276,6 @@ class TestBentoDashboardPolish:
             css = f.read()
         assert '.bento-streak-count.has-streak' in css
         # Should appear in reduced motion block
-        import re
         reduced = re.findall(r'prefers-reduced-motion: reduce\).*?(?=@media|\Z)', css, re.DOTALL)
         found = any('bento-streak-count.has-streak' in block for block in reduced)
         assert found, "Reduced motion should disable streak pulse"
@@ -7140,7 +7284,6 @@ class TestBentoDashboardPolish:
         """Reduced motion should disable hover lift on bento tiles."""
         with open('static/style.css') as f:
             css = f.read()
-        import re
         reduced = re.findall(r'prefers-reduced-motion: reduce\).*?(?=@media|\Z)', css, re.DOTALL)
         found = any('bento-tile:hover' in block for block in reduced)
         assert found, "Reduced motion should disable bento tile hover lift"
@@ -7312,7 +7455,9 @@ class TestFunFactsPool:
         assert 'Roy Fielding' in html
         assert 'HTTPS was introduced' in html
         assert 'Cookies were invented' in html
-# --- E5: Weekly Challenge Distinct Rewards ---
+# ============================================================
+# E5: WEEKLY CHALLENGE DISTINCT REWARDS
+# ============================================================
 
 
 class TestWeeklyHistory:
@@ -7393,7 +7538,9 @@ class TestTesterTruncationWarning:
         assert 'Response truncated at 10KB. Full response is larger.' in html
         assert "role', 'alert'" in html
         assert 'if (data.truncated)' in html
-# --- FN2: Tester History, Export, Cross-links ---
+# ============================================================
+# FN2: TESTER HISTORY, EXPORT, CROSS-LINKS
+# ============================================================
 
 
 class TestTesterHistoryExportCrosslinks:
@@ -7427,7 +7574,9 @@ class TestTesterHistoryExportCrosslinks:
         assert '.tester-history-count' in css
 
 
-# --- ED5: Expanded Case Studies ---
+# ============================================================
+# ED5: EXPANDED CASE STUDIES
+# ============================================================
 
     def test_tester_combined(self, client):
         """Combined checks for /tester."""
@@ -7508,7 +7657,9 @@ class TestExpandedCaseStudies:
                     assert 'lesson' in entry, f"Missing 'lesson' in {code} case study"
 
 
-# --- Weekly History CSS ---
+# ============================================================
+# WEEKLY HISTORY CSS
+# ============================================================
 
 class TestAdaptiveQuizDifficulty:
     """Tests for adaptive quiz difficulty with mistake tracking."""
@@ -7527,7 +7678,9 @@ class TestAdaptiveQuizDifficulty:
         assert 'addMistake(correct.code)' in html
         assert 'removeMistake(correct.code)' in html
         assert 'const correct = pickWeightedCode()' in html
-# --- Quiz Difficulty Selector ---
+# ============================================================
+# QUIZ DIFFICULTY SELECTOR
+# ============================================================
 
 
 class TestQuizDifficultySelector:
@@ -7542,7 +7695,9 @@ class TestQuizDifficultySelector:
         assert '.quiz-hard-input' in css
 
 
-# --- Hover Sparkle ---
+# ============================================================
+# HOVER SPARKLE
+# ============================================================
 
     def test_quiz_combined(self, client):
         """Combined checks for /quiz."""
@@ -7586,7 +7741,9 @@ class TestHoverSparkle:
         assert 'sparkle-fade' in css
 
 
-# --- Quiz Share ---
+# ============================================================
+# QUIZ SHARE
+# ============================================================
 
 class TestQuizShare:
     """Tests for enhanced quiz results sharing."""
@@ -7601,7 +7758,9 @@ class TestQuizShare:
         assert '.quiz-share-btn' in css
 
 
-# --- Copy Helper ---
+# ============================================================
+# COPY HELPER
+# ============================================================
 
     def test_quiz_combined(self, client):
         """Combined checks for /quiz."""
@@ -7638,7 +7797,9 @@ class TestCopyHelper:
         assert '.copy-success' in css
 
 
-# --- Form Validation UX ---
+# ============================================================
+# FORM VALIDATION UX
+# ============================================================
 
 class TestFormValidationUX:
     """Tests for inline validation error messages on forms."""
@@ -7701,7 +7862,9 @@ class TestFormValidationUX:
         assert 'Paste some headers first' in html
         assert 'id="header-validation-error" role="alert" style="display:none;"' in html
         assert "getElementById('header-validation-error').style.display = ''" in html
-# --- Daily Challenge Suggested Actions ---
+# ============================================================
+# DAILY CHALLENGE SUGGESTED ACTIONS
+# ============================================================
 
 
 class TestDailySuggestedActions:
@@ -7721,7 +7884,9 @@ class TestDailySuggestedActions:
         assert b'countdown' in resp.data.lower()
 
 
-# --- Command Palette ---
+# ============================================================
+# COMMAND PALETTE
+# ============================================================
 
     def test_daily_combined(self, client):
         """Combined checks for /daily."""
@@ -7812,7 +7977,9 @@ class TestCommandPalette:
         assert 'Command palette' in html
         assert 'Ctrl+K' in html
         assert 'hidden' in html
-# --- Customizable Avatar & Theme Accent ---
+# ============================================================
+# CUSTOMIZABLE AVATAR & THEME ACCENT
+# ============================================================
 
 
 class TestCustomizeAvatarAccent:
@@ -7873,7 +8040,9 @@ class TestCustomizeAvatarAccent:
         assert 'repeat(4, 1fr)' in css
 
 
-# --- Status Codes JSON Context Processor ---
+# ============================================================
+# STATUS CODES JSON CONTEXT PROCESSOR
+# ============================================================
 
     def test_profile_combined(self, client):
         """Combined checks for /profile."""
@@ -8115,7 +8284,9 @@ class TestCurlImportPlayground:
         assert "'/playground?'" in html
         assert 'Open in Playground' in html
         assert 'updatePlaygroundLink(req)' in html
-# --- Task 1: Fill remaining case_studies gaps ---
+# ============================================================
+# TASK 1: FILL REMAINING CASE_STUDIES GAPS
+# ============================================================
 
     def test_playground_combined(self, client):
         """Combined checks for /playground."""
@@ -8185,7 +8356,9 @@ class TestRemainingCaseStudies:
         )
 
 
-# --- Task 2: Fill common_mistakes for high-importance codes ---
+# ============================================================
+# TASK 2: FILL COMMON_MISTAKES FOR HIGH-IMPORTANCE CODES
+# ============================================================
 
 class TestNewCommonMistakes:
     """Tests for the 6 newly added common_mistakes entries."""
@@ -8234,7 +8407,9 @@ class TestNewCommonMistakes:
         )
 
 
-# --- Task 3: "When NOT to Use" section (dont_use_when) ---
+# ============================================================
+# TASK 3: "WHEN NOT TO USE" SECTION (DONT_USE_WHEN)
+# ============================================================
 
 class TestDontUseWhen:
     """Tests for the dont_use_when feature on the 15 most misused codes."""
@@ -8301,7 +8476,9 @@ class TestDontUseWhen:
             assert 'dont-use-section' in html, f"/{code} missing dont-use-section"
 
 
-# --- Task 4: Security-category scenarios ---
+# ============================================================
+# TASK 4: SECURITY-CATEGORY SCENARIOS
+# ============================================================
 
     def test_200_combined(self, client):
         """Combined checks for /200."""
@@ -8393,7 +8570,9 @@ class TestSecurityScenarios:
         assert len(SCENARIOS) >= 55, f"Only {len(SCENARIOS)} scenarios, expected 55+"
 
 
-# --- Task D1: Light Theme Coverage for Tool Pages ---
+# ============================================================
+# TASK D1: LIGHT THEME COVERAGE FOR TOOL PAGES
+# ============================================================
 
 class TestLightThemeToolPages:
     """Tests for light theme overrides on tool pages (D1 final polish)."""
@@ -8468,7 +8647,9 @@ class TestLightThemeToolPages:
         assert '.curl-tab-bar' in html
 
 
-# --- Task D3: Bento Dashboard Mobile Fix ---
+# ============================================================
+# TASK D3: BENTO DASHBOARD MOBILE FIX
+# ============================================================
 
 class TestBentoDashboardMobileFix:
     """Tests for bento dashboard working well at 320-375px (D3)."""
@@ -8557,7 +8738,9 @@ class TestBentoDashboardMobileFix:
         assert '.bento-streak-count' in block
 
 
-# --- Task: "When NOT to Use" Section Polish ---
+# ============================================================
+# TASK: "WHEN NOT TO USE" SECTION POLISH
+# ============================================================
 
 class TestDontUseSectionPolish:
     """Tests for dont-use-when section CSS polish."""
@@ -8653,7 +8836,9 @@ class TestDontUseSectionPolish:
         assert 'border-left' in dont_use_block
 
 
-# --- Java & Rust code examples (ED2) ---
+# ============================================================
+# JAVA & RUST CODE EXAMPLES (ED2)
+# ============================================================
 
 class TestJavaRustCodeExamples:
     """Tests for Java and Rust code snippets in STATUS_EXTRA."""
@@ -8734,7 +8919,9 @@ class TestJavaRustCodeExamples:
         assert 'Rust' in html
 
 
-# --- Learning Path Completion Certificates (ED4) ---
+# ============================================================
+# LEARNING PATH COMPLETION CERTIFICATES (ED4)
+# ============================================================
 
 class TestPlaygroundClipboardCatch:
     """Test that playground copy button has a .catch() handler."""
@@ -8995,7 +9182,6 @@ class TestDesignAuditRound7:
 
     def test_container_padding_and_max_width(self, client):
         """Page containers should use 1.5rem padding and standard width tiers."""
-        import re
         css = client.get('/static/style.css').data.decode()
         containers = [
             'incidents-container', 'predict-container', 'bingo-container',
@@ -9040,7 +9226,6 @@ class TestDesignAuditRound7:
 
     def test_mobile_breakpoints(self, client):
         """Credits, incidents, and map should have mobile breakpoint styles."""
-        import re
         css = client.get('/static/style.css').data.decode()
         assert '.credits-title' in css
         assert re.findall(r'@media\s*\(max-width:\s*576px\)\s*\{[^}]*\.credits-', css), \
