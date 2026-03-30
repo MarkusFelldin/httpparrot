@@ -10746,3 +10746,59 @@ select {
   box-shadow: var(--shadow-md);
   border-color: var(--color-teal);
 }
+
+/* Lightning fast badge */
+.lightning-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: rgba(249, 199, 79, 0.15);
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-gold);
+  animation: page-fade-in 0.3s ease-out;
+}
+
+/* ========================================================================
+   Round 10 Passes 9-10 -- Light Theme for R10 Elements
+   ======================================================================== */
+@media (prefers-color-scheme: light) {
+  .roulette-card { background: rgba(255, 255, 255, 0.9); }
+  .roulette-method { background: rgba(0, 157, 130, 0.08); }
+  .method-post { background: rgba(108, 79, 255, 0.08); }
+  .method-put { background: rgba(240, 165, 0, 0.08); }
+  .method-delete { background: rgba(255, 71, 87, 0.08); }
+  .method-patch { background: rgba(0, 150, 199, 0.08); }
+  .method-head { background: rgba(124, 92, 255, 0.08); }
+  .method-options { background: rgba(244, 162, 97, 0.08); }
+  .hchallenge-card { background: rgba(255, 255, 255, 0.9); }
+  .quiz-results-card { background: rgba(255, 255, 255, 0.9); }
+  .hover-sparkle { background: var(--color-gold); }
+  .lightning-badge { background: rgba(240, 165, 0, 0.1); }
+  .path-card:hover { border-color: #009d82; }
+}
+
+/* ========================================================================
+   Round 10 Passes 9-10 -- Focus-visible for R10 Elements
+   ======================================================================== */
+.roulette-btn:focus-visible,
+.hchallenge-input input:focus-visible,
+.quiz-share-btn:focus-visible,
+.quiz-continue-btn:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* ========================================================================
+   Round 10 Passes 9-10 -- Print Styles for R10 Elements
+   ======================================================================== */
+@media print {
+  .roulette-buttons,
+  .hchallenge-input,
+  .quiz-results-actions,
+  .lightning-badge {
+    display: none !important;
+  }
+}

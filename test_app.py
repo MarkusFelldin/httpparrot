@@ -12893,3 +12893,34 @@ class TestRound10Pass8DesignPolish:
     def test_css_has_collect_progress_fill(self, client):
         resp = client.get('/static/style.css')
         assert b'collect-progress-fill' in resp.data
+
+
+class TestRound10Pass9LightningBadge:
+    """Tests for Round 10 Pass 9 — typing speed easter egg on prediction game."""
+
+    def test_predict_page_tracks_timing(self, client):
+        resp = client.get('/predict')
+        assert b'questionStartTime' in resp.data or b'answerTime' in resp.data
+
+
+class TestRound10Pass10LightTheme:
+    """Tests for Round 10 Pass 10 — light theme coverage for R10 elements."""
+
+    def test_css_has_roulette_light_theme(self, client):
+        resp = client.get('/static/style.css')
+        assert b'.roulette-card' in resp.data
+        assert b'.roulette-method' in resp.data
+
+    def test_css_has_lightning_badge(self, client):
+        resp = client.get('/static/style.css')
+        assert b'.lightning-badge' in resp.data
+
+    def test_css_has_r10_focus_visible(self, client):
+        resp = client.get('/static/style.css')
+        assert b'.roulette-btn:focus-visible' in resp.data
+        assert b'.quiz-share-btn:focus-visible' in resp.data
+
+    def test_css_has_r10_print_styles(self, client):
+        resp = client.get('/static/style.css')
+        assert b'.roulette-buttons' in resp.data
+        assert b'.hchallenge-input' in resp.data
