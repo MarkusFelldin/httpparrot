@@ -10,20 +10,20 @@ HTTP Parrots -- a Flask web app that explains HTTP status codes with illustrated
 - Run locally: `.venv/bin/python index.py` (serves on http://127.0.0.1:5000)
 - Flask is NOT in debug mode -- restart the server after changing Python files or templates
 - Tests: `.venv/bin/python -m pytest`
-- 1835 tests across test_app.py (1817) and test_cli.py (18)
+- 1875 tests across test_app.py (1857) and test_cli.py (18)
 - Coverage: 97%+ of index.py
 
 ## Architecture
 
-- `index.py` -- main Flask app with all routes (~2207 lines)
+- `index.py` -- main Flask app with all routes (~2219 lines)
 - `status_descriptions.py` -- STATUS_INFO dict with descriptions, history, meaning for each code
 - `status_extra.py` -- STATUS_EXTRA dict with examples, ELI5 text (all 72 codes), case studies (135 entries across 70 codes), 96 common mistakes (48 codes), 15 "When NOT to use" sections, code snippets in 5 languages (Python, Node.js, Go, Java, Rust)
 - `http_examples.py` -- HTTP_EXAMPLES dict with request/response text for each code
-- `scenarios.py` -- 56 practice scenarios (including 5 security category) with difficulty, options, and explanations
-- `debug_exercises.py` -- 36 debug exercises with broken HTTP exchanges and bugs to find
-- `confusion_pairs.py` -- 18 confusion pair lesson definitions with slugs, categories, and content
-- `learning_paths.py` -- 4 guided learning paths (http-foundations, error-whisperer, redirect-master, api-designer)
-- `templates/` -- 36 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
+- `scenarios.py` -- 60 practice scenarios (including 5 security category) with difficulty, options, and explanations
+- `debug_exercises.py` -- 33 debug exercises with broken HTTP exchanges and 44 bugs to find
+- `confusion_pairs.py` -- 20 confusion pair lesson definitions with slugs, categories, and content
+- `learning_paths.py` -- 5 guided learning paths (http-foundations, error-whisperer, redirect-master, api-designer, security-sentinel)
+- `templates/` -- 38 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
 - `static/` -- parrot images (72 codes), CSS (design-token-based system), and static assets
 - `cli/` -- standalone CLI tool (no Flask dependency)
 
