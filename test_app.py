@@ -4599,7 +4599,7 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '19 pairs' in html
+        assert '20 pairs' in html
         assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
@@ -12601,6 +12601,14 @@ class TestConfusionPair302vs303:
         resp = client.get('/learn')
         html = resp.data.decode()
         assert '302-vs-303' in html
+
+    def test_learn_pair_403_vs_404(self, client):
+        resp = client.get('/learn/403-vs-404')
+        assert resp.status_code == 200
+
+    def test_scenario_count_at_least_64(self, client):
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 64
 
 
 class TestContextualHumor:
