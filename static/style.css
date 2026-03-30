@@ -9257,3 +9257,33 @@ body {
   font-size: 1.5rem;
   filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.4));
 }
+
+/* === Page: Predict (Guess the Response) === */
+.predict-container { max-width: 640px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.predict-header { text-align: center; margin-bottom: 1.5rem; }
+.predict-header h1 { font-size: var(--text-2xl); }
+.predict-subtitle { color: var(--text-secondary); margin-top: 0.25rem; }
+.predict-score { display: flex; gap: 1rem; justify-content: center; margin-bottom: 1.5rem; }
+.predict-score .score-item { text-align: center; padding: 0.75rem 1.25rem; background: var(--surface-1); border-radius: var(--radius-md); border: 1px solid var(--border-default); }
+.predict-score .score-value { font-size: var(--text-2xl); font-weight: 800; font-family: var(--font-mono); }
+.predict-score .score-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.predict-score .score-correct .score-value { color: var(--color-teal); }
+.predict-score .score-streak .score-value { color: var(--color-gold); }
+.predict-score .score-total .score-value { color: var(--text-secondary); }
+.predict-scenario { background: var(--surface-1); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem; }
+.predict-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.predict-text { font-size: var(--text-lg); line-height: 1.6; color: var(--text-body); }
+.predict-input-section { display: flex; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+.predict-input-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 0.25rem; }
+.predict-input { flex: 1; max-width: 160px; padding: 0.75rem 1rem; font-size: var(--text-xl); font-family: var(--font-mono); font-weight: 700; text-align: center; border-radius: var(--radius-md); border: 2px solid var(--border-default); background: var(--surface-1); color: var(--text-primary); letter-spacing: 0.1em; }
+.predict-input:focus { border-color: var(--color-teal); box-shadow: 0 0 0 4px rgba(0, 201, 167, 0.1); outline: none; }
+.predict-submit { padding: 0.75rem 1.5rem; font-size: var(--text-md); }
+.predict-feedback { padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem; line-height: 1.5; }
+.predict-correct { background: rgba(0, 201, 167, 0.1); border: 1px solid var(--color-teal); color: var(--color-teal); }
+.predict-wrong { background: rgba(255, 107, 107, 0.1); border: 1px solid var(--color-coral); color: var(--color-coral); }
+.predict-next { text-align: center; }
+
+@media (max-width: 480px) {
+  .predict-input-section { flex-direction: column; align-items: stretch; }
+  .predict-input { max-width: 100%; }
+}

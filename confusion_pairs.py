@@ -357,6 +357,28 @@ CONFUSION_PAIRS = [
             {"scenario": "AWS ELB can't connect to any healthy targets in the target group.", "correct": "502", "wrong": "503"},
         ],
     },
+    {
+        "slug": "429-vs-503",
+        "codes": ["429", "503"],
+        "title": "429 Too Many Requests vs 503 Service Unavailable",
+        "category": "Rate limit pairs",
+        "tldr": "429 means this specific client is being rate-limited; 503 means the server is unavailable for everyone (overloaded or in maintenance).",
+        "decision_tree": [
+            {"question": "Is the issue specific to this client's request volume?", "yes": "429", "no": "503"},
+            {"question": "Would other clients also be rejected right now?", "yes": "503", "no": "429"},
+            {"question": "Should the client retry with a Retry-After header?", "yes": "Both (but 429 for rate limits, 503 for downtime)", "no": "Check other codes"},
+        ],
+        "examples": [
+            {"scenario": "A client has sent 100 API requests in the last minute, exceeding the 60/min limit.", "code": "429", "explanation": "This specific client exceeded its rate limit \u2014 other clients may still be fine."},
+            {"scenario": "A server is undergoing scheduled maintenance and rejecting all traffic.", "code": "503", "explanation": "The entire service is down \u2014 no client can get a successful response right now."},
+            {"scenario": "A DDoS attack causes the server to shed load by rejecting requests from high-volume IPs.", "code": "429", "explanation": "The server is targeting specific high-volume clients, not refusing all traffic."},
+        ],
+        "quiz": [
+            {"scenario": "Your API dashboard shows one user hit the hourly limit.", "correct": "429", "wrong": "503"},
+            {"scenario": "All users see errors because the database is being migrated.", "correct": "503", "wrong": "429"},
+            {"scenario": "A client gets blocked after sending 50 requests in 10 seconds.", "correct": "429", "wrong": "503"},
+        ],
+    },
 ]
 
 # Quick lookup by slug
@@ -372,6 +394,7 @@ for _pair in CONFUSION_PAIRS:
 CONFUSION_PAIR_CATEGORY_ORDER = [
     "Auth pairs", "Redirect pairs", "Success pairs",
     "Client error pairs", "Error pairs", "Server error pairs",
+    "Rate limit pairs",
 ]
 PAIRS_BY_CATEGORY = {}
 for _pair in CONFUSION_PAIRS:

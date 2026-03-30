@@ -694,6 +694,16 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/predict')
+def predict():
+    """Render the Guess the Response prediction game."""
+    scenarios = [s for s in SCENARIOS if s.get('difficulty') in ('beginner', 'intermediate')]
+    scenario_data = [{"id": s["id"], "description": s["description"],
+                      "correct": s["correct"], "options": s["options"],
+                      "explanations": s["explanations"]} for s in scenarios]
+    return render_template('predict.html', scenarios=json.dumps(scenario_data))
+
+
 @app.route('/personality')
 def personality():
     """Render the 'Which HTTP Status Code Are You?' personality quiz."""
@@ -2060,7 +2070,7 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
+    for rule in ['/', '/quiz', '/predict', '/personality', '/daily', '/weekly', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
                  '/cheatsheet', '/headers', '/content-negotiation', '/cors-checker',
                  '/security-audit',

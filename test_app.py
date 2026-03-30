@@ -148,6 +148,11 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Bingo' in resp.data
 
+    def test_predict_page(self, client):
+        resp = client.get('/predict')
+        assert resp.status_code == 200
+        assert b'Guess the Response' in resp.data
+
     def test_horoscope_page(self, client):
         resp = client.get('/horoscope')
         assert resp.status_code == 200
@@ -6200,8 +6205,8 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '16 pairs' in html
-        assert '6 categories' in html
+        assert '17 pairs' in html
+        assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
         resp = client.get('/learn')
@@ -6284,6 +6289,16 @@ class TestLearnPairRoute:
         resp = client.get('/learn/502-vs-503')
         assert resp.status_code == 200
         assert b'Bad Gateway' in resp.data
+
+    def test_learn_pair_404_vs_410(self, client):
+        resp = client.get('/learn/404-vs-410')
+        assert resp.status_code == 200
+        assert b'Not Found' in resp.data
+
+    def test_learn_pair_429_vs_503(self, client):
+        resp = client.get('/learn/429-vs-503')
+        assert resp.status_code == 200
+        assert b'Too Many Requests' in resp.data
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""
