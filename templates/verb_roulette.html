@@ -35,7 +35,7 @@
     (function() {
         var allCodes = {{ codes_json | safe }};
         var methods = ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'];
-        var correct = 0, total = 0, answered = false;
+        var correct = 0, total = 0, answered = false, el;
 
         /* Valid combinations map — method: [codes that make sense] */
         var validMap = {
@@ -48,50 +48,53 @@
             'OPTIONS': ['200','204','400','401','403','404','405','500']
         };
 
+        function $(id) { return document.getElementById(id); }
+
         function spin() {
             answered = false;
             var method = methods[Math.floor(Math.random() * methods.length)];
             var code = allCodes[Math.floor(Math.random() * allCodes.length)];
-            document.getElementById('r-method').textContent = method;
-            document.getElementById('r-method').className = 'roulette-method method-' + method.toLowerCase();
-            document.getElementById('r-code').textContent = code.code;
-            document.getElementById('r-name').textContent = code.name;
-            document.getElementById('r-feedback').textContent = '';
-            document.getElementById('r-feedback').className = 'roulette-feedback';
-            document.getElementById('r-next').style.display = 'none';
-            document.getElementById('r-buttons').style.display = '';
+            var el;
+            el = $('r-method'); if (el) { el.textContent = method; el.className = 'roulette-method method-' + method.toLowerCase(); }
+            el = $('r-code'); if (el) el.textContent = code.code;
+            el = $('r-name'); if (el) el.textContent = code.name;
+            el = $('r-feedback'); if (el) { el.textContent = ''; el.className = 'roulette-feedback'; }
+            el = $('r-next'); if (el) el.style.display = 'none';
+            el = $('r-buttons'); if (el) el.style.display = '';
             /* Store current answer */
             var valid = validMap[method] && validMap[method].indexOf(code.code) !== -1;
-            document.getElementById('roulette-card').setAttribute('data-valid', valid ? 'true' : 'false');
+            el = $('roulette-card'); if (el) el.setAttribute('data-valid', valid ? 'true' : 'false');
         }
 
         function answer(userSaidValid) {
             if (answered) return;
             answered = true;
             total++;
-            var isValid = document.getElementById('roulette-card').getAttribute('data-valid') === 'true';
+            var cardEl = $('roulette-card');
+            var isValid = cardEl ? cardEl.getAttribute('data-valid') === 'true' : false;
             var isCorrect = userSaidValid === isValid;
             if (isCorrect) correct++;
-            document.getElementById('r-correct').textContent = correct;
-            document.getElementById('r-total').textContent = total;
-            var fb = document.getElementById('r-feedback');
-            var method = document.getElementById('r-method').textContent;
-            var code = document.getElementById('r-code').textContent;
+            var el;
+            el = $('r-correct'); if (el) el.textContent = correct;
+            el = $('r-total'); if (el) el.textContent = total;
+            var fb = $('r-feedback');
+            var methodEl = $('r-method');
+            var codeEl = $('r-code');
+            var method = methodEl ? methodEl.textContent : '';
+            var code = codeEl ? codeEl.textContent : '';
             if (isCorrect) {
-                fb.textContent = 'Correct! ' + method + ' ' + code + ' is ' + (isValid ? 'a valid' : 'an unusual') + ' combination.';
-                fb.className = 'roulette-feedback roulette-correct';
+                if (fb) { fb.textContent = 'Correct! ' + method + ' ' + code + ' is ' + (isValid ? 'a valid' : 'an unusual') + ' combination.'; fb.className = 'roulette-feedback roulette-correct'; }
                 if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'roulette_correct');
             } else {
-                fb.textContent = 'Not quite. ' + method + ' ' + code + ' is actually ' + (isValid ? 'valid' : 'unusual') + '.';
-                fb.className = 'roulette-feedback roulette-wrong';
+                if (fb) { fb.textContent = 'Not quite. ' + method + ' ' + code + ' is actually ' + (isValid ? 'valid' : 'unusual') + '.'; fb.className = 'roulette-feedback roulette-wrong'; }
             }
-            document.getElementById('r-buttons').style.display = 'none';
-            document.getElementById('r-next').style.display = '';
+            el = $('r-buttons'); if (el) el.style.display = 'none';
+            el = $('r-next'); if (el) el.style.display = '';
         }
 
-        document.getElementById('r-yes').addEventListener('click', function() { answer(true); });
-        document.getElementById('r-no').addEventListener('click', function() { answer(false); });
-        document.getElementById('r-next-btn').addEventListener('click', spin);
+        el = $('r-yes'); if (el) el.addEventListener('click', function() { answer(true); });
+        el = $('r-no'); if (el) el.addEventListener('click', function() { answer(false); });
+        el = $('r-next-btn'); if (el) el.addEventListener('click', spin);
         spin();
     })();
     </script>

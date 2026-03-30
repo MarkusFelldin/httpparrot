@@ -54,50 +54,53 @@
         function shuffle(a) { for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;} return a; }
         shuffle(challenges);
 
+        function $(id) { return document.getElementById(id); }
+
         function show() {
             if (idx >= challenges.length) { shuffle(challenges); idx = 0; }
             var c = challenges[idx];
-            document.getElementById('hc-code').textContent = c.code;
-            document.getElementById('hc-desc').textContent = c.name;
-            document.getElementById('hc-question').textContent = c.hint;
-            document.getElementById('hc-answer').value = '';
-            document.getElementById('hc-feedback').textContent = '';
-            document.getElementById('hc-feedback').className = 'hchallenge-feedback';
-            document.getElementById('hc-next').style.display = 'none';
-            document.getElementById('hc-answer').disabled = false;
-            document.getElementById('hc-submit').disabled = false;
+            var el;
+            el = $('hc-code'); if (el) el.textContent = c.code;
+            el = $('hc-desc'); if (el) el.textContent = c.name;
+            el = $('hc-question'); if (el) el.textContent = c.hint;
+            el = $('hc-answer'); if (el) el.value = '';
+            el = $('hc-feedback'); if (el) { el.textContent = ''; el.className = 'hchallenge-feedback'; }
+            el = $('hc-next'); if (el) el.style.display = 'none';
+            el = $('hc-answer'); if (el) el.disabled = false;
+            el = $('hc-submit'); if (el) el.disabled = false;
             answered = false;
-            document.getElementById('hc-answer').focus();
+            el = $('hc-answer'); if (el) el.focus();
         }
 
         function check() {
             if (answered) return;
-            var guess = document.getElementById('hc-answer').value.trim();
+            var answerEl = $('hc-answer');
+            var guess = answerEl ? answerEl.value.trim() : '';
             if (!guess) return;
             answered = true;
             var c = challenges[idx];
             var isCorrect = guess.toLowerCase().replace(/[^a-z-]/g,'') === c.header.toLowerCase().replace(/[^a-z-]/g,'');
-            var fb = document.getElementById('hc-feedback');
+            var fb = $('hc-feedback');
             if (isCorrect) {
                 correct++; streak++;
-                fb.textContent = 'Correct! ' + c.code + ' requires ' + c.header + '.';
-                fb.className = 'hchallenge-feedback roulette-correct';
+                if (fb) { fb.textContent = 'Correct! ' + c.code + ' requires ' + c.header + '.'; fb.className = 'hchallenge-feedback roulette-correct'; }
                 if (typeof ParrotXP !== 'undefined') ParrotXP.award(15, 'header_challenge');
             } else {
                 streak = 0;
-                fb.textContent = 'The answer is ' + c.header + '. ' + c.code + ' ' + c.name + ' requires this header.';
-                fb.className = 'hchallenge-feedback roulette-wrong';
+                if (fb) { fb.textContent = 'The answer is ' + c.header + '. ' + c.code + ' ' + c.name + ' requires this header.'; fb.className = 'hchallenge-feedback roulette-wrong'; }
             }
-            document.getElementById('hc-correct').textContent = correct;
-            document.getElementById('hc-streak').textContent = streak;
-            document.getElementById('hc-answer').disabled = true;
-            document.getElementById('hc-submit').disabled = true;
-            document.getElementById('hc-next').style.display = '';
+            var el;
+            el = $('hc-correct'); if (el) el.textContent = correct;
+            el = $('hc-streak'); if (el) el.textContent = streak;
+            el = $('hc-answer'); if (el) el.disabled = true;
+            el = $('hc-submit'); if (el) el.disabled = true;
+            el = $('hc-next'); if (el) el.style.display = '';
         }
 
-        document.getElementById('hc-submit').addEventListener('click', check);
-        document.getElementById('hc-answer').addEventListener('keydown', function(e) { if (e.key === 'Enter') check(); });
-        document.getElementById('hc-next-btn').addEventListener('click', function() { idx++; show(); });
+        var el;
+        el = $('hc-submit'); if (el) el.addEventListener('click', check);
+        el = $('hc-answer'); if (el) el.addEventListener('keydown', function(e) { if (e.key === 'Enter') check(); });
+        el = $('hc-next-btn'); if (el) el.addEventListener('click', function() { idx++; show(); });
         show();
     })();
     </script>
