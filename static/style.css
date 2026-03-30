@@ -1521,6 +1521,32 @@ textarea:focus-visible,
   transform: translateY(-1px);
 }
 
+/* Suggested next code */
+.suggested-next {
+  text-align: center;
+  padding: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.suggested-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-right: 0.5rem;
+}
+
+.suggested-link {
+  color: var(--color-teal);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.suggested-link:hover { text-decoration: underline; }
+
 /* Button hover lift micro-animations — unified 3-level depth system */
 .btn-back,
 .btn-share,
@@ -2143,6 +2169,44 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   line-height: 1.4;
 }
 
+/* Header requirement indicators */
+.header-requirements { display: flex; flex-direction: column; gap: 0.5rem; }
+.header-req-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.header-req-name {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--color-teal);
+  min-width: 160px;
+}
+
+.header-req-level {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+
+.header-req-required { background: rgba(255, 107, 107, 0.12); color: var(--color-coral); }
+.header-req-recommended { background: rgba(0, 201, 167, 0.12); color: var(--color-teal); }
+
+.header-req-desc { color: var(--text-secondary); font-size: var(--text-sm); }
+
+@media (max-width: 600px) {
+  .header-req-row { flex-wrap: wrap; }
+  .header-req-name { min-width: auto; }
+}
+
 /* Common Mistakes section */
 .mistakes-section {
   border-left: 3px solid color-mix(in srgb, var(--color-warning), transparent 50%);
@@ -2348,6 +2412,40 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 .error-separator { color: rgba(255,255,255,0.2); margin: 0 1rem; }
 
 /* === Page: Quiz === */
+/* Quiz difficulty selector */
+.quiz-difficulty {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.quiz-diff-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+}
+
+.quiz-diff-btn:hover { border-color: var(--color-teal); color: var(--color-teal); }
+.quiz-diff-btn.active { background: rgba(0, 201, 167, 0.12); border-color: var(--color-teal); color: var(--color-teal); }
+
+.quiz-hard-input {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: end;
+  margin: 1rem 0;
+}
+
+.quiz-hard-input .predict-input { max-width: 140px; }
+
 .quiz-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; text-align: center; }
 .quiz-image { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-md); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; }
 .quiz-image img { max-width: 100%; height: 20em; object-fit: contain; border-radius: var(--radius-sm); margin: 1rem; display: block; }
@@ -3420,6 +3518,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   .sound-toggle-btn,
   .footer-parrot-counter,
   .flash-event-banner,
+  .comeback-banner,
   .daily-countdown,
   .favorites-bar,
   .insomnia-parrot,
@@ -3433,7 +3532,11 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   .fav-heart-burst,
   .egg-hatch,
   .celebration-confetti,
-  .handshake-overlay {
+  .handshake-overlay,
+  .rfc-toast,
+  .quiz-difficulty,
+  .goal-form,
+  .bookmarklet-container {
     display: none !important;
   }
 
@@ -10220,4 +10323,195 @@ details > :not(summary) {
 @media (max-width: 576px) {
   .map-container { padding: 1.5rem 1rem 3rem; }
   .map-grid { gap: 4px; }
+}
+
+/* === Copy success flash === */
+.copy-success {
+  background: rgba(0, 201, 167, 0.15) !important;
+  color: var(--color-teal) !important;
+  border-color: var(--color-teal) !important;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+/* === Comeback banner === */
+.comeback-banner {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--surface-2);
+  border: 1px solid var(--color-teal);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 9500;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+}
+
+.comeback-banner.comeback-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.comeback-icon { font-size: 1.5rem; }
+.comeback-text { font-weight: 600; color: var(--text-primary); }
+.comeback-close { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+
+/* === Personal goals === */
+.profile-goals-section { margin-top: 2rem; }
+.goal-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.goal-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.goal-input:focus { border-color: var(--color-teal); outline: none; }
+.goal-date { min-width: 140px; }
+.goal-set-btn { font-size: var(--text-sm); padding: 0.5rem 1rem; }
+
+.goal-display { background: var(--surface-1); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1rem; }
+.goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.goal-target { font-weight: 700; }
+.goal-clear { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+.goal-progress-wrap { height: 8px; background: var(--surface-2); border-radius: var(--radius-full); overflow: hidden; margin-bottom: 0.5rem; }
+.goal-progress-bar { height: 100%; background: var(--color-purple); border-radius: var(--radius-full); transition: width var(--duration-slow) var(--ease-out); }
+.goal-status { font-size: var(--text-sm); color: var(--text-secondary); }
+
+@media (max-width: 480px) {
+  .goal-form { flex-direction: column; }
+  .goal-input { width: 100%; }
+  .comeback-banner { left: 1rem; right: 1rem; transform: translateY(-20px); }
+  .comeback-banner.comeback-visible { transform: translateY(0); }
+}
+
+/* Bookmarklet */
+.api-bookmarklet-section { margin-top: 2rem; }
+.bookmarklet-container { text-align: center; padding: 1.5rem; }
+.bookmarklet-link {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: var(--gradient-brand);
+  color: white;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  cursor: grab;
+  transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.bookmarklet-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.bookmarklet-hint {
+  margin-top: 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* RFC toast */
+.rfc-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-2);
+  border: 1px solid var(--color-blue);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.25rem;
+  font-size: var(--text-sm);
+  z-index: 9500;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rfc-toast.rfc-toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.rfc-toast a {
+  color: var(--color-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rfc-toast a:hover { text-decoration: underline; }
+
+/* ========================================================================
+   Round 8 Pass 11 -- Light Theme Overrides
+   ======================================================================== */
+@media (prefers-color-scheme: light) {
+  .suggested-next { background: rgba(255,255,255,0.9); }
+  .header-req-row { background: rgba(0,0,0,0.03); }
+  .header-req-name { color: #009d82; }
+  .quiz-diff-btn { color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.12); }
+  .quiz-diff-btn.active { background: rgba(0,157,130,0.1); color: #009d82; border-color: #009d82; }
+  .comeback-banner { background: rgba(255,255,255,0.95); }
+  .goal-input { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.12); color: #1a1a2e; }
+  .goal-display { background: rgba(255,255,255,0.9); }
+  .bookmarklet-link { color: white; }
+  .rfc-toast { background: rgba(255,255,255,0.97); }
+  .copy-success { background: rgba(0,157,130,0.1) !important; }
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Focus States for New Elements
+   ======================================================================== */
+.quiz-diff-btn:focus-visible,
+.goal-input:focus-visible,
+.goal-set-btn:focus-visible,
+.bookmarklet-link:focus-visible,
+.suggested-link:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Reduced Motion
+   ======================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .comeback-banner,
+  .rfc-toast,
+  .suggested-next {
+    transition: none !important;
+  }
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Mobile Polish
+   ======================================================================== */
+@media (max-width: 480px) {
+  .header-req-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .quiz-difficulty {
+    flex-wrap: wrap;
+  }
+  .rfc-toast {
+    left: 1rem;
+    right: 1rem;
+    transform: translateY(20px);
+  }
+  .rfc-toast.rfc-toast-visible {
+    transform: translateY(0);
+  }
 }

@@ -599,6 +599,27 @@ RELATED_CODES = {
     ],
 }
 
+# --- Required/recommended headers per status code ---
+
+REQUIRED_HEADERS = {
+    "301": [("Location", "required", "URL to redirect to")],
+    "302": [("Location", "required", "Temporary redirect target")],
+    "303": [("Location", "required", "GET redirect target")],
+    "304": [("ETag", "recommended", "Validator for cached content"), ("Cache-Control", "recommended", "Caching directives")],
+    "307": [("Location", "required", "Temporary redirect target (method preserved)")],
+    "308": [("Location", "required", "Permanent redirect target (method preserved)")],
+    "401": [("WWW-Authenticate", "required", "Authentication scheme(s) accepted")],
+    "405": [("Allow", "required", "List of permitted HTTP methods")],
+    "406": [("Accept", "recommended", "Acceptable content types")],
+    "407": [("Proxy-Authenticate", "required", "Proxy auth scheme")],
+    "413": [("Retry-After", "recommended", "When to retry with smaller payload")],
+    "429": [("Retry-After", "required", "Seconds or date to wait before retrying")],
+    "503": [("Retry-After", "recommended", "Expected recovery time")],
+    "201": [("Location", "recommended", "URL of newly created resource")],
+    "206": [("Content-Range", "required", "Byte range of partial content")],
+    "416": [("Content-Range", "required", "Unsatisfied range information")],
+}
+
 # HTTP methods that commonly return each status code category
 METHOD_APPLICABILITY = {
     "GET": ["200", "204", "206", "301", "302", "303", "304", "307", "308",
@@ -1881,7 +1902,8 @@ def http_parrot(status_code):
                            prev_code=prev_code, next_code=next_code,
                            related=related, curl_cmd=curl_cmd,
                            faq_entries=faq_entries, eli5=eli5,
-                           learn_links=learn_links), code
+                           learn_links=learn_links,
+                           required_headers=REQUIRED_HEADERS.get(status_code, [])), code
 
 
 @app.route('/<status_code>.jpg')

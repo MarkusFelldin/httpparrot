@@ -10,12 +10,12 @@ HTTP Parrots -- a Flask web app that explains HTTP status codes with illustrated
 - Run locally: `.venv/bin/python index.py` (serves on http://127.0.0.1:5000)
 - Flask is NOT in debug mode -- restart the server after changing Python files or templates
 - Tests: `.venv/bin/python -m pytest`
-- 1875 tests across test_app.py (1857) and test_cli.py (18)
+- 1622 tests across test_app.py (1604) and test_cli.py (18) — consolidated from 1913 via parametrize
 - Coverage: 97%+ of index.py
 
 ## Architecture
 
-- `index.py` -- main Flask app with all routes (~2219 lines)
+- `index.py` -- main Flask app with all routes (~2241 lines)
 - `status_descriptions.py` -- STATUS_INFO dict with descriptions, history, meaning for each code
 - `status_extra.py` -- STATUS_EXTRA dict with examples, ELI5 text (all 72 codes), case studies (135 entries across 70 codes), 96 common mistakes (48 codes), 15 "When NOT to use" sections, code snippets in 5 languages (Python, Node.js, Go, Java, Rust)
 - `http_examples.py` -- HTTP_EXAMPLES dict with request/response text for each code

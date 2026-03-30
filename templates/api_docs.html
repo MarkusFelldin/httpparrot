@@ -578,6 +578,17 @@ bot.run("YOUR_BOT_TOKEN")</div>
                 </div>
             </div>
         </div>
+
+        <section class="api-bookmarklet-section">
+            <h2>Bookmarklet</h2>
+            <p>Drag this to your bookmarks bar to quickly test any URL with HTTP Parrots:</p>
+            <div class="bookmarklet-container">
+                <a class="bookmarklet-link" href="javascript:void(window.open('{{ request.url_root }}tester?url='+encodeURIComponent(location.href),'_blank'))">
+                    &#x1F99C; Test in HTTP Parrots
+                </a>
+                <p class="bookmarklet-hint">Drag me to your bookmarks bar!</p>
+            </div>
+        </section>
     </main>
 {% endblock %}
 

@@ -316,6 +316,26 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Global copy helper with feedback */
+    window.ParrotCopy = {
+        copy: function(text, buttonEl) {
+            navigator.clipboard.writeText(text).then(function() {
+                if (buttonEl) {
+                    var orig = buttonEl.textContent;
+                    buttonEl.textContent = 'Copied!';
+                    buttonEl.classList.add('copy-success');
+                    setTimeout(function() {
+                        buttonEl.textContent = orig;
+                        buttonEl.classList.remove('copy-success');
+                    }, 1500);
+                }
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('Copied to clipboard', 'success', 1500);
+            });
+        }
+    };
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
     (function() {
         var gs = document.getElementById('global-search');
         if (!gs) return;
@@ -655,6 +675,44 @@
         }
 
         maybeStartFlash();
+
+        /* Comeback mechanic */
+        (function() {
+            var LAST_VISIT_KEY = 'httpparrot_last_visit_date';
+            var COMEBACK_KEY = 'httpparrot_comeback_shown';
+            var today = new Date().toISOString().slice(0, 10);
+            var lastVisit = localStorage.getItem(LAST_VISIT_KEY);
+
+            if (lastVisit && lastVisit !== today) {
+                var daysDiff = Math.floor((new Date(today) - new Date(lastVisit)) / 86400000);
+                if (daysDiff >= 3) {
+                    var comebackToday = localStorage.getItem(COMEBACK_KEY);
+                    if (comebackToday !== today) {
+                        localStorage.setItem(COMEBACK_KEY, today);
+                        /* Show welcome back banner */
+                        var bonusXP = Math.min(daysDiff * 10, 100);
+                        var banner = document.createElement('div');
+                        banner.className = 'comeback-banner';
+                        banner.setAttribute('role', 'status');
+                        banner.innerHTML = '<span class="comeback-icon" aria-hidden="true">&#x1F44B;</span>'
+                            + '<span class="comeback-text">Welcome back! +' + bonusXP + ' XP comeback bonus!</span>'
+                            + '<button class="comeback-close" type="button" aria-label="Dismiss">&times;</button>';
+                        document.body.appendChild(banner);
+                        setTimeout(function() { banner.classList.add('comeback-visible'); }, 100);
+                        banner.querySelector('.comeback-close').addEventListener('click', function() {
+                            banner.classList.remove('comeback-visible');
+                            setTimeout(function() { banner.remove(); }, 300);
+                        });
+                        setTimeout(function() {
+                            banner.classList.remove('comeback-visible');
+                            setTimeout(function() { banner.remove(); }, 300);
+                        }, 8000);
+                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(bonusXP, 'comeback_bonus');
+                    }
+                }
+            }
+            localStorage.setItem(LAST_VISIT_KEY, today);
+        })();
 
         var PRESTIGE_KEY = 'httpparrot_prestige';
         function getPrestige() {
@@ -2003,9 +2061,16 @@
             currentResults = results;
             activeIndex = results.length > 0 ? 0 : -1;
             if (results.length === 0) {
+                var funMessages = [
+                    "That code doesn't exist... yet. The parrots are working on it.",
+                    "404: Search Result Not Found. How ironic.",
+                    "The parrots looked everywhere. Nothing.",
+                    "Even the 418 teapot couldn't brew up a result.",
+                    "Try searching for something HTTP-related. Or just '418'."
+                ];
                 var empty = document.createElement('div');
                 empty.className = 'cmd-palette-empty';
-                empty.textContent = 'No results found';
+                empty.textContent = funMessages[Math.floor(Math.random() * funMessages.length)];
                 resultsContainer.appendChild(empty);
                 return;
             }
@@ -2314,6 +2379,39 @@
                 if (route) {
                     e.preventDefault();
                     window.location.href = route;
+                }
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* RFC easter egg */
+    (function() {
+        var buf = '';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buf += e.key.toLowerCase();
+            if (buf.length > 10) buf = buf.slice(-10);
+            var match = buf.match(/rfc(\d{3,5})$/);
+            if (match) {
+                buf = '';
+                var rfcNum = match[1];
+                var toast = document.createElement('div');
+                toast.className = 'rfc-toast';
+                toast.innerHTML = '<span>RFC ' + rfcNum + ' found! </span>'
+                    + '<a href="https://datatracker.ietf.org/doc/html/rfc' + rfcNum + '" target="_blank" rel="noopener">Read it &rarr;</a>';
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('rfc-toast-visible'); }, 50);
+                setTimeout(function() {
+                    toast.classList.remove('rfc-toast-visible');
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 6000);
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('rfc_reader') === -1) {
+                    eggs.push('rfc_reader');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
                 }
             }
         });

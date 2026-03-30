@@ -144,7 +144,7 @@
         </div>
         <div id="fuzzy-indicator" class="fuzzy-indicator" role="status" aria-live="polite" style="display:none;">Showing fuzzy matches</div>
         <div id="no-results" class="no-results" role="status" aria-live="polite">
-            No parrots found matching your search.
+            <span id="no-results-message">No parrots found matching your search.</span>
         </div>
     </main>
 {% endblock %}
@@ -218,6 +218,17 @@
                 if (visible > 0) isFuzzy = true;
             }
 
+            if (!visible) {
+                var noResultsMessages = [
+                    "No parrots found. They must be 301 Moved Permanently.",
+                    "The parrots are hiding. Maybe try a different search?",
+                    "404: Parrots Not Found. Check your spelling?",
+                    "Even our fuzzy search came up empty. That's rare!",
+                    "The parrot you're looking for has gone 410."
+                ];
+                var msgEl = document.getElementById('no-results-message');
+                if (msgEl) msgEl.textContent = noResultsMessages[Math.floor(Math.random() * noResultsMessages.length)];
+            }
             noResults.style.display = visible ? 'none' : 'block';
             fuzzyIndicator.style.display = (isFuzzy && visible > 0) ? '' : 'none';
             /* Hide dashboard when filtering or searching */
@@ -857,9 +868,9 @@
                     var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
                     if (eggs.indexOf('konami') === -1) { eggs.push('konami'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
                 }
-            } else if (konamiCode.indexOf(e.key) === -1) {
-                /* Only reset on non-Konami keys — arrow keys are part of the sequence */
-                pos = 0;
+            } else {
+                /* On mismatch, check if this key starts a new sequence */
+                pos = (e.key === konamiCode[0]) ? 1 : 0;
             }
         }, true);
 
