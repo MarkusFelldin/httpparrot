@@ -33,12 +33,128 @@
             </div>
         </div>
         <div id="result" aria-live="polite"></div>
+        <div class="tester-export" id="tester-export" style="display:none">
+            <button class="btn-back tester-export-btn" id="export-curl" type="button">Copy as cURL</button>
+            <button class="btn-back tester-export-btn" id="export-har" type="button">Copy as HAR JSON</button>
+        </div>
+        <div class="tester-crosslinks" id="tester-crosslinks" style="display:none">
+            <span class="crosslink-label">Try with:</span>
+            <a class="btn-back crosslink-btn" id="crosslink-trace" href="#">Redirect Tracer</a>
+            <a class="btn-back crosslink-btn" id="crosslink-security" href="#">Security Audit</a>
+            <a class="btn-back crosslink-btn" id="crosslink-cors" href="#">CORS Checker</a>
+        </div>
+        <details class="tester-history" id="tester-history">
+            <summary class="tester-history-toggle">
+                <h2>Recent Requests</h2>
+                <span class="tester-history-count" id="tester-history-count">0</span>
+            </summary>
+            <div class="tester-history-list" id="tester-history-list"></div>
+            <button class="btn-back tester-history-clear" id="tester-history-clear" type="button" style="margin-top:0.5rem">Clear History</button>
+        </details>
     </main>
 {% endblock %}
 
 {% block scripts %}
     <script nonce="{{ csp_nonce }}">
     (function() {
+        /* Request history */
+        var HISTORY_KEY = 'httpparrot_tester_history';
+        var MAX_HISTORY = 20;
+        var lastResult = null;
+
+        function getHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e) { return []; }
+        }
+
+        function saveToHistory(url, method, statusCode, timeMs) {
+            var history = getHistory();
+            history.unshift({
+                url: url,
+                method: method || 'HEAD',
+                status: statusCode,
+                time: timeMs,
+                date: new Date().toISOString()
+            });
+            if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            var history = getHistory();
+            var list = document.getElementById('tester-history-list');
+            var count = document.getElementById('tester-history-count');
+            if (count) count.textContent = history.length;
+            if (!list) return;
+            while (list.firstChild) list.removeChild(list.firstChild);
+            history.forEach(function(item) {
+                var row = document.createElement('div');
+                row.className = 'history-row';
+                var methodSpan = document.createElement('span');
+                methodSpan.className = 'history-method';
+                methodSpan.textContent = item.method || 'HEAD';
+                var urlSpan = document.createElement('span');
+                urlSpan.className = 'history-url';
+                urlSpan.textContent = item.url;
+                var statusSpan = document.createElement('span');
+                statusSpan.className = 'history-status category-' + String(item.status)[0] + 'xx';
+                statusSpan.textContent = item.status;
+                var timeSpan = document.createElement('span');
+                timeSpan.className = 'history-time';
+                timeSpan.textContent = item.time + 'ms';
+                row.appendChild(methodSpan);
+                row.appendChild(urlSpan);
+                row.appendChild(statusSpan);
+                row.appendChild(timeSpan);
+                row.style.cursor = 'pointer';
+                row.addEventListener('click', function() {
+                    var urlInput = document.querySelector('.tester-input, #url-input, input[type="url"], input[name="url"]');
+                    if (urlInput) { urlInput.value = item.url; urlInput.focus(); }
+                });
+                list.appendChild(row);
+            });
+        }
+
+        function updateCrosslinks(url) {
+            var enc = encodeURIComponent(url);
+            document.getElementById('crosslink-trace').href = '/trace?url=' + enc;
+            document.getElementById('crosslink-security').href = '/security-audit?url=' + enc;
+            document.getElementById('crosslink-cors').href = '/cors-checker?url=' + enc;
+            document.getElementById('tester-crosslinks').style.display = '';
+        }
+
+        document.getElementById('tester-history-clear').addEventListener('click', function() {
+            localStorage.removeItem(HISTORY_KEY);
+            renderHistory();
+        });
+
+        document.getElementById('export-curl').addEventListener('click', function() {
+            if (!lastResult) return;
+            var curl = 'curl -I "' + lastResult.url + '"';
+            navigator.clipboard.writeText(curl).then(function() {
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('cURL copied!', 'success');
+            });
+        });
+
+        document.getElementById('export-har').addEventListener('click', function() {
+            if (!lastResult) return;
+            var har = JSON.stringify({
+                log: {
+                    version: "1.2",
+                    entries: [{
+                        request: {method: "HEAD", url: lastResult.url},
+                        response: {status: lastResult.code, headers: Object.entries(lastResult.headers || {}).map(function(e) { return {name: e[0], value: e[1]}; })},
+                        time: lastResult.time_ms
+                    }]
+                }
+            }, null, 2);
+            navigator.clipboard.writeText(har).then(function() {
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('HAR JSON copied!', 'success');
+            });
+        });
+
+        renderHistory();
+
         const codes = {
             200:'OK',201:'Created',202:'Accepted',204:'No Content',
             301:'Moved Permanently',302:'Found',303:'See Other',304:'Not Modified',307:'Temporary Redirect',308:'Permanent Redirect',
@@ -253,6 +369,10 @@
                     actions.appendChild(link);
                     card.appendChild(actions);
                     result.appendChild(card);
+                    lastResult = data;
+                    document.getElementById('tester-export').style.display = '';
+                    saveToHistory(data.url, selectedMethod, data.code, data.time_ms);
+                    updateCrosslinks(data.url);
                 })
                 .catch(function() {
                     btn.disabled = false;

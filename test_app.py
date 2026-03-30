@@ -11995,6 +11995,70 @@ class TestTesterTruncationWarning:
         assert 'if (data.truncated)' in html
 
 
+# --- FN2: Tester History, Export, Cross-links ---
+
+class TestTesterHistoryExportCrosslinks:
+    """Tests for tester request history panel, export buttons, and cross-tool links."""
+
+    def test_tester_has_history(self, client):
+        resp = client.get('/tester')
+        assert resp.status_code == 200
+        assert b'tester-history' in resp.data
+
+    def test_tester_has_export_buttons(self, client):
+        """Tester page should have export cURL and HAR buttons."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'export-curl' in html
+        assert 'export-har' in html
+        assert 'tester-export' in html
+
+    def test_tester_has_crosslinks(self, client):
+        """Tester page should have cross-tool link buttons."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'crosslink-trace' in html
+        assert 'crosslink-security' in html
+        assert 'crosslink-cors' in html
+        assert 'tester-crosslinks' in html
+
+    def test_tester_history_js(self, client):
+        """Tester page should contain history JS functions."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'httpparrot_tester_history' in html
+        assert 'saveToHistory' in html
+        assert 'renderHistory' in html
+        assert 'getHistory' in html
+
+    def test_tester_export_css_exists(self):
+        """CSS should contain export button styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-export' in css
+        assert '.tester-export-btn' in css
+
+    def test_tester_crosslinks_css_exists(self):
+        """CSS should contain cross-tool link styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-crosslinks' in css
+        assert '.crosslink-btn' in css
+        assert '.crosslink-label' in css
+
+    def test_tester_history_css_exists(self):
+        """CSS should contain history panel styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-history' in css
+        assert '.history-row' in css
+        assert '.history-method' in css
+        assert '.history-url' in css
+        assert '.history-status' in css
+        assert '.history-time' in css
+        assert '.tester-history-count' in css
+
+
 # --- ED5: Expanded Case Studies ---
 
 class TestExpandedCaseStudies:
