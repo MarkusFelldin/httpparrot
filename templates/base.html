@@ -2168,6 +2168,37 @@
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* 200th visit celebration */
+    (function() {
+        var VISIT_KEY = 'httpparrot_total_visits';
+        var visits = parseInt(localStorage.getItem(VISIT_KEY) || '0', 10) + 1;
+        localStorage.setItem(VISIT_KEY, String(visits));
+
+        if (visits === 200) {
+            setTimeout(function() {
+                var banner = document.createElement('div');
+                banner.className = 'visit-200-banner';
+                banner.setAttribute('role', 'status');
+                banner.innerHTML = '<span class="visit-200-icon">&#x1F389;</span>'
+                    + '<span class="visit-200-text">200 OK! Your 200th page visit!</span>';
+                document.body.appendChild(banner);
+                setTimeout(function() { banner.classList.add('visit-200-visible'); }, 50);
+                setTimeout(function() {
+                    banner.classList.remove('visit-200-visible');
+                    setTimeout(function() { banner.remove(); }, 400);
+                }, 5000);
+
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('visit_200') === -1) {
+                    eggs.push('visit_200');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(200, 'easter_egg');
+                }
+            }, 1500);
+        }
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -14178,3 +14178,46 @@ class TestApiDesignerPath:
     def test_api_designer_in_sitemap(self, client):
         resp = client.get('/sitemap.xml')
         assert b'/paths/api-designer' in resp.data
+
+
+class TestRound6FinalPolish:
+    """Tests for Round 6 Pass 10 final polish features."""
+
+    def test_page_fade_in_css(self, client):
+        """CSS should include page fade-in animation."""
+        resp = client.get('/static/style.css')
+        assert b'page-fade-in' in resp.data
+
+    def test_visit_200_banner_css(self, client):
+        """CSS should include 200th visit celebration banner styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.visit-200-banner' in css
+        assert '.visit-200-visible' in css
+        assert '.visit-200-text' in css
+
+    def test_visit_200_script_in_base(self, client):
+        """Base template should contain 200th visit celebration script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_total_visits' in html
+        assert 'visit-200-banner' in html
+
+    def test_search_focused_css(self, client):
+        """CSS should include search focus pulse styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.search-input.search-focused' in css
+
+    def test_search_focus_animation_script(self, client):
+        """Homepage should have search focus/blur animation listeners."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'search-focused' in html
+
+    def test_reduced_motion_disables_page_fade(self, client):
+        """Page fade-in should be disabled for prefers-reduced-motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'prefers-reduced-motion' in css
+        assert 'page-fade-in' in css

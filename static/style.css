@@ -9649,6 +9649,63 @@ body {
   transform: translateY(0);
 }
 
+/* Page load fade-in */
+main {
+  animation: page-fade-in 0.3s ease-out;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none; }
+}
+
+/* 200th visit celebration */
+.visit-200-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  background: var(--surface-2);
+  border: 2px solid var(--color-teal);
+  border-radius: var(--radius-lg);
+  padding: 2rem 3rem;
+  text-align: center;
+  z-index: 10000;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+}
+
+.visit-200-banner.visit-200-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.visit-200-icon { font-size: 3rem; display: block; margin-bottom: 0.75rem; }
+.visit-200-text {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Search focus pulse */
+.search-input.search-focused {
+  border-color: var(--color-teal);
+  box-shadow: 0 0 0 3px rgba(0, 201, 167, 0.12);
+}
+
+@keyframes search-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 201, 167, 0.2); }
+  100% { box-shadow: 0 0 0 6px rgba(0, 201, 167, 0); }
+}
+
 /* Focus-visible for interactive game/UI elements */
 .map-node:focus-visible,
 .bingo-cell:focus-visible,
