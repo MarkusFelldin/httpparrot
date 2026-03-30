@@ -734,12 +734,12 @@ class TestScrollDrivenAnimations:
         assert 'scale(0.95)' in css
         assert 'rotate(-1deg)' in css
 
-    def test_homepage_has_scroll_animation_check(self, client):
-        """Homepage JS should check for scroll-driven animation support."""
+    def test_homepage_has_viewport_reveal(self, client):
+        """Homepage JS should use IntersectionObserver for viewport-triggered reveals."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert "CSS.supports('animation-timeline: view()')" in html
-        assert 'scroll-animated' in html
+        assert 'IntersectionObserver' in html
+        assert 'will-reveal' in html
 
     def test_homepage_has_intersection_observer_fallback(self, client):
         """Homepage should still contain IntersectionObserver as a fallback."""
@@ -1383,6 +1383,15 @@ class TestHeaderExplainer:
         """Sitemap should include the headers page."""
         resp = client.get('/sitemap.xml')
         assert b'/headers' in resp.data
+
+
+# --- Content Negotiation ---
+
+class TestContentNegotiation:
+    def test_content_negotiation_page(self, client):
+        resp = client.get('/content-negotiation')
+        assert resp.status_code == 200
+        assert b'Content Negotiation' in resp.data
 
 
 # --- CORS Checker ---

@@ -102,10 +102,11 @@
                         </div>
                     </div>
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/content-negotiation','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/tester" role="menuitem" {% if request.path == '/tester' %}aria-current="page"{% endif %}>URL Tester</a>
                             <a href="/headers" role="menuitem" {% if request.path == '/headers' %}aria-current="page"{% endif %}>Header Explainer</a>
+                            <a href="/content-negotiation" role="menuitem" {% if request.path == '/content-negotiation' %}aria-current="page"{% endif %}>Content Negotiation</a>
                             <a href="/cors-checker" role="menuitem" {% if request.path == '/cors-checker' %}aria-current="page"{% endif %}>CORS Checker</a>
                             <a href="/security-audit" role="menuitem" {% if request.path == '/security-audit' %}aria-current="page"{% endif %}>Security Audit</a>
                             <a href="/trace" role="menuitem" {% if request.path == '/trace' %}aria-current="page"{% endif %}>Redirect Tracer</a>
@@ -163,6 +164,7 @@
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
+            <a href="/content-negotiation" {% if request.path == '/content-negotiation' %}class="nav-active" aria-current="page"{% endif %}>Content Negotiation</a>
             <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS Checker</a>
             <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Security Audit</a>
             <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Redirect Tracer</a>
@@ -1819,6 +1821,7 @@
             {name: 'Flowchart', path: '/flowchart', icon: '\uD83D\uDDFA\uFE0F', desc: 'Which status code should I use?'},
             {name: 'URL Tester', path: '/tester', icon: '\uD83D\uDD17', desc: 'Test any URL\'s response'},
             {name: 'Header Explainer', path: '/headers', icon: '\uD83D\uDCE8', desc: 'Explain HTTP headers'},
+            {name: 'Content Negotiation', path: '/content-negotiation', icon: '\uD83E\uDD1D', desc: 'Explore Accept & Content-Type negotiation'},
             {name: 'CORS Checker', path: '/cors-checker', icon: '\uD83D\uDD12', desc: 'Check CORS configuration'},
             {name: 'Security Audit', path: '/security-audit', icon: '\uD83D\uDEE1\uFE0F', desc: 'Audit HTTP security headers'},
             {name: 'Redirect Tracer', path: '/trace', icon: '\u27A1\uFE0F', desc: 'Trace redirect chains'},

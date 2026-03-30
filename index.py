@@ -1018,6 +1018,12 @@ def header_explainer():
     return render_template('headers.html')
 
 
+@app.route('/content-negotiation')
+def content_negotiation():
+    """Render the Content Negotiation Explainer tool."""
+    return render_template('content_negotiation.html')
+
+
 @app.route('/profile')
 def profile():
     """Render the XP profile page — all state stored client-side in localStorage.
@@ -2056,7 +2062,8 @@ def sitemap():
     pages = []
     for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
-                 '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
+                 '/cheatsheet', '/headers', '/content-negotiation', '/cors-checker',
+                 '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
                  '/bingo', '/horoscope']:

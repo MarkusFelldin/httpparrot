@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Content Negotiation - HTTP Parrots{% endblock %}
+{% block subtitle %}Content Negotiation{% endblock %}
+{% block meta %}
+    <meta name="description" content="Learn how HTTP content negotiation works with Accept, Accept-Encoding, and Content-Type headers.">
+{% endblock %}
+{% block content %}
+    <main class="conneg-container" id="main-content" role="main">
+        <h1>Content Negotiation Explainer</h1>
+        <p class="conneg-intro">Explore how clients and servers agree on content format through HTTP headers.</p>
+
+        <div class="conneg-demo">
+            <div class="conneg-panel">
+                <h2>Client Request</h2>
+                <label class="conneg-label" for="accept-header">Accept</label>
+                <select id="accept-header" class="conneg-select">
+                    <option value="application/json">application/json</option>
+                    <option value="text/html">text/html</option>
+                    <option value="application/xml">application/xml</option>
+                    <option value="text/plain">text/plain</option>
+                    <option value="image/webp,image/png,image/*">image/webp, image/png, image/*</option>
+                    <option value="*/*">*/* (anything)</option>
+                </select>
+                <label class="conneg-label" for="accept-encoding">Accept-Encoding</label>
+                <select id="accept-encoding" class="conneg-select">
+                    <option value="gzip, deflate, br">gzip, deflate, br</option>
+                    <option value="gzip">gzip only</option>
+                    <option value="identity">identity (no compression)</option>
+                    <option value="">Not specified</option>
+                </select>
+                <label class="conneg-label" for="accept-language">Accept-Language</label>
+                <select id="accept-language" class="conneg-select">
+                    <option value="en-US,en;q=0.9">en-US (English)</option>
+                    <option value="fr-FR,fr;q=0.9">fr-FR (French)</option>
+                    <option value="de-DE,de;q=0.9">de-DE (German)</option>
+                    <option value="*">* (any language)</option>
+                </select>
+            </div>
+            <div class="conneg-arrow" aria-hidden="true">&#x2192;</div>
+            <div class="conneg-panel conneg-panel-response">
+                <h2>Server Response</h2>
+                <div id="conneg-response" class="conneg-response">
+                    <div class="conneg-response-status" id="conneg-status">200 OK</div>
+                    <div class="conneg-response-headers" id="conneg-headers"></div>
+                    <div class="conneg-response-explanation" id="conneg-explanation"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="conneg-scenarios">
+            <h2>Common Scenarios</h2>
+            <div class="conneg-scenario-grid" id="conneg-scenarios">
+                <div class="conneg-scenario-card">
+                    <h3>API JSON Response</h3>
+                    <p>Client sends <code>Accept: application/json</code>, server responds with <code>Content-Type: application/json</code></p>
+                    <div class="conneg-status-badge conneg-badge-200">200 OK</div>
+                </div>
+                <div class="conneg-scenario-card">
+                    <h3>Unsupported Format</h3>
+                    <p>Client requests <code>Accept: application/xml</code> but server only supports JSON</p>
+                    <div class="conneg-status-badge conneg-badge-406">406 Not Acceptable</div>
+                </div>
+                <div class="conneg-scenario-card">
+                    <h3>Wrong Content-Type on POST</h3>
+                    <p>Client sends XML body with <code>Content-Type: text/plain</code> to a JSON endpoint</p>
+                    <div class="conneg-status-badge conneg-badge-415">415 Unsupported Media Type</div>
+                </div>
+                <div class="conneg-scenario-card">
+                    <h3>Compressed Response</h3>
+                    <p>Client sends <code>Accept-Encoding: gzip</code>, server compresses with <code>Content-Encoding: gzip</code></p>
+                    <div class="conneg-status-badge conneg-badge-200">200 OK</div>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var acceptEl = document.getElementById('accept-header');
+        var encodingEl = document.getElementById('accept-encoding');
+        var languageEl = document.getElementById('accept-language');
+        var statusEl = document.getElementById('conneg-status');
+        var headersEl = document.getElementById('conneg-headers');
+        var explanationEl = document.getElementById('conneg-explanation');
+
+        var supportedTypes = ['application/json', 'text/html', 'text/plain'];
+
+        function negotiate() {
+            var accept = acceptEl.value;
+            var encoding = encodingEl.value;
+            var lang = languageEl.value;
+
+            var matchedType = null;
+            var types = accept.split(',').map(function(t) { return t.trim().split(';')[0].trim(); });
+            for (var i = 0; i < types.length; i++) {
+                if (types[i] === '*/*') { matchedType = 'application/json'; break; }
+                var base = types[i].split('/')[0] + '/*';
+                if (supportedTypes.indexOf(types[i]) !== -1) { matchedType = types[i]; break; }
+                if (types[i].indexOf('/*') !== -1) {
+                    for (var j = 0; j < supportedTypes.length; j++) {
+                        if (supportedTypes[j].startsWith(types[i].split('/')[0])) { matchedType = supportedTypes[j]; break; }
+                    }
+                    if (matchedType) break;
+                }
+            }
+
+            if (!matchedType) {
+                statusEl.textContent = '406 Not Acceptable';
+                statusEl.className = 'conneg-response-status conneg-status-406';
+                headersEl.innerHTML = '';
+                explanationEl.textContent = 'The server cannot produce a response matching the Accept header. None of the requested types (' + accept + ') are supported.';
+                return;
+            }
+
+            statusEl.textContent = '200 OK';
+            statusEl.className = 'conneg-response-status conneg-status-200';
+
+            var headers = ['Content-Type: ' + matchedType];
+            if (encoding && encoding !== 'identity') {
+                var enc = encoding.split(',')[0].trim();
+                headers.push('Content-Encoding: ' + enc);
+                headers.push('Vary: Accept, Accept-Encoding');
+            } else {
+                headers.push('Vary: Accept');
+            }
+            headers.push('Content-Language: ' + lang.split(',')[0].split(';')[0]);
+            headersEl.innerHTML = headers.map(function(h) { return '<code>' + h + '</code>'; }).join('');
+
+            var explain = 'Server matched "' + matchedType + '" from the Accept header.';
+            if (encoding && encoding !== 'identity') explain += ' Response compressed with ' + encoding.split(',')[0].trim() + '.';
+            explanationEl.textContent = explain;
+        }
+
+        acceptEl.addEventListener('change', negotiate);
+        encodingEl.addEventListener('change', negotiate);
+        languageEl.addEventListener('change', negotiate);
+        negotiate();
+
+        /* Award XP */
+        if (typeof ParrotXP !== 'undefined') ParrotXP.award(5, 'page_visit');
+    })();
+    </script>
+{% endblock %}
