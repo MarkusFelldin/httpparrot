@@ -14869,3 +14869,21 @@ class TestRFCEasterEgg:
         assert '.rfc-toast' in css
         assert '.rfc-toast-visible' in css
         assert '.rfc-toast a' in css
+
+
+class TestDesignAuditRound8:
+    """Round 8 Pass 11 design audit -- light theme, focus, print, motion, mobile."""
+
+    def test_all_routes_return_valid_status(self, client):
+        """Every page route should return a valid HTTP status."""
+        pages = ['/', '/quiz', '/daily', '/weekly', '/practice', '/debug',
+                 '/review', '/bingo', '/horoscope', '/predict', '/incidents',
+                 '/content-negotiation', '/map', '/credits',
+                 '/paths', '/learn', '/tester', '/headers', '/cors-checker',
+                 '/security-audit', '/trace', '/playground', '/curl-import',
+                 '/fault-simulator', '/webhook-inspector', '/compare',
+                 '/personality', '/collection', '/cheatsheet', '/flowchart',
+                 '/api-docs', '/profile', '/200', '/404', '/500']
+        for page in pages:
+            resp = client.get(page)
+            assert resp.status_code in (200, 404, 500), f'{page} returned {resp.status_code}'

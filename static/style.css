@@ -3532,7 +3532,11 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   .fav-heart-burst,
   .egg-hatch,
   .celebration-confetti,
-  .handshake-overlay {
+  .handshake-overlay,
+  .rfc-toast,
+  .quiz-difficulty,
+  .goal-form,
+  .bookmarklet-container {
     display: none !important;
   }
 
@@ -10449,3 +10453,65 @@ details > :not(summary) {
 }
 
 .rfc-toast a:hover { text-decoration: underline; }
+
+/* ========================================================================
+   Round 8 Pass 11 -- Light Theme Overrides
+   ======================================================================== */
+@media (prefers-color-scheme: light) {
+  .suggested-next { background: rgba(255,255,255,0.9); }
+  .header-req-row { background: rgba(0,0,0,0.03); }
+  .header-req-name { color: #009d82; }
+  .quiz-diff-btn { color: rgba(0,0,0,0.5); border-color: rgba(0,0,0,0.12); }
+  .quiz-diff-btn.active { background: rgba(0,157,130,0.1); color: #009d82; border-color: #009d82; }
+  .comeback-banner { background: rgba(255,255,255,0.95); }
+  .goal-input { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.12); color: #1a1a2e; }
+  .goal-display { background: rgba(255,255,255,0.9); }
+  .bookmarklet-link { color: white; }
+  .rfc-toast { background: rgba(255,255,255,0.97); }
+  .copy-success { background: rgba(0,157,130,0.1) !important; }
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Focus States for New Elements
+   ======================================================================== */
+.quiz-diff-btn:focus-visible,
+.goal-input:focus-visible,
+.goal-set-btn:focus-visible,
+.bookmarklet-link:focus-visible,
+.suggested-link:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Reduced Motion
+   ======================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .comeback-banner,
+  .rfc-toast,
+  .suggested-next {
+    transition: none !important;
+  }
+}
+
+/* ========================================================================
+   Round 8 Pass 11 -- Mobile Polish
+   ======================================================================== */
+@media (max-width: 480px) {
+  .header-req-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  .quiz-difficulty {
+    flex-wrap: wrap;
+  }
+  .rfc-toast {
+    left: 1rem;
+    right: 1rem;
+    transform: translateY(20px);
+  }
+  .rfc-toast.rfc-toast-visible {
+    transform: translateY(0);
+  }
+}
