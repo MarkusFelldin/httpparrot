@@ -853,6 +853,17 @@ def bingo():
                            week_number=week_number, year=year)
 
 
+@app.route('/horoscope')
+def horoscope():
+    """Render the daily HTTP horoscope page."""
+    today = date.today()
+    day_number = today.toordinal()
+    codes = pruned_status_codes()
+    return render_template('horoscope.html', codes_json=json.dumps(
+        [{"code": c.code, "name": c.name, "image": c.image} for c in codes]
+    ), day_number=day_number, date_str=today.isoformat())
+
+
 @app.route('/practice')
 def practice():
     """Render the scenario-based practice page for HTTP status code training."""
@@ -2029,7 +2040,7 @@ def sitemap():
                  '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo']:
+                 '/bingo', '/horoscope']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

@@ -116,7 +116,7 @@
                         </div>
                     </div>
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile','/horoscope'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/compare" role="menuitem" {% if request.path == '/compare' %}aria-current="page"{% endif %}>Compare</a>
                             <a href="/personality" role="menuitem" {% if request.path == '/personality' %}aria-current="page"{% endif %}>Personality Quiz</a>
@@ -124,6 +124,7 @@
                             <a href="/cheatsheet" role="menuitem" {% if request.path == '/cheatsheet' %}aria-current="page"{% endif %}>Cheat Sheet</a>
                             <a href="/api-docs" role="menuitem" {% if request.path == '/api-docs' %}aria-current="page"{% endif %}>API Docs</a>
                             <a href="/profile" role="menuitem" {% if request.path == '/profile' %}aria-current="page"{% endif %}>Profile</a>
+                            <a href="/horoscope" role="menuitem" {% if request.path == '/horoscope' %}aria-current="page"{% endif %}>Horoscope</a>
                         </div>
                     </div>
                 </nav>
@@ -176,6 +177,7 @@
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
             <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API Docs</a>
             <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
+            <a href="/horoscope" {% if request.path == '/horoscope' %}class="nav-active" aria-current="page"{% endif %}>Horoscope</a>
         </nav>
     </header>
 
@@ -577,7 +579,10 @@
                 var maxXp = 0;
                 for (var c in cats) { if (cats[c] > maxXp) { maxXp = cats[c]; dominant = c; } }
                 var badge = document.getElementById('xp-badge');
-                if (badge) badge.style.setProperty('--mood-color', moodColors[dominant]);
+                if (badge) {
+                    badge.style.setProperty('--mood-color', moodColors[dominant]);
+                    badge.setAttribute('data-mood-cat', String(dominant));
+                }
             } catch(e) {}
         }
 
@@ -1583,6 +1588,34 @@
                 }, 500);
             }, 5000);
         }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Barrel Roll easter egg */
+    (function() {
+        var buffer = '';
+        var trigger = 'barrelroll';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buffer += e.key.toLowerCase();
+            if (buffer.length > trigger.length) buffer = buffer.slice(-trigger.length);
+            if (buffer === trigger) {
+                buffer = '';
+                document.body.style.transition = 'transform 1s ease-in-out';
+                document.body.style.transform = 'rotate(360deg)';
+                setTimeout(function() {
+                    document.body.style.transition = '';
+                    document.body.style.transform = '';
+                }, 1100);
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('barrel_roll') === -1) {
+                    eggs.push('barrel_roll');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        });
     })();
     </script>
     <script nonce="{{ csp_nonce }}">

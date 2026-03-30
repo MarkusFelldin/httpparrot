@@ -148,6 +148,11 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Bingo' in resp.data
 
+    def test_horoscope_page(self, client):
+        resp = client.get('/horoscope')
+        assert resp.status_code == 200
+        assert b'Horoscope' in resp.data or b'Oracle' in resp.data
+
 
 # --- Content negotiation ---
 

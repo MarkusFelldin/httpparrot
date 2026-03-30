@@ -558,6 +558,32 @@
         var texts = codeSpecificFacts.concat(genericFacts);
         var animating = false;
 
+        /* Rapid click detection */
+        var clickTimes = [];
+        function checkRapidClicks() {
+            var now = Date.now();
+            clickTimes.push(now);
+            clickTimes = clickTimes.filter(function(t) { return now - t < 3000; });
+            if (clickTimes.length >= 10) {
+                clickTimes = [];
+                /* Spawn a frenzy of mini parrots */
+                for (var i = 0; i < 20; i++) {
+                    var p = document.createElement('span');
+                    p.textContent = '\uD83E\uDD9C';
+                    p.style.cssText = 'position:fixed;font-size:' + (16 + Math.random() * 24) + 'px;pointer-events:none;z-index:9999;left:' + Math.random()*100 + 'vw;top:' + Math.random()*100 + 'vh;animation:parrot-frenzy 1.5s ease-out forwards;';
+                    document.body.appendChild(p);
+                    setTimeout(function(el){ el.remove(); }, 1600, p);
+                }
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('click_frenzy') === -1) {
+                    eggs.push('click_frenzy');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        }
+
         /* Remove click hint if user already petted before */
         if (localStorage.getItem('httpparrot_parrot_petted') === 'true') {
             parrotEl.classList.add('parrot-click-hint-hidden');
@@ -584,6 +610,21 @@
                     ParrotXP.checkFeathers();
                 }
             }
+
+            /* Track total parrot pets across all pages */
+            var totalPets = parseInt(localStorage.getItem('httpparrot_total_pets') || '0', 10) + 1;
+            localStorage.setItem('httpparrot_total_pets', String(totalPets));
+            if (totalPets >= 100) {
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('parrot_whisperer') === -1) {
+                    eggs.push('parrot_whisperer');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+
+            /* Check for rapid click frenzy */
+            checkRapidClicks();
 
             /* Add animation class */
             parrotEl.classList.remove(animClass);

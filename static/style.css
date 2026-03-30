@@ -8835,3 +8835,38 @@ body {
   border-radius: 2px;
 }
 
+/* === Page: Horoscope === */
+.horoscope-container { max-width: 560px; margin: 0 auto; padding: 2rem 1rem 4rem; text-align: center; }
+.horoscope-header h1 { font-size: var(--text-2xl); background: linear-gradient(135deg, var(--color-purple), var(--color-gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.horoscope-date { color: var(--text-muted); margin-top: 0.25rem; }
+.horoscope-card { background: var(--surface-1); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 2rem 1.5rem; margin-top: 1.5rem; }
+.horoscope-parrot { margin-bottom: 1rem; }
+.horoscope-parrot img { border-radius: var(--radius-md); max-height: 200px; width: auto; }
+.horoscope-code { font-size: var(--text-xl); font-weight: 700; font-family: var(--font-mono); margin-bottom: 1rem; }
+.horoscope-fortune { font-size: var(--text-lg); color: var(--text-body); line-height: 1.6; margin-bottom: 1rem; font-style: italic; }
+.horoscope-advice { font-size: var(--text-sm); color: var(--text-secondary); padding: 0.75rem; background: var(--surface-2); border-radius: var(--radius-sm); margin-bottom: 1rem; }
+.horoscope-lucky { font-size: var(--text-sm); color: var(--text-muted); }
+.horoscope-lucky-label { margin-right: 0.5rem; }
+.horoscope-lucky-code { color: var(--color-gold); font-weight: 600; text-decoration: none; }
+.horoscope-lucky-code:hover { text-decoration: underline; }
+.horoscope-share { margin-top: 1.5rem; }
+
+/* === Category Mood Ring Pulse Animations === */
+.xp-badge[data-mood-cat="1"] { animation: mood-pulse-cyan 4s ease-in-out infinite; }
+.xp-badge[data-mood-cat="2"] { animation: mood-pulse-teal 4s ease-in-out infinite; }
+.xp-badge[data-mood-cat="3"] { animation: mood-pulse-gold 4s ease-in-out infinite; }
+.xp-badge[data-mood-cat="4"] { animation: mood-pulse-coral 4s ease-in-out infinite; }
+.xp-badge[data-mood-cat="5"] { animation: mood-pulse-purple 4s ease-in-out infinite; }
+
+@keyframes mood-pulse-cyan { 0%,100% { box-shadow: 0 0 8px rgba(72,202,228,0.2); } 50% { box-shadow: 0 0 16px rgba(72,202,228,0.4); } }
+@keyframes mood-pulse-teal { 0%,100% { box-shadow: 0 0 8px rgba(0,201,167,0.2); } 50% { box-shadow: 0 0 16px rgba(0,201,167,0.4); } }
+@keyframes mood-pulse-gold { 0%,100% { box-shadow: 0 0 8px rgba(249,199,79,0.2); } 50% { box-shadow: 0 0 16px rgba(249,199,79,0.4); } }
+@keyframes mood-pulse-coral { 0%,100% { box-shadow: 0 0 8px rgba(255,107,107,0.2); } 50% { box-shadow: 0 0 16px rgba(255,107,107,0.4); } }
+@keyframes mood-pulse-purple { 0%,100% { box-shadow: 0 0 8px rgba(123,97,255,0.2); } 50% { box-shadow: 0 0 16px rgba(123,97,255,0.4); } }
+
+/* === Parrot Frenzy Animation (rapid click easter egg) === */
+@keyframes parrot-frenzy {
+  0% { opacity: 1; transform: scale(0) rotate(0deg); }
+  30% { opacity: 1; transform: scale(1.2) rotate(180deg); }
+  100% { opacity: 0; transform: scale(0.5) rotate(720deg) translateY(-100px); }
+}
