@@ -2003,9 +2003,16 @@
             currentResults = results;
             activeIndex = results.length > 0 ? 0 : -1;
             if (results.length === 0) {
+                var funMessages = [
+                    "That code doesn't exist... yet. The parrots are working on it.",
+                    "404: Search Result Not Found. How ironic.",
+                    "The parrots looked everywhere. Nothing.",
+                    "Even the 418 teapot couldn't brew up a result.",
+                    "Try searching for something HTTP-related. Or just '418'."
+                ];
                 var empty = document.createElement('div');
                 empty.className = 'cmd-palette-empty';
-                empty.textContent = 'No results found';
+                empty.textContent = funMessages[Math.floor(Math.random() * funMessages.length)];
                 resultsContainer.appendChild(empty);
                 return;
             }

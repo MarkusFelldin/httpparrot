@@ -6066,7 +6066,7 @@ class TestConfusionPairsData:
 
     def test_pairs_not_empty(self):
         from confusion_pairs import CONFUSION_PAIRS
-        assert len(CONFUSION_PAIRS) >= 15
+        assert len(CONFUSION_PAIRS) >= 16
 
     def test_each_pair_has_required_keys(self):
         from confusion_pairs import CONFUSION_PAIRS
@@ -6148,6 +6148,8 @@ class TestConfusionPairsData:
             # New pairs added in expansion
             '502-vs-504', '401-vs-407', '204-vs-205', '409-vs-412',
             '301-vs-308', '503-vs-504',
+            # Round 8 pairs
+            '302-vs-303',
         ]
         for slug in required:
             assert slug in CONFUSION_PAIRS_BY_SLUG, f"Missing required pair: {slug}"
@@ -6211,7 +6213,7 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '18 pairs' in html
+        assert '19 pairs' in html
         assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
@@ -14493,3 +14495,142 @@ class TestDesignAuditRound7:
         css = client.get('/static/style.css').data.decode()
         assert '.map-node' in css
         assert '.map-grid' in css
+
+
+class TestHeaderRequirementIndicators:
+    """Pass 3: Header requirement indicators on detail pages."""
+
+    def test_detail_page_301_has_required_headers(self, client):
+        resp = client.get('/301')
+        assert b'Required Headers' in resp.data or b'Location' in resp.data
+
+    def test_detail_page_301_shows_location_header(self, client):
+        resp = client.get('/301')
+        html = resp.data.decode()
+        assert 'Required Headers' in html
+        assert 'Location' in html
+        assert 'header-req-required' in html
+
+    def test_detail_page_429_shows_retry_after(self, client):
+        resp = client.get('/429')
+        html = resp.data.decode()
+        assert 'Retry-After' in html
+        assert 'header-req-required' in html
+
+    def test_detail_page_304_shows_recommended(self, client):
+        resp = client.get('/304')
+        html = resp.data.decode()
+        assert 'ETag' in html
+        assert 'header-req-recommended' in html
+
+    def test_detail_page_200_no_required_headers(self, client):
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'Required Headers' not in html
+
+    def test_detail_page_401_shows_www_authenticate(self, client):
+        resp = client.get('/401')
+        html = resp.data.decode()
+        assert 'WWW-Authenticate' in html
+        assert 'header-req-required' in html
+
+    def test_detail_page_405_shows_allow(self, client):
+        resp = client.get('/405')
+        html = resp.data.decode()
+        assert 'Allow' in html
+        assert 'header-req-required' in html
+
+    def test_header_requirements_css_exists(self, client):
+        css = client.get('/static/style.css').data.decode()
+        assert '.header-requirements' in css
+        assert '.header-req-row' in css
+        assert '.header-req-name' in css
+        assert '.header-req-required' in css
+        assert '.header-req-recommended' in css
+
+    def test_header_requirements_mobile_css(self, client):
+        css = client.get('/static/style.css').data.decode()
+        # Mobile breakpoint should allow wrapping
+        assert '.header-req-row' in css
+        assert 'flex-wrap: wrap' in css
+
+
+class TestConfusionPair302vs303:
+    """Pass 4: 302 vs 303 confusion pair."""
+
+    def test_learn_pair_302_vs_303(self, client):
+        resp = client.get('/learn/302-vs-303')
+        assert resp.status_code == 200
+
+    def test_learn_pair_302_vs_303_has_title(self, client):
+        resp = client.get('/learn/302-vs-303')
+        html = resp.data.decode()
+        assert '302 Found vs 303 See Other' in html
+
+    def test_learn_pair_302_vs_303_has_tldr(self, client):
+        resp = client.get('/learn/302-vs-303')
+        html = resp.data.decode()
+        assert 'Post/Redirect/Get' in html
+
+    def test_learn_pair_502_vs_504(self, client):
+        resp = client.get('/learn/502-vs-504')
+        assert resp.status_code == 200
+
+    def test_302_vs_303_in_learn_index(self, client):
+        resp = client.get('/learn')
+        html = resp.data.decode()
+        assert '302-vs-303' in html
+
+
+class TestContextualHumor:
+    """Tests for contextual humor in edge cases (Round 8 Pass 1)."""
+
+    def test_command_palette_fun_messages(self, client):
+        """Command palette should show fun messages when no results found."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "404: Search Result Not Found. How ironic." in html
+        assert "funMessages" in html
+
+    def test_homepage_no_results_has_personality(self, client):
+        """Homepage no-results state should have personality messages."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'no-results' in html
+        assert 'no-results-message' in html
+        assert 'noResultsMessages' in html
+        assert "301 Moved Permanently" in html
+
+
+class TestStaggeredReveals:
+    """Tests for scroll-triggered staggered section reveals (Round 8 Pass 2)."""
+
+    def test_detail_page_staggered_reveal(self, client):
+        """Detail page should use staggered timing for section reveals."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'revealIndex' in html
+        assert 'revealIndex * 80' in html
+
+    def test_detail_page_has_suggested_next(self, client):
+        """Detail page should have suggested-next section."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'suggested-next' in html
+        assert 'suggested-link' in html
+        assert 'You might also like' in html
+
+    def test_suggested_next_js_logic(self, client):
+        """Suggested-next JS should pick from related code cards."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'related-code-card' in html
+        assert "suggested-link" in html
+
+    def test_suggested_next_css(self, client):
+        """CSS should include suggested-next styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.suggested-next' in css
+        assert '.suggested-label' in css
+        assert '.suggested-link' in css

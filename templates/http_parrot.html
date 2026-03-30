@@ -211,6 +211,23 @@
         </div>
         {% endif %}
 
+        {% if required_headers %}
+        <div class="detail-info">
+            <div class="detail-section">
+                <h2>Required Headers</h2>
+                <div class="header-requirements">
+                    {% for header, level, desc in required_headers %}
+                    <div class="header-req-row">
+                        <code class="header-req-name">{{ header }}</code>
+                        <span class="header-req-level header-req-{{ level }}">{{ level }}</span>
+                        <span class="header-req-desc">{{ desc }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if http_example %}
         <div class="detail-info">
             <div class="detail-section">
@@ -305,6 +322,11 @@
             </div>
         </nav>
 
+        <div class="suggested-next" id="suggested-next" style="display:none">
+            <span class="suggested-label">You might also like:</span>
+            <a class="suggested-link" id="suggested-link" href="#"></a>
+        </div>
+
         <button class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">&uarr;</button>
         {% if status_code == '418' %}<!-- try /coffee -->{% endif %}
     </main>
@@ -317,17 +339,42 @@
         var sections = document.querySelectorAll('.detail-section');
         if (!sections.length) return;
         if ('IntersectionObserver' in window) {
+            var revealIndex = 0;
             var obs = new IntersectionObserver(function(entries) {
                 entries.forEach(function(e) {
                     if (e.isIntersecting) {
-                        e.target.classList.add('revealed');
+                        var delay = revealIndex * 80;
+                        revealIndex++;
+                        setTimeout(function() {
+                            e.target.classList.add('revealed');
+                        }, delay);
                         obs.unobserve(e.target);
                     }
                 });
-            }, {threshold: 0.1});
+            }, {threshold: 0.1, rootMargin: '0px 0px -50px 0px'});
             sections.forEach(function(s) { obs.observe(s); });
         } else {
             sections.forEach(function(s) { s.classList.add('revealed'); });
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Suggested next code */
+    (function() {
+        var related = document.querySelectorAll('.related-code-card');
+        if (related.length === 0) return;
+        var random = related[Math.floor(Math.random() * related.length)];
+        var code = random.querySelector('.related-code-num');
+        var diff = random.querySelector('.related-code-diff');
+        if (code && diff) {
+            var link = document.getElementById('suggested-link');
+            var container = document.getElementById('suggested-next');
+            if (link && container) {
+                link.href = '/' + code.textContent.trim();
+                var diffText = diff.textContent.trim();
+                link.textContent = code.textContent.trim() + ' — ' + diffText.substring(0, 60) + (diffText.length > 60 ? '...' : '');
+                container.style.display = '';
+            }
         }
     })();
     </script>

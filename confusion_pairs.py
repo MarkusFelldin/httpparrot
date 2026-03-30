@@ -204,6 +204,28 @@ CONFUSION_PAIRS = [
         ],
     },
     {
+        "slug": "302-vs-303",
+        "codes": ["302", "303"],
+        "title": "302 Found vs 303 See Other",
+        "category": "Redirect pairs",
+        "tldr": "302 is ambiguous about method preservation; 303 explicitly converts POST to GET, making it the standard for Post/Redirect/Get pattern.",
+        "decision_tree": [
+            {"question": "Is this a Post/Redirect/Get pattern?", "yes": "303", "no": "Consider 302 or 307"},
+            {"question": "Must the redirect always use GET regardless of original method?", "yes": "303", "no": "302"},
+            {"question": "Do you need backwards compatibility with old browsers?", "yes": "302 (more widely supported historically)", "no": "303 is clearer"},
+        ],
+        "examples": [
+            {"scenario": "A user submits a form via POST, and the server wants to redirect them to a confirmation page.", "code": "303", "explanation": "303 See Other explicitly tells the browser to GET the redirect target, preventing accidental form resubmission."},
+            {"scenario": "A resource has temporarily moved and the client should use GET to fetch it.", "code": "302", "explanation": "302 Found is the general-purpose temporary redirect, though technically method preservation is ambiguous."},
+            {"scenario": "After processing a payment via POST, redirect the user to the order summary.", "code": "303", "explanation": "303 ensures the browser uses GET for the summary page, so refreshing won't resubmit the payment."},
+        ],
+        "quiz": [
+            {"scenario": "A form POST handler needs to redirect to a thank-you page that must load via GET.", "correct": "303", "wrong": "302"},
+            {"scenario": "A temporary redirect where the original HTTP method doesn't matter.", "correct": "302", "wrong": "303"},
+            {"scenario": "After processing an API webhook, redirect the caller to a status page via GET.", "correct": "303", "wrong": "302"},
+        ],
+    },
+    {
         "slug": "502-vs-504",
         "codes": ["502", "504"],
         "title": "502 Bad Gateway vs 504 Gateway Timeout",
