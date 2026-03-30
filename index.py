@@ -19,15 +19,15 @@ from flask_compress import Compress
 from markupsafe import Markup, escape
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from status_descriptions import STATUS_INFO
-from status_extra import STATUS_EXTRA
-from http_examples import HTTP_EXAMPLES
-from scenarios import SCENARIOS
-from debug_exercises import DEBUG_EXERCISES
 from confusion_pairs import (CONFUSION_PAIRS, CONFUSION_PAIRS_BY_SLUG,
                               CONFUSION_PAIRS_BY_CODE, CONFUSION_PAIR_CATEGORY_ORDER,
                               PAIRS_BY_CATEGORY)
+from debug_exercises import DEBUG_EXERCISES
+from http_examples import HTTP_EXAMPLES
 from learning_paths import LEARNING_PATHS, LEARNING_PATHS_BY_ID
+from scenarios import SCENARIOS
+from status_descriptions import STATUS_INFO
+from status_extra import STATUS_EXTRA
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
@@ -605,7 +605,8 @@ REQUIRED_HEADERS = {
     "301": [("Location", "required", "URL to redirect to")],
     "302": [("Location", "required", "Temporary redirect target")],
     "303": [("Location", "required", "GET redirect target")],
-    "304": [("ETag", "recommended", "Validator for cached content"), ("Cache-Control", "recommended", "Caching directives")],
+    "304": [("ETag", "recommended", "Validator for cached content"),
+            ("Cache-Control", "recommended", "Caching directives")],
     "307": [("Location", "required", "Temporary redirect target (method preserved)")],
     "308": [("Location", "required", "Permanent redirect target (method preserved)")],
     "401": [("WWW-Authenticate", "required", "Authentication scheme(s) accepted")],
@@ -763,7 +764,8 @@ def daily():
     # Pick the correct answer deterministically
     correct = rng.choice(candidates)
     example_list = STATUS_EXTRA.get(correct.code, {}).get('examples', [])
-    scenario = rng.choice(example_list) if example_list else f"A server responds with {correct.code} {correct.name}"
+    scenario = (rng.choice(example_list) if example_list
+                else f"A server responds with {correct.code} {correct.name}")
 
     # Pick 3 wrong answers from the same category (same first digit) if possible
     same_category = [c for c in candidates if c.code != correct.code
@@ -1173,7 +1175,8 @@ def check_cors():
         """Extract a CORS header value from the preflight or actual response."""
         return results.get(section, {}).get('headers', {}).get(name, '')
 
-    acao = _cors_header('actual', 'Access-Control-Allow-Origin') or _cors_header('preflight', 'Access-Control-Allow-Origin')
+    acao = (_cors_header('actual', 'Access-Control-Allow-Origin')
+            or _cors_header('preflight', 'Access-Control-Allow-Origin'))
     actual_creds = _cors_header('actual', 'Access-Control-Allow-Credentials')
     results['analysis'] = {
         'cors_enabled': bool(acao),
@@ -2128,7 +2131,8 @@ def rss_feed():
         '  <channel>\n'
         f'    <title>HTTP Parrots</title>\n'
         f'    <link>{xml_escape(base)}/</link>\n'
-        f'    <description>Every HTTP status code, explained by parrots. A fun visual reference for developers.</description>\n'
+        f'    <description>Every HTTP status code, explained by parrots. '
+        f'A fun visual reference for developers.</description>\n'
         f'    <language>en-us</language>\n'
         f'    <lastBuildDate>{pub_date}</lastBuildDate>\n'
         + '\n'.join(items_xml) + '\n'

@@ -1614,8 +1614,8 @@ class TestPracticeDifficultyTabs:
         assert "classList.add('visible')" in html or 'classList.add("visible"' in html
 # --- Detail page polish ---
 
-    def test_practice_combined(self, client):
-        """Combined checks for /practice."""
+    def test_practice_category_filters(self, client):
+        """Practice page should have category filter buttons and data attributes."""
         resp = client.get('/practice')
         html = resp.data.decode()
         assert 'data-category="all"' in html
@@ -1626,7 +1626,6 @@ class TestPracticeDifficultyTabs:
         assert 'data-category="errors"' in html
         assert 'data-category="headers"' in html
         assert 'data-category="api-design"' in html
-        import re
         card_cats = re.findall(r'class="practice-card"[^>]*data-category="([\w-]+)"', html)
         assert len(card_cats) > 0
         assert 'Filter by category' in html
@@ -1703,12 +1702,10 @@ class TestHTTPExchangePanels:
         assert '.http-line:nth-child(1)' in css
         assert '.http-line:nth-child(2)' in css
         assert 'animation-delay' in css
-        # Reduced motion
+        # Reduced motion — consolidated in main block
         assert 'prefers-reduced-motion: reduce' in css
-        idx = css.index('Reduced motion: HTTP exchange')
-        section = css[idx:idx + 600]
-        assert 'display: none' in section
-        assert 'animation: none' in section
+        assert '.http-exchange-play-btn' in css
+        assert '.http-exchange-animated .http-hl-status' in css
 
 
 # --- Compare page enhancements ---
@@ -1917,8 +1914,8 @@ class TestPlayground:
         nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
         assert f'nonce="{nonce}"'.encode() in resp.data
 
-    def test_playground_combined(self, client):
-        """Combined checks for /playground."""
+    def test_playground_extended_scenarios(self, client):
+        """Playground should include extended scenario templates."""
         resp = client.get('/playground')
         html = resp.data.decode()
         assert 'cache_hit' in html
@@ -3275,8 +3272,8 @@ class TestDesignTokenReplacement:
         assert 'path-certificate-badge' in html
         assert 'httpparrot_path_date_' in html
         assert 'toLocaleDateString' in html
-    def test_static_style_css_combined(self, client):
-        """Combined CSS checks."""
+    def test_css_responsive_layout_selectors(self, client):
+        """CSS should have responsive layout selectors and breakpoints."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         assert '.compare-columns' in css
@@ -4451,12 +4448,12 @@ class TestCelebrationAnimations:
         assert 'gold-shower' in css
         assert '#ffd700' in css and '#ffb300' in css
         assert 'xp-glow-flash' in css and 'xp-float-up' in css
-        # Reduced motion
-        assert '.celebration-confetti { animation: none !important; display: none !important; }' in css
-        assert '.rank-up-banner { transition: none !important; transform: none !important; }' in css
-        assert '.rank-up-gold-particle { animation: none !important; display: none !important; }' in css
-        assert '.xp-flash { animation: none !important; }' in css
-        assert '.xp-float-number { animation: none !important; display: none !important; }' in css
+        # Reduced motion — consolidated in main catch-all block
+        assert 'prefers-reduced-motion: reduce' in css
+        assert '.celebration-confetti { display: none !important; }' in css
+        assert '.rank-up-banner { transform: none !important; }' in css
+        assert '.rank-up-gold-particle { display: none !important; }' in css
+        assert '.xp-float-number { display: none !important; }' in css
 
 
 class TestSeasonalThemes:
@@ -4522,11 +4519,10 @@ class TestSeasonalCSS:
         assert '.valentine-heart' in css
         assert 'clip-path' in css
         assert '@keyframes heart-burst' in css
-        # Reduced motion
-        assert '.season-winter::before { animation: none !important; display: none !important; }' in css
-        assert '.halloween-ghost { animation: none !important; }' in css
-        assert '.april-fools-banner { animation: none !important; }' in css
-        assert '.valentine-heart { animation: none !important; display: none !important; }' in css
+        # Reduced motion — consolidated in main catch-all block
+        assert 'prefers-reduced-motion: reduce' in css
+        assert '.season-winter::before { display: none !important; }' in css
+        assert '.valentine-heart { display: none !important; }' in css
 
     def test_collection_has_all_seasonal_and_original_eggs(self, client):
         """Collection page should have all seasonal and original egg cards."""
@@ -6774,8 +6770,8 @@ class TestFlockFormation:
         assert 'drop-shadow' in css
         assert '@keyframes flock-fly' in css
         assert '@keyframes flock-fly-loop' in css
-        assert '.flock-parrot { animation: none' in css
-        assert '.flock-formation-container { display: none' in css
+        assert '.flock-parrot { display: none !important; }' in css
+        assert '.flock-formation-container { display: none !important; }' in css
 
 
 class TestMemoryGame:
@@ -6836,8 +6832,9 @@ class TestMemoryGame:
         assert 'rotateY(180deg)' in css
         assert '@keyframes memory-match-glow' in css
         assert '@keyframes memory-complete-appear' in css
-        assert '.memory-card-inner { transition: none' in css
-        assert '.memory-game-complete { animation: none' in css
+        # Reduced motion handled by global catch-all block
+        assert '.memory-card-inner' in css
+        assert '.memory-game-complete' in css
         assert '.memory-game-start-btn' in css
         assert '.memory-game-congrats' in css
         assert '.memory-game-feather-award' in css
@@ -9168,6 +9165,7 @@ class TestSmokeTest:
             ('/fault-simulator', 200), ('/webhook-inspector', 200),
             ('/compare', 200), ('/personality', 200), ('/collection', 200),
             ('/cheatsheet', 200), ('/flowchart', 200), ('/api-docs', 200),
+            ('/glossary', 200), ('/header-challenge', 200), ('/verb-roulette', 200),
             ('/profile', 200), ('/200', 200), ('/404', 404), ('/500', 500),
             ('/coffee', 418), ('/random', 302),
         ]

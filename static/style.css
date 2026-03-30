@@ -98,10 +98,22 @@ h2, .text-h2 { font-weight: 700; letter-spacing: -0.02em; }
 h3, .text-h3 { font-weight: 600; letter-spacing: -0.015em; }
 h4, .text-h4 { font-weight: 500; letter-spacing: -0.01em; }
 
-* {
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* iOS tap highlight removal */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Normalize form elements across browsers */
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 /* Minimal grid (replaces Bootstrap) */
@@ -924,10 +936,10 @@ textarea:focus-visible,
   background: var(--surface-1);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   transition: transform var(--duration-normal) var(--ease-in-out), box-shadow var(--duration-normal) var(--ease-in-out), border-color var(--duration-normal) var(--ease-in-out), background var(--duration-normal) var(--ease-in-out);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   box-shadow: var(--shadow-sm);
   height: 100%;
   will-change: transform;
@@ -1290,8 +1302,8 @@ textarea:focus-visible,
   margin-top: 1.5rem;
   padding: 1.5rem;
   background: var(--surface-1);
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1670,10 +1682,6 @@ html {
   scroll-behavior: smooth;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-}
-
 /* Uniform cursor for all interactive elements */
 button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn {
   cursor: pointer;
@@ -1971,22 +1979,6 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   transition: text-shadow var(--duration-slow) var(--ease-out);
 }
 
-/* --- Reduced motion: HTTP exchange animations --- */
-@media (prefers-reduced-motion: reduce) {
-  .http-exchange-play-btn { display: none !important; }
-  .http-exchange-animated .http-panel-request,
-  .http-exchange-animated .http-panel-response,
-  .http-exchange-animated .http-arrow,
-  .http-exchange-animated .http-line {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-  .http-exchange-animated .http-hl-status {
-    text-shadow: none !important;
-  }
-}
-
 /* Footer */
 .site-footer {
   margin-top: auto;
@@ -2103,7 +2095,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 /* === Page: Detail === */
-.detail-container { max-width: 720px; padding: 2rem 1.5rem 3rem; }
+.detail-container { max-width: 720px; padding: 2rem 1.5rem 4rem; }
 .detail-parrot { margin: 0 auto; }
 .detail-cat-1xx { border-color: rgba(0, 180, 216, 0.2); box-shadow: 0 4px 24px rgba(0, 180, 216, 0.06); }
 .detail-cat-2xx { border-color: rgba(0, 201, 167, 0.2); box-shadow: 0 4px 24px rgba(0, 201, 167, 0.06); }
@@ -2447,7 +2439,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 
 .quiz-hard-input .predict-input { max-width: 140px; }
 
-.quiz-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; text-align: center; }
+.quiz-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 4rem; text-align: center; }
 .quiz-image { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-md); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; }
 .quiz-image img { max-width: 100%; height: 20em; object-fit: contain; border-radius: var(--radius-sm); margin: 1rem; display: block; }
 .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
@@ -2995,7 +2987,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 .tester-container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 1rem 1.5rem 4rem;
+  padding: 2rem 1.5rem 4rem;
 }
 
 /* Hero — side-by-side layout */
@@ -3404,7 +3396,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 /* === Page: Cheat Sheet === */
-.cheat-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.cheat-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .cheat-header { text-align: center; margin-bottom: 2rem; }
 .cheat-header h1 { font-size: var(--text-xl); font-weight: 800; background: var(--gradient-brand); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .cheat-header p { color: rgba(255,255,255,0.6); font-size: var(--text-sm); margin-top: 0.25rem; }
@@ -3739,7 +3731,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 /* === Page: API Docs === */
-.docs-container { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.docs-container { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .docs-section { margin-bottom: 2rem; }
 .docs-section h2 { font-size: var(--text-lg); font-weight: 700; color: #fff; margin-bottom: 0.75rem; }
 .docs-section p { font-size: var(--text-base); color: rgba(255,255,255,0.6); line-height: 1.6; margin-bottom: 0.75rem; }
@@ -3856,7 +3848,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 .compare-container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 4rem;
+  padding: 2rem 1.5rem 4rem;
 }
 
 .compare-intro {
@@ -4539,7 +4531,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 .breadcrumb-sep { color: rgba(255,255,255,0.2); }
 
 /* === Page: Header Explainer === */
-.headers-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.headers-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .headers-hero { text-align: center; margin-bottom: 1.5rem; }
 .headers-hero h1 {
   font-size: var(--text-2xl); font-weight: 800;
@@ -4730,7 +4722,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 
 /* === Page: Collection (Parrotdex) === */
-.collection-container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.collection-container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 .collection-header { text-align: center; margin-bottom: 2rem; }
 .collection-header h1 {
   font-size: var(--text-2xl); font-weight: 800;
@@ -4791,7 +4783,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 .quiz-results-card {
   background: var(--surface-1-solid); border: 1px solid var(--border-default);
-  border-radius: 20px; padding: 2.5rem; text-align: center; max-width: 360px; width: 90%;
+  border-radius: var(--radius-md); padding: 2.5rem; text-align: center; max-width: 360px; width: 90%;
 }
 .quiz-results-title {
   font-size: var(--text-xl); font-weight: 800; margin-bottom: 1rem;
@@ -6049,6 +6041,42 @@ body {
   ::view-transition-new(root) {
     animation: none !important;
   }
+
+  /* HTTP exchange animations: show content immediately */
+  .http-exchange-play-btn { display: none !important; }
+  .http-exchange-animated .http-panel-request,
+  .http-exchange-animated .http-panel-response,
+  .http-exchange-animated .http-arrow,
+  .http-exchange-animated .http-line { opacity: 1 !important; transform: none !important; }
+  .http-exchange-animated .http-hl-status { text-shadow: none !important; }
+
+  /* Handshake: show immediately */
+  .handshake-msg { transform: none !important; }
+  .handshake-connected { transform: none !important; }
+
+  /* Celebration particles: hide decorative elements */
+  .celebration-confetti { display: none !important; }
+  .rank-up-banner { transform: none !important; }
+  .rank-up-gold-particle { display: none !important; }
+  .xp-float-number { display: none !important; }
+  .flock-parrot { display: none !important; }
+  .flock-formation-container { display: none !important; }
+
+  /* Seasonal decorative elements: hide */
+  .season-winter::before { display: none !important; }
+  .valentine-heart { display: none !important; }
+
+  /* Parrot click interactions: static hint styles */
+  .parrot-click-hint .img img { box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.4) !important; border-radius: var(--radius-sm); }
+  .parrot-click-hint::after { opacity: 1 !important; }
+  .parrot-anim-4xx .img { box-shadow: inset 0 0 30px rgba(233, 69, 96, 0.3) !important; }
+  .parrot-anim-5xx .img { box-shadow: inset 0 0 30px rgba(123, 97, 255, 0.2) !important; }
+
+  /* Sparkle and decorative hover effects: hide */
+  .hover-sparkle { display: none !important; }
+
+  /* Glossary hover: remove movement */
+  .glossary-term:hover { transform: none !important; }
 }
 
 /* Skeleton loading animation */
@@ -6789,7 +6817,6 @@ body {
 .golden-confetti { box-shadow: 0 0 4px rgba(255, 215, 0, 0.6); }
 @keyframes meta-screen-shake { 0% { transform: translate(0, 0); } 15% { transform: translate(-3px, 2px); } 30% { transform: translate(3px, -2px); } 45% { transform: translate(-2px, -1px); } 60% { transform: translate(2px, 1px); } 75% { transform: translate(-1px, 2px); } 100% { transform: translate(0, 0); } }
 .meta-screen-shake { animation: meta-screen-shake 0.5s ease-in-out; }
-@media (prefers-reduced-motion: reduce) { .meta-screen-shake { animation: none; } }
 
 /* === Feathers Grid (Profile) === */
 .profile-feathers-section { margin-bottom: 2rem; }
@@ -6936,11 +6963,6 @@ body {
   .handshake-msg { font-size: var(--text-sm); padding: 0.4rem 0.9rem; }
   .handshake-connected { font-size: 1.1rem; }
   .handshake-scene { gap: 0.75rem; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .handshake-bird { animation: none !important; }
-  .handshake-msg { transition: opacity var(--duration-fast) var(--ease-out) !important; transform: none !important; }
-  .handshake-connected { transition: opacity var(--duration-fast) var(--ease-out) !important; transform: none !important; }
 }
 
 /* --- Related code learn links --- */
@@ -7478,20 +7500,6 @@ body {
 .memory-game-time { font-size: var(--text-md); font-weight: 600; color: var(--color-teal); margin-bottom: 0.25rem; }
 .memory-game-best-time { font-size: var(--text-sm); color: rgba(255, 255, 255, 0.6); margin-bottom: 0.5rem; }
 
-/* === Celebration Reduced Motion === */
-@media (prefers-reduced-motion: reduce) {
-  .celebration-confetti { animation: none !important; display: none !important; }
-  .rank-up-banner { transition: none !important; transform: none !important; }
-  .rank-up-gold-particle { animation: none !important; display: none !important; }
-  .xp-flash { animation: none !important; }
-  .xp-float-number { animation: none !important; display: none !important; }
-  .flock-parrot { animation: none !important; display: none !important; }
-  .flock-formation-container { display: none !important; }
-  .memory-card-inner { transition: none !important; }
-  .memory-card-matched .memory-card-back { animation: none !important; }
-  .memory-game-complete { animation: none !important; }
-}
-
 /* === Holiday Plumage — Seasonal Themes === */
 
 /* --- Winter (Dec 15 - Jan 5) --- */
@@ -7689,7 +7697,7 @@ body {
 
 .bento-tile {
   background: var(--surface-1);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: 1.25rem;
   display: flex;
@@ -8369,13 +8377,6 @@ body {
   }
 }
 
-/* Weekly reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .weekly-results-badge { animation: none !important; }
-  .weekly-progress-fill { transition: none !important; }
-  .weekly-step { transition: none !important; }
-}
-
 /* Weekly light mode */
 @media (prefers-color-scheme: light) {
   .weekly-theme-banner { background: linear-gradient(135deg, rgba(123, 97, 255, 0.08), rgba(0, 180, 216, 0.08)); }
@@ -8411,14 +8412,6 @@ body {
   .history-row:hover { background: rgba(0, 0, 0, 0.04); }
   .insomnia-parrot { background: rgba(255, 255, 255, 0.95); }
   .empty-state-title { color: #1a1a2e; }
-}
-
-/* --- Seasonal Reduced Motion --- */
-@media (prefers-reduced-motion: reduce) {
-  .season-winter::before { animation: none !important; display: none !important; }
-  .halloween-ghost { animation: none !important; }
-  .april-fools-banner { animation: none !important; }
-  .valentine-heart { animation: none !important; display: none !important; }
 }
 
 /* === Interactive Parrot Click Animations === */
@@ -8728,20 +8721,6 @@ body {
   .kbd-shortcuts-body {
     padding: 0.75rem 1rem 1.25rem;
   }
-}
-
-/* Reduced motion for parrot click interactions */
-@media (prefers-reduced-motion: reduce) {
-  .parrot-click-hint .img img { animation: none !important; box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.4) !important; border-radius: var(--radius-sm); }
-  .parrot-click-hint::after { animation: none !important; opacity: 1 !important; }
-  .parrot-anim-1xx .img img,
-  .parrot-anim-2xx .img img,
-  .parrot-anim-3xx .img img,
-  .parrot-anim-4xx .img img,
-  .parrot-anim-5xx .img img { animation: none !important; }
-  .parrot-anim-4xx .img { box-shadow: inset 0 0 30px rgba(233, 69, 96, 0.3) !important; }
-  .parrot-anim-5xx .img { box-shadow: inset 0 0 30px rgba(123, 97, 255, 0.2) !important; }
-  .parrot-speech-bubble { transition: none !important; }
 }
 
 /* === Touch Feedback: Detail Page Parrot === */
@@ -9831,10 +9810,6 @@ main {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  main { animation: none; }
-}
-
 /* 200th visit celebration */
 .visit-200-banner {
   position: fixed;
@@ -9958,7 +9933,7 @@ main {
 .incident-card {
   background: var(--surface-1);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 1.5rem;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
@@ -10494,17 +10469,6 @@ details > :not(summary) {
 }
 
 /* ========================================================================
-   Round 8 Pass 11 -- Reduced Motion
-   ======================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  .comeback-banner,
-  .rfc-toast,
-  .suggested-next {
-    transition: none !important;
-  }
-}
-
-/* ========================================================================
    Round 8 Pass 11 -- Mobile Polish
    ======================================================================== */
 @media (max-width: 480px) {
@@ -10583,7 +10547,7 @@ select {
   padding: 2rem;
   background: var(--surface-1);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
@@ -10640,7 +10604,7 @@ select {
 .hchallenge-card {
   background: var(--surface-1);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 2rem;
   margin-bottom: 1.5rem;
   text-align: center;
@@ -10831,18 +10795,6 @@ select {
 }
 
 /* ========================================================================
-   Round 10 Pass 11 -- Reduced Motion for R10 Elements
-   ======================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  .hover-sparkle { animation: none !important; display: none !important; }
-  .lightning-badge { animation: none !important; }
-  .parrot-click-hint-hidden .img img { animation: none !important; }
-  .path-step { transition: none !important; }
-  .path-card { transition: none !important; }
-  .collect-progress-fill { transition: none !important; }
-}
-
-/* ========================================================================
    Round 10 Passes 9-10 -- Print Styles for R10 Elements
    ======================================================================== */
 @media print {
@@ -11009,15 +10961,6 @@ select {
   .glossary-search-wrap {
     display: none !important;
   }
-}
-
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .onboarding-banner { transition: none !important; }
-  .glossary-term { transition: none !important; }
-  .glossary-term:hover { transform: none !important; }
-  .theme-toggle-btn { transition: none !important; }
-  .onboarding-dismiss { transition: none !important; }
 }
 
 /* Mobile -- 480px */
