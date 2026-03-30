@@ -5559,7 +5559,7 @@ class TestDebugExerciseCategories:
 
     def test_all_exercises_have_category(self):
         from debug_exercises import DEBUG_EXERCISES
-        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design', 'security'}
         for ex in DEBUG_EXERCISES:
             assert 'category' in ex, f"Exercise {ex['id']} missing category"
             assert ex['category'] in valid_cats, \
@@ -7141,9 +7141,9 @@ class TestLearningPathsData:
                     assert step['target'] in debug_ids, \
                         f"Unknown debug id {step['target']} in path {path['id']}"
 
-    def test_four_paths_exist(self):
+    def test_five_paths_exist(self):
         from learning_paths import LEARNING_PATHS
-        assert len(LEARNING_PATHS) == 4
+        assert len(LEARNING_PATHS) == 5
 
     def test_lookup_by_id(self):
         from learning_paths import LEARNING_PATHS_BY_ID
@@ -14313,3 +14313,27 @@ class TestRound7Pass5Engagement:
         resp = client.get('/500')
         html = resp.data.decode()
         assert '294, 349, 440' in html  # D minor for 5xx
+
+
+class TestRound7Pass8Content:
+    """Tests for Round 7 Pass 8 content additions."""
+
+    def test_debug_exercise_429_no_retry(self, client):
+        resp = client.get('/debug')
+        assert b'429 Missing Retry-After' in resp.data or b'429-no-retry-after' in resp.data
+
+    def test_paths_has_security_sentinel(self, client):
+        resp = client.get('/paths')
+        assert b'Security Sentinel' in resp.data
+
+    def test_path_security_sentinel(self, client):
+        resp = client.get('/paths/security-sentinel')
+        assert resp.status_code == 200
+
+
+class TestRound7Pass9AnimationPolish:
+    """Tests for Round 7 Pass 9 animation polish."""
+
+    def test_css_has_details_animation(self, client):
+        resp = client.get('/static/style.css')
+        assert b'details-open' in resp.data

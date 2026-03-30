@@ -946,11 +946,11 @@ textarea:focus-visible,
 .parrot-4xx { --cat-glow-color: var(--color-coral); }
 .parrot-5xx { --cat-glow-color: var(--color-lavender); }
 
-.parrot-1xx:hover { border-color: rgba(0, 180, 216, 0.3); box-shadow: 0 8px 30px rgba(0, 180, 216, 0.1), inset 0 1px 0 rgba(0, 180, 216, 0.08); }
-.parrot-2xx:hover { border-color: rgba(0, 201, 167, 0.3); box-shadow: 0 8px 30px rgba(0, 201, 167, 0.1), inset 0 1px 0 rgba(0, 201, 167, 0.08); }
-.parrot-3xx:hover { border-color: rgba(249, 199, 79, 0.3); box-shadow: 0 8px 30px rgba(249, 199, 79, 0.1), inset 0 1px 0 rgba(249, 199, 79, 0.08); }
-.parrot-4xx:hover { border-color: rgba(233, 69, 96, 0.3); box-shadow: 0 8px 30px rgba(233, 69, 96, 0.1), inset 0 1px 0 rgba(233, 69, 96, 0.08); }
-.parrot-5xx:hover { border-color: rgba(123, 97, 255, 0.3); box-shadow: 0 8px 30px rgba(123, 97, 255, 0.1), inset 0 1px 0 rgba(123, 97, 255, 0.08); }
+.parrot-1xx:hover { border-color: rgba(0, 180, 216, 0.3); box-shadow: 0 8px 30px rgba(72, 202, 228, 0.15), inset 0 1px 0 rgba(0, 180, 216, 0.08); }
+.parrot-2xx:hover { border-color: rgba(0, 201, 167, 0.3); box-shadow: 0 8px 30px rgba(0, 201, 167, 0.15), inset 0 1px 0 rgba(0, 201, 167, 0.08); }
+.parrot-3xx:hover { border-color: rgba(249, 199, 79, 0.3); box-shadow: 0 8px 30px rgba(249, 199, 79, 0.15), inset 0 1px 0 rgba(249, 199, 79, 0.08); }
+.parrot-4xx:hover { border-color: rgba(233, 69, 96, 0.3); box-shadow: 0 8px 30px rgba(255, 107, 107, 0.15), inset 0 1px 0 rgba(233, 69, 96, 0.08); }
+.parrot-5xx:hover { border-color: rgba(123, 97, 255, 0.3); box-shadow: 0 8px 30px rgba(167, 139, 250, 0.15), inset 0 1px 0 rgba(123, 97, 255, 0.08); }
 
 /* Gradient border hover effect using ::after pseudo-element */
 .parrot::after {
@@ -2359,7 +2359,11 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-in-out);
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
   text-align: left;
 }
 .quiz-btn:hover:not(:disabled) {
@@ -4399,9 +4403,12 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 }
 .breadcrumb a {
   color: rgba(255,255,255,0.65); text-decoration: none;
-  transition: color var(--duration-fast);
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--radius-xs);
+  margin: -0.15rem -0.35rem;
 }
-.breadcrumb a:hover { color: rgba(255,255,255,0.8); }
+.breadcrumb a:hover { color: var(--color-teal); background: rgba(0, 201, 167, 0.08); }
 .breadcrumb-sep { color: rgba(255,255,255,0.2); }
 
 /* === Page: Header Explainer === */
@@ -6597,7 +6604,15 @@ body {
 .profile-stat-label { font-size: var(--text-sm); color: rgba(255, 255, 255, 0.5); margin-top: 0.25rem; font-weight: 500; }
 .profile-heatmap-container { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 1.5rem; }
 .profile-heatmap { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; }
-.heatmap-cell { aspect-ratio: 1; border-radius: 3px; min-width: 0; }
+.heatmap-cell {
+  aspect-ratio: 1; border-radius: 3px; min-width: 0;
+  transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+.heatmap-cell:hover {
+  transform: scale(1.8);
+  z-index: 5;
+  box-shadow: var(--shadow-md);
+}
 .heatmap-level-0 { background: rgba(255, 255, 255, 0.06); }
 .heatmap-level-1 { background: rgba(0, 201, 167, 0.3); }
 .heatmap-level-2 { background: rgba(0, 201, 167, 0.55); }
@@ -9957,3 +9972,73 @@ main {
   text-align: center;
 }
 .countdown-label { color: var(--text-muted); }
+
+/* ============================================================
+   Round 7 Pass 9 -- Animation Polish
+   ============================================================ */
+
+/* --- Smooth details/summary transitions --- */
+details {
+  overflow: hidden;
+}
+
+details > summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { display: none; }
+
+details > summary::after {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 0.5rem;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  transition: transform var(--duration-fast) var(--ease-out);
+  vertical-align: middle;
+}
+
+details[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+/* Animated content reveal */
+details > :not(summary) {
+  animation: details-open var(--duration-normal) var(--ease-out);
+}
+
+@keyframes details-open {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Quiz answer-state keyframes --- */
+@keyframes answer-correct {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes answer-wrong {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+/* --- Cheat sheet view toggle transition --- */
+.cheatsheet-grid {
+  transition: gap var(--duration-normal) var(--ease-out);
+}
+
+.cheatsheet-item {
+  transition: transform var(--duration-normal) var(--ease-out),
+              opacity var(--duration-normal) var(--ease-out);
+}
