@@ -10850,3 +10850,49 @@ select {
     display: none !important;
   }
 }
+
+/* ========================================================================
+   Round 11 Pass 1 -- Glossary Page
+   ======================================================================== */
+.glossary-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.glossary-search-wrap { margin-bottom: 1.5rem; }
+.glossary-search-wrap .search-input { width: 100%; max-width: 400px; }
+.glossary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.glossary-term {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  transition: border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.glossary-term:hover { border-color: var(--color-teal); transform: translateY(-2px); }
+.glossary-term h3 { font-size: var(--text-lg); margin-bottom: 0.5rem; color: var(--color-teal); }
+.glossary-term p { font-size: var(--text-sm); color: var(--text-body); line-height: 1.6; }
+
+@media (max-width: 480px) { .glossary-grid { grid-template-columns: 1fr; } }
+
+/* ========================================================================
+   Round 11 Pass 2 -- Theme Toggle Button
+   ======================================================================== */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+@media (max-width: 576px) { .theme-toggle-btn { width: 28px; height: 28px; font-size: 0.85rem; } }
+
+/* Manual light theme via data-theme attribute */
+[data-theme="light"] { color-scheme: light; }

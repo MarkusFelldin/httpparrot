@@ -918,6 +918,12 @@ def bingo():
                            week_number=week_number, year=year)
 
 
+@app.route('/glossary')
+def glossary():
+    """Render the HTTP glossary page with searchable terms."""
+    return render_template('glossary.html')
+
+
 @app.route('/horoscope')
 def horoscope():
     """Render the daily HTTP horoscope page."""
@@ -2146,7 +2152,7 @@ def sitemap():
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
                  '/bingo', '/horoscope', '/map', '/incidents', '/verb-roulette',
-                 '/header-challenge']:
+                 '/header-challenge', '/glossary']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

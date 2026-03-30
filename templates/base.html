@@ -123,12 +123,13 @@
                         </div>
                     </div>
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile','/horoscope'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile','/horoscope','/glossary'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/compare" role="menuitem" {% if request.path == '/compare' %}aria-current="page"{% endif %}>Compare</a>
                             <a href="/personality" role="menuitem" {% if request.path == '/personality' %}aria-current="page"{% endif %}>Personality Quiz</a>
                             <a href="/collection" role="menuitem" {% if request.path == '/collection' %}aria-current="page"{% endif %}>Parrotdex</a>
                             <a href="/cheatsheet" role="menuitem" {% if request.path == '/cheatsheet' %}aria-current="page"{% endif %}>Cheat Sheet</a>
+                            <a href="/glossary" role="menuitem" {% if request.path == '/glossary' %}aria-current="page"{% endif %}>Glossary</a>
                             <a href="/api-docs" role="menuitem" {% if request.path == '/api-docs' %}aria-current="page"{% endif %}>API Docs</a>
                             <a href="/profile" role="menuitem" {% if request.path == '/profile' %}aria-current="page"{% endif %}>Profile</a>
                             <a href="/horoscope" role="menuitem" {% if request.path == '/horoscope' %}aria-current="page"{% endif %}>Horoscope</a>
@@ -145,6 +146,9 @@
                 </a>
                 <button class="sound-toggle-btn" id="sound-toggle" type="button" title="Toggle sound effects" aria-label="Toggle sound effects" aria-pressed="false">
                     <span id="sound-toggle-icon" aria-hidden="true">&#x1F507;</span>
+                </button>
+                <button class="theme-toggle-btn" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle dark/light theme" aria-pressed="false">
+                    <span id="theme-toggle-icon" aria-hidden="true">&#x2600;&#xFE0F;</span>
                 </button>
                 <a href="/random" class="btn-random" title="Random parrot" aria-label="Random parrot">&#x1F3B2;</a>
                 <div role="search" class="global-search-wrap">
@@ -188,6 +192,7 @@
             <a href="/personality" {% if request.path == '/personality' %}class="nav-active" aria-current="page"{% endif %}>Personality Quiz</a>
             <a href="/collection" {% if request.path == '/collection' %}class="nav-active" aria-current="page"{% endif %}>Parrotdex</a>
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
+            <a href="/glossary" {% if request.path == '/glossary' %}class="nav-active" aria-current="page"{% endif %}>Glossary</a>
             <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API Docs</a>
             <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
             <a href="/horoscope" {% if request.path == '/horoscope' %}class="nav-active" aria-current="page"{% endif %}>Horoscope</a>
@@ -1452,6 +1457,38 @@
             toggle: toggle,
             isEnabled: isEnabled
         };
+    })();
+    </script>
+    <!-- ===== Theme Toggle ===== -->
+    <script nonce="{{ csp_nonce }}">
+    /* Theme toggle */
+    (function() {
+        var THEME_KEY = 'httpparrot_theme';
+        var btn = document.getElementById('theme-toggle');
+        var icon = document.getElementById('theme-toggle-icon');
+        if (!btn) return;
+
+        var saved = localStorage.getItem(THEME_KEY);
+        if (saved === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            btn.setAttribute('aria-pressed', 'true');
+            if (icon) icon.innerHTML = '&#x1F319;';
+        }
+
+        btn.addEventListener('click', function() {
+            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            if (isLight) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.removeItem(THEME_KEY);
+                btn.setAttribute('aria-pressed', 'false');
+                if (icon) icon.innerHTML = '&#x2600;&#xFE0F;';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem(THEME_KEY, 'light');
+                btn.setAttribute('aria-pressed', 'true');
+                if (icon) icon.innerHTML = '&#x1F319;';
+            }
+        });
     })();
     </script>
     <!-- ===== Holiday Plumage (DOM effects) ===== -->

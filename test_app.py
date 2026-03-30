@@ -71,6 +71,17 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Horoscope' in resp.data or b'Oracle' in resp.data
 
+    def test_glossary_page(self, client):
+        """Glossary page should render with glossary terms."""
+        resp = client.get('/glossary')
+        assert resp.status_code == 200
+        assert b'Glossary' in resp.data
+
+    def test_theme_toggle_in_header(self, client):
+        """Theme toggle button should be present in the header."""
+        resp = client.get('/')
+        assert b'theme-toggle' in resp.data
+
     def test_compare_page_elements(self, client):
         """Compare page should have selects, result area, and presets."""
         html = client.get('/compare').data.decode()
