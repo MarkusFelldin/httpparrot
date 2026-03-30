@@ -25,7 +25,7 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **Embed codes** - Copy HTML, Markdown, or direct image URL for any parrot
 
 **Structured learning**
-- **Confusion Pair Lessons** (`/learn`) - 20 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 200 vs 201, 301 vs 308, 404 vs 410, 429 vs 503), grouped by 7 categories
+- **Confusion Pair Lessons** (`/learn`) - 19 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 200 vs 201, 301 vs 308, 404 vs 410, 429 vs 503), grouped by 7 categories
 - **Guided Learning Paths** (`/paths`) - 5 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master, API Designer, Security Sentinel) with step-by-step checklists mixing visits, practice, quizzes, and lessons; completion certificates on finishing a path
 - **Status Code Map** (`/map`) - Interactive relationship visualization showing how codes connect, with click-to-explore connections and category filters
 - **Guess the Response** (`/predict`) - Reverse quiz where you type in the status code based on a scenario description
@@ -207,15 +207,15 @@ pip install -r requirements-dev.txt
 python -m pytest test_app.py test_cli.py -v
 ```
 
-There are 1766 automated tests covering routes, API endpoints, security, gamification, and CLI.
+There are 1623 automated tests covering routes, API endpoints, security, gamification, and CLI.
 
 ## Tech stack
 
 - Python 3.11 / Flask 3.1
-- Jinja2 templates with template inheritance (31 templates)
+- Jinja2 templates with template inheritance (38 templates)
 - Custom CSS with design tokens, glassmorphism, scroll-driven animations, view transitions, seasonal themes, light/dark modes (no framework dependencies)
 - Vanilla JavaScript with localStorage-based gamification (no external dependencies)
-- 1766 automated tests with 97%+ code coverage
+- 1623 automated tests with 97%+ code coverage
 - gzip compression via flask-compress
 
 ## Security
