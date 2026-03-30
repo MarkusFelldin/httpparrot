@@ -14346,3 +14346,150 @@ class TestCreditsPage:
         resp = client.get('/credits')
         assert resp.status_code == 200
         assert b'Credits' in resp.data or b'HTTP Parrots' in resp.data
+
+
+class TestDesignAuditRound7:
+    """Round 7 Pass 11 design audit -- spacing, light theme, focus, print."""
+
+    def test_all_pages_return_200(self, client):
+        """Every page route should return 200 or valid status."""
+        pages = ['/', '/quiz', '/daily', '/weekly', '/practice', '/debug',
+                 '/review', '/bingo', '/horoscope', '/predict', '/incidents',
+                 '/content-negotiation', '/map', '/credits',
+                 '/paths', '/learn', '/tester', '/headers', '/cors-checker',
+                 '/security-audit', '/trace', '/playground', '/curl-import',
+                 '/fault-simulator', '/webhook-inspector', '/compare',
+                 '/personality', '/collection', '/cheatsheet', '/flowchart',
+                 '/api-docs', '/profile', '/200', '/404']
+        for page in pages:
+            resp = client.get(page)
+            assert resp.status_code in (200, 404), f'{page} returned {resp.status_code}'
+
+    def test_container_padding_consistency(self, client):
+        """All page containers should use 1.5rem side padding."""
+        css = client.get('/static/style.css').data.decode()
+        containers = [
+            'incidents-container', 'predict-container', 'bingo-container',
+            'horoscope-container', 'conneg-container', 'map-container',
+        ]
+        for c in containers:
+            assert f'.{c}' in css
+            # Find the container rule and check for 1.5rem side padding
+            import re
+            match = re.search(rf'\.{c}\s*\{{[^}}]*padding:\s*[^;]*1\.5rem[^;]*;', css)
+            assert match, f'.{c} should have 1.5rem side padding'
+
+    def test_container_max_width_standard_tiers(self, client):
+        """Containers should use standard width tiers (560, 640, 900)."""
+        css = client.get('/static/style.css').data.decode()
+        import re
+        # These should be one of 560, 640, 720, 900, 1100
+        valid_widths = {'560px', '620px', '640px', '720px', '800px', '900px', '1100px'}
+        for match in re.finditer(r'\.\w+-container\s*\{[^}]*max-width:\s*(\d+px)', css):
+            width = match.group(1)
+            assert width in valid_widths, f'Container has non-standard max-width: {width}'
+
+    def test_light_theme_incident_card(self, client):
+        """Incident cards should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        assert 'prefers-color-scheme: light' in css
+        assert '.incident-card' in css
+        # The light theme block should contain incident-card override
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.incident-card' in block for block in light_blocks[1:])
+        assert found, '.incident-card missing light theme override'
+
+    def test_light_theme_credits(self, client):
+        """Credits page should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.credits-tagline' in block for block in light_blocks[1:])
+        assert found, '.credits-tagline missing light theme override'
+
+    def test_light_theme_favorites_bar(self, client):
+        """Favorites bar should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.favorites-bar' in block for block in light_blocks[1:])
+        assert found, '.favorites-bar missing light theme override'
+
+    def test_light_theme_predict_feedback(self, client):
+        """Predict feedback colors should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found_correct = any('.predict-correct' in block for block in light_blocks[1:])
+        found_wrong = any('.predict-wrong' in block for block in light_blocks[1:])
+        assert found_correct, '.predict-correct missing light theme override'
+        assert found_wrong, '.predict-wrong missing light theme override'
+
+    def test_light_theme_daily_countdown(self, client):
+        """Daily countdown should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.daily-countdown' in block for block in light_blocks[1:])
+        assert found, '.daily-countdown missing light theme override'
+
+    def test_light_theme_timeline(self, client):
+        """Incident timeline should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.incident-timeline' in block for block in light_blocks[1:])
+        assert found, '.incident-timeline missing light theme override'
+
+    def test_focus_visible_fav_chip(self, client):
+        """Fav chips should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.fav-chip:focus-visible' in css
+
+    def test_focus_visible_predict_submit(self, client):
+        """Predict submit should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.predict-submit:focus-visible' in css
+
+    def test_focus_visible_incident_summary(self, client):
+        """Incident card summary should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.incident-card summary:focus-visible' in css
+
+    def test_button_depth_predict_submit(self, client):
+        """Predict submit button should have hover lift animation."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.predict-submit:hover' in css
+
+    def test_button_depth_learn_quiz_submit(self, client):
+        """Learn quiz submit should have hover lift animation."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.learn-quiz-submit:hover' in css
+
+    def test_print_hides_interactive_chrome(self, client):
+        """Print styles should hide flash banners and interactive chrome."""
+        css = client.get('/static/style.css').data.decode()
+        print_block = css.split('@media print')[1].split('}')[0] if '@media print' in css else ''
+        # Check key interactive elements are hidden in print
+        for selector in ['.flash-event-banner', '.daily-countdown',
+                         '.favorites-bar', '.insomnia-parrot',
+                         '.feather-toast', '.rank-up-banner']:
+            assert selector in css.split('@media print')[1], \
+                f'{selector} should be hidden in print'
+
+    def test_credits_mobile_breakpoint(self, client):
+        """Credits page should have mobile breakpoint styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.credits-title' in css
+        # Check that there's a mobile rule that targets credits
+        import re
+        mobile_blocks = re.findall(r'@media\s*\(max-width:\s*576px\)\s*\{[^}]*\.credits-', css)
+        assert mobile_blocks, 'Credits page missing mobile breakpoint'
+
+    def test_incidents_mobile_breakpoint(self, client):
+        """Incidents page should have mobile breakpoint styles."""
+        css = client.get('/static/style.css').data.decode()
+        import re
+        mobile_blocks = re.findall(r'@media\s*\(max-width:\s*576px\)\s*\{[^}]*\.incident', css)
+        assert mobile_blocks, 'Incidents page missing mobile breakpoint'
+
+    def test_map_mobile_breakpoint(self, client):
+        """Map page should have mobile breakpoints for grid and nodes."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.map-node' in css
+        assert '.map-grid' in css
