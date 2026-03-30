@@ -143,6 +143,11 @@ class TestPages:
         assert 'href="/practice"' in html
         assert 'Practice' in html
 
+    def test_bingo_page(self, client):
+        resp = client.get('/bingo')
+        assert resp.status_code == 200
+        assert b'Bingo' in resp.data
+
 
 # --- Content negotiation ---
 

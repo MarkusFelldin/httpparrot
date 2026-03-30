@@ -836,6 +836,23 @@ def weekly():
                            week_start=today.isoformat())
 
 
+@app.route('/bingo')
+def bingo():
+    """Render the weekly HTTP Status Code Bingo card."""
+    today = date.today()
+    week_number = today.isocalendar()[1]
+    year = today.isocalendar()[0]
+    codes = pruned_status_codes()
+    rng = random.Random(week_number * 10000 + year)
+    pool = list(codes)
+    rng.shuffle(pool)
+    bingo_codes = [{"code": c.code, "name": c.name, "image": c.image} for c in pool[:25]]
+    # Mark center as free space
+    bingo_codes[12] = {"code": "FREE", "name": "Free Space", "image": None}
+    return render_template('bingo.html', bingo_codes=bingo_codes,
+                           week_number=week_number, year=year)
+
+
 @app.route('/practice')
 def practice():
     """Render the scenario-based practice page for HTTP status code training."""
@@ -2011,7 +2028,8 @@ def sitemap():
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
                  '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
-                 '/profile', '/review', '/fault-simulator', '/webhook-inspector']:
+                 '/profile', '/review', '/fault-simulator', '/webhook-inspector',
+                 '/bingo']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

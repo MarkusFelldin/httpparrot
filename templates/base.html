@@ -87,7 +87,7 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
                             <a href="/daily" role="menuitem" {% if request.path == '/daily' %}aria-current="page"{% endif %}>Daily Challenge</a>
@@ -98,6 +98,7 @@
                             <a href="/learn" role="menuitem" {% if request.path.startswith('/learn') %}aria-current="page"{% endif %}>Confusion Pairs</a>
                             <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
                             <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
+                            <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -157,6 +158,7 @@
             <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Confusion Pairs</a>
             <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
+            <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
@@ -490,6 +492,48 @@
 
         function getRank() {
             return getRankInfo(getTotal()).rank;
+        }
+
+        /* Visit streak multiplier */
+        var VISIT_STREAK_KEY = 'httpparrot_visit_streak';
+        function getVisitStreak() {
+            try { return JSON.parse(localStorage.getItem(VISIT_STREAK_KEY) || '{}'); } catch(e) { return {}; }
+        }
+        function updateVisitStreak() {
+            var today = new Date().toISOString().slice(0, 10);
+            var data = getVisitStreak();
+            if (data.lastDate === today) return data.streak || 1;
+            var yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            var yesterdayStr = yesterday.toISOString().slice(0, 10);
+            var streak = (data.lastDate === yesterdayStr) ? Math.min((data.streak || 1) + 1, 7) : 1;
+            localStorage.setItem(VISIT_STREAK_KEY, JSON.stringify({lastDate: today, streak: streak}));
+            return streak;
+        }
+        function getMultiplier() {
+            var streak = updateVisitStreak();
+            if (streak >= 7) return 2.0;
+            if (streak >= 2) return 1 + (streak - 1) * 0.1;
+            return 1.0;
+        }
+
+        function updateMultiplierIndicator() {
+            var mult = getMultiplier();
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            var existing = badge.querySelector('.xp-multiplier-indicator');
+            if (mult > 1.0) {
+                if (!existing) {
+                    var ind = document.createElement('span');
+                    ind.className = 'xp-multiplier-indicator';
+                    ind.setAttribute('aria-label', mult.toFixed(1) + 'x XP multiplier');
+                    badge.appendChild(ind);
+                    existing = ind;
+                }
+                existing.textContent = mult.toFixed(1) + 'x';
+            } else if (existing) {
+                existing.remove();
+            }
         }
 
         function award(amount, action) {
@@ -991,6 +1035,8 @@
 
         function awardWithFeathers(amount, action) {
             if (!amount || amount <= 0) return;
+            var mult = getMultiplier();
+            amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
             localStorage.setItem('httpparrot_xp', String(total));
@@ -1020,12 +1066,16 @@
             spawnFlockFormation: spawnFlockFormation,
             showRankUpBanner: showRankUpBanner,
             checkXpMilestoneFlash: checkXpMilestoneFlash,
+            getMultiplier: getMultiplier,
+            updateVisitStreak: updateVisitStreak,
+            updateMultiplierIndicator: updateMultiplierIndicator,
             XP_MILESTONES: XP_MILESTONES,
             RANKS: RANKS,
             FEATHERS: FEATHERS
         };
 
         updateBadge();
+        updateMultiplierIndicator();
         /* Check feathers on every page load for time-based badges like Night Owl */
         checkFeathers();
         /* Award pending seasonal egg XP if queued before ParrotXP loaded */

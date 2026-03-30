@@ -97,6 +97,44 @@
             }
         }
 
+        function spawnComboConfetti(originEl, streak) {
+            if (streak < 5) { spawnConfetti(originEl); return; }
+            var rect = originEl.getBoundingClientRect();
+            var cx = rect.left + rect.width / 2;
+            var cy = rect.top + rect.height / 2;
+            var count = streak >= 15 ? 50 : streak >= 10 ? 35 : 25;
+            var colors = streak >= 15
+                ? ['#ffd700','#ffb300','#ffe066','#ff6b6b','#7b61ff']
+                : streak >= 10
+                ? ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d','#f4a261']
+                : ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'];
+            for (var i = 0; i < count; i++) {
+                var p = document.createElement('div');
+                p.className = 'confetti-particle';
+                if (streak >= 15) p.classList.add('confetti-mega');
+                p.style.left = cx + 'px';
+                p.style.top = cy + 'px';
+                var angle = Math.random() * Math.PI * 2;
+                var dist = (50 + Math.random() * (streak >= 10 ? 180 : 120));
+                p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
+                p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
+                document.body.appendChild(p);
+                p.addEventListener('animationend', function() { this.remove(); });
+            }
+            /* Show combo text */
+            if (streak >= 5) {
+                var comboEl = document.createElement('div');
+                comboEl.className = 'quiz-combo-text';
+                comboEl.textContent = streak >= 15 ? 'MEGA COMBO!' : streak >= 10 ? 'SUPER COMBO!' : 'COMBO x' + streak + '!';
+                comboEl.style.left = cx + 'px';
+                comboEl.style.top = (cy - 40) + 'px';
+                document.body.appendChild(comboEl);
+                comboEl.addEventListener('animationend', function() { this.remove(); });
+            }
+        }
+
         function shuffle(arr) {
             for (let i = arr.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -153,7 +191,7 @@
                         streak++;
                         history.push(true);
                         removeMistake(correct.code);
-                        spawnConfetti(btn);
+                        spawnComboConfetti(btn, streak);
                         fb.textContent = 'Correct!';
                         fb.className = 'quiz-feedback right';
                         if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'quiz_correct');
