@@ -5944,16 +5944,16 @@ class TestTypographyTokens:
         assert 'var(--text-3xl)' in css
 
     def test_type_scale_token_values(self):
-        """Type scale tokens should have the correct values."""
+        """Type scale tokens should use fluid clamp() values."""
         with open('static/style.css', 'r') as f:
             css = f.read()
-        assert '--text-xs: 0.65rem' in css
-        assert '--text-sm: 0.8rem' in css
+        assert '--text-xs: clamp(0.6rem' in css
+        assert '--text-sm: clamp(0.75rem' in css
         assert '--text-base: 1rem' in css
-        assert '--text-lg: 1.25rem' in css
-        assert '--text-xl: 1.5rem' in css
-        assert '--text-2xl: 2.2rem' in css
-        assert '--text-3xl: 3rem' in css
+        assert '--text-lg: clamp(1.1rem' in css
+        assert '--text-xl: clamp(1.25rem' in css
+        assert '--text-2xl: clamp(1.6rem' in css
+        assert '--text-3xl: clamp(2rem' in css
 
 
 class TestDesignSystemTokens:
@@ -14221,3 +14221,21 @@ class TestRound6FinalPolish:
         css = resp.data.decode()
         assert 'prefers-reduced-motion' in css
         assert 'page-fade-in' in css
+
+    def test_homepage_has_favorites_system(self, client):
+        """Homepage should include favorites system with double-click support."""
+        resp = client.get('/')
+        assert resp.status_code == 200
+        assert b'favorites' in resp.data.lower() or b'fav-chip' in resp.data
+
+
+class TestRound7DesignRefinements:
+    """Tests for Round 7 Pass 1 design refinements."""
+
+    def test_css_has_fluid_typography(self, client):
+        resp = client.get('/static/style.css')
+        assert b'clamp(' in resp.data
+
+    def test_css_has_sticky_profile_headers(self, client):
+        resp = client.get('/static/style.css')
+        assert b'sticky' in resp.data and b'profile-container' in resp.data

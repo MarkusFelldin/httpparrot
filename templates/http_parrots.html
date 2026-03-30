@@ -1007,6 +1007,77 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Favorites system */
+    (function() {
+        var FAV_KEY = 'httpparrot_favorites';
+        function getFavs() {
+            try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; }
+        }
+        function saveFavs(arr) { localStorage.setItem(FAV_KEY, JSON.stringify(arr)); }
+        function toggleFav(code) {
+            var favs = getFavs();
+            var idx = favs.indexOf(code);
+            if (idx === -1) { favs.push(code); } else { favs.splice(idx, 1); }
+            saveFavs(favs);
+            return idx === -1;
+        }
+
+        /* Render favorites bar */
+        var grid = document.getElementById('parrot-grid');
+        var favBar = document.createElement('div');
+        favBar.className = 'favorites-bar';
+        favBar.id = 'favorites-bar';
+        favBar.innerHTML = '<span class="favorites-bar-label">Favorites</span><div class="favorites-bar-items" id="favorites-items"></div>';
+        if (grid) grid.parentNode.insertBefore(favBar, grid);
+
+        function renderFavBar() {
+            var favs = getFavs();
+            var items = document.getElementById('favorites-items');
+            if (!items) return;
+            items.innerHTML = '';
+            if (favs.length === 0) {
+                favBar.style.display = 'none';
+                return;
+            }
+            favBar.style.display = '';
+            favs.forEach(function(code) {
+                var chip = document.createElement('a');
+                chip.href = '/' + code;
+                chip.className = 'fav-chip';
+                chip.textContent = code;
+                items.appendChild(chip);
+            });
+        }
+
+        /* Double-click to favorite */
+        var cards = document.querySelectorAll('.parrot-card');
+        cards.forEach(function(card) {
+            var code = card.getAttribute('data-code');
+            /* Show heart on favorited cards */
+            if (getFavs().indexOf(code) !== -1) {
+                card.classList.add('parrot-favorited');
+            }
+            card.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                var added = toggleFav(code);
+                card.classList.toggle('parrot-favorited', added);
+                /* Heart burst animation */
+                if (added) {
+                    var heart = document.createElement('span');
+                    heart.className = 'fav-heart-burst';
+                    heart.textContent = '\u2764\uFE0F';
+                    card.querySelector('.parrot').appendChild(heart);
+                    heart.addEventListener('animationend', function() { heart.remove(); });
+                }
+                renderFavBar();
+            });
+        });
+
+        renderFavBar();
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
     /* Method filter */
     (function() {
         var methodMap = {{ method_applicability | safe }};

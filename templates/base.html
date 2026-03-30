@@ -187,6 +187,22 @@
         </nav>
     </header>
 
+    <script>
+    /* Header scroll shadow */
+    (function() {
+        var header = document.querySelector('.site-header-compact');
+        if (!header) return;
+        var scrolled = false;
+        window.addEventListener('scroll', function() {
+            var isScrolled = window.scrollY > 10;
+            if (isScrolled !== scrolled) {
+                scrolled = isScrolled;
+                header.classList.toggle('header-scrolled', scrolled);
+            }
+        }, {passive: true});
+    })();
+    </script>
+
     <!-- Keyboard Shortcuts Overlay -->
     <div class="kbd-shortcuts-overlay" id="kbd-shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
         <div class="kbd-shortcuts-backdrop" id="kbd-shortcuts-backdrop"></div>

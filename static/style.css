@@ -46,15 +46,15 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Type scale */
-  --text-xs: 0.65rem;
-  --text-sm: 0.8rem;
+  /* Type scale — fluid */
+  --text-xs: clamp(0.6rem, 0.55rem + 0.25vw, 0.7rem);
+  --text-sm: clamp(0.75rem, 0.7rem + 0.25vw, 0.85rem);
   --text-md: 1rem;
   --text-base: 1rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2.2rem;
-  --text-3xl: 3rem;
+  --text-lg: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
+  --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.6rem);
+  --text-2xl: clamp(1.6rem, 1.3rem + 1.5vw, 2.4rem);
+  --text-3xl: clamp(2rem, 1.5rem + 2.5vw, 3.2rem);
 
   /* Radii */
   --radius-xs: 4px;
@@ -6016,13 +6016,13 @@ body {
   font-size: var(--text-sm);
   max-width: 320px;
   pointer-events: auto;
-  transform: translateX(120%);
+  transform: translateX(120%) translateY(10px);
   opacity: 0;
   transition: transform var(--duration-normal) var(--ease-out), opacity var(--duration-normal) var(--ease-out);
 }
 
 .toast.toast-visible {
-  transform: translateX(0);
+  transform: translateX(0) translateY(0);
   opacity: 1;
 }
 
@@ -6048,6 +6048,25 @@ body {
 ::view-transition-old(site-footer),
 ::view-transition-new(site-footer) {
   animation-duration: 0.15s;
+}
+
+/* Sticky profile section headers */
+.profile-container section > h2 {
+  position: sticky;
+  top: 4.5rem;
+  z-index: 10;
+  background: var(--surface-0);
+  padding: 0.75rem 0;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Header scroll shadow */
+.site-header-compact.header-scrolled {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-bottom-color: transparent;
 }
 
 /* === Light Theme === */
@@ -6097,6 +6116,8 @@ body {
   :focus-visible { outline-color: rgba(0, 160, 130, 0.7); }
 
   .site-header-compact { background-color: rgba(248, 249, 252, 0.9); border-bottom-color: rgba(0, 0, 0, 0.08); }
+  .site-header-compact.header-scrolled { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); }
+  .profile-container section > h2 { background: rgba(248, 249, 252, 0.9); }
   .header-subtitle { color: rgba(26, 26, 31, 0.5); }
   .header-nav a { color: rgba(26, 26, 31, 0.5); }
   .header-nav a:hover { color: rgba(26, 26, 31, 0.75); }
@@ -9704,6 +9725,79 @@ main {
 @keyframes search-pulse {
   0% { box-shadow: 0 0 0 0 rgba(0, 201, 167, 0.2); }
   100% { box-shadow: 0 0 0 6px rgba(0, 201, 167, 0); }
+}
+
+/* Favorites system */
+.favorites-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.favorites-bar-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.favorites-bar-items {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+
+.fav-chip {
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  color: var(--color-coral);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast), transform var(--duration-fast);
+}
+
+.fav-chip:hover {
+  background: rgba(255, 107, 107, 0.2);
+  transform: translateY(-1px);
+}
+
+.parrot-favorited .parrot::after {
+  content: '\2764\FE0F';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 0.9rem;
+  z-index: 5;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+
+.fav-heart-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 3rem;
+  transform: translate(-50%, -50%) scale(0);
+  animation: heart-burst 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes heart-burst {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
 }
 
 /* Focus-visible for interactive game/UI elements */
