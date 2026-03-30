@@ -1614,8 +1614,8 @@ class TestPracticeDifficultyTabs:
         assert "classList.add('visible')" in html or 'classList.add("visible"' in html
 # --- Detail page polish ---
 
-    def test_practice_combined(self, client):
-        """Combined checks for /practice."""
+    def test_practice_category_filters(self, client):
+        """Practice page should have category filter buttons and data attributes."""
         resp = client.get('/practice')
         html = resp.data.decode()
         assert 'data-category="all"' in html
@@ -1626,7 +1626,6 @@ class TestPracticeDifficultyTabs:
         assert 'data-category="errors"' in html
         assert 'data-category="headers"' in html
         assert 'data-category="api-design"' in html
-        import re
         card_cats = re.findall(r'class="practice-card"[^>]*data-category="([\w-]+)"', html)
         assert len(card_cats) > 0
         assert 'Filter by category' in html
@@ -1915,8 +1914,8 @@ class TestPlayground:
         nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
         assert f'nonce="{nonce}"'.encode() in resp.data
 
-    def test_playground_combined(self, client):
-        """Combined checks for /playground."""
+    def test_playground_extended_scenarios(self, client):
+        """Playground should include extended scenario templates."""
         resp = client.get('/playground')
         html = resp.data.decode()
         assert 'cache_hit' in html
@@ -3273,8 +3272,8 @@ class TestDesignTokenReplacement:
         assert 'path-certificate-badge' in html
         assert 'httpparrot_path_date_' in html
         assert 'toLocaleDateString' in html
-    def test_static_style_css_combined(self, client):
-        """Combined CSS checks."""
+    def test_css_responsive_layout_selectors(self, client):
+        """CSS should have responsive layout selectors and breakpoints."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         assert '.compare-columns' in css
