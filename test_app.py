@@ -14806,3 +14806,66 @@ class TestStaggeredReveals:
         assert '.suggested-next' in css
         assert '.suggested-label' in css
         assert '.suggested-link' in css
+
+
+class TestApiDocsBookmarklet:
+    """Tests for the bookmarklet generator on the API docs page."""
+
+    def test_api_docs_has_bookmarklet(self, client):
+        """API docs page should include a bookmarklet section."""
+        resp = client.get('/api-docs')
+        assert b'bookmarklet' in resp.data.lower()
+
+    def test_api_docs_bookmarklet_link(self, client):
+        """API docs page should have a draggable bookmarklet link."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'bookmarklet-link' in html
+        assert 'bookmarklet-container' in html
+        assert 'javascript:' in html
+
+    def test_api_docs_bookmarklet_tester_url(self, client):
+        """Bookmarklet should open the tester page with the current URL."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'tester?url=' in html
+
+    def test_api_docs_bookmarklet_hint(self, client):
+        """Bookmarklet section should include a drag hint."""
+        resp = client.get('/api-docs')
+        html = resp.data.decode()
+        assert 'bookmarklet-hint' in html
+        assert 'Drag me' in html
+
+    def test_bookmarklet_css(self, client):
+        """CSS should include bookmarklet styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.bookmarklet-link' in css
+        assert '.bookmarklet-hint' in css
+        assert '.bookmarklet-container' in css
+
+
+class TestRFCEasterEgg:
+    """Tests for the RFC number easter egg."""
+
+    def test_base_has_rfc_easter_egg(self, client):
+        """Base template should include the RFC easter egg script."""
+        resp = client.get('/')
+        assert b'rfc_reader' in resp.data or b'rfc' in resp.data.lower()
+
+    def test_rfc_easter_egg_script(self, client):
+        """RFC easter egg script should listen for keypress and create toast."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'rfc_reader' in html
+        assert 'rfc-toast' in html
+        assert 'datatracker.ietf.org' in html
+
+    def test_rfc_toast_css(self, client):
+        """CSS should include RFC toast styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.rfc-toast' in css
+        assert '.rfc-toast-visible' in css
+        assert '.rfc-toast a' in css

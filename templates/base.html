@@ -2385,6 +2385,39 @@
     })();
     </script>
     <script nonce="{{ csp_nonce }}">
+    /* RFC easter egg */
+    (function() {
+        var buf = '';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buf += e.key.toLowerCase();
+            if (buf.length > 10) buf = buf.slice(-10);
+            var match = buf.match(/rfc(\d{3,5})$/);
+            if (match) {
+                buf = '';
+                var rfcNum = match[1];
+                var toast = document.createElement('div');
+                toast.className = 'rfc-toast';
+                toast.innerHTML = '<span>RFC ' + rfcNum + ' found! </span>'
+                    + '<a href="https://datatracker.ietf.org/doc/html/rfc' + rfcNum + '" target="_blank" rel="noopener">Read it &rarr;</a>';
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.classList.add('rfc-toast-visible'); }, 50);
+                setTimeout(function() {
+                    toast.classList.remove('rfc-toast-visible');
+                    setTimeout(function() { toast.remove(); }, 300);
+                }, 6000);
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('rfc_reader') === -1) {
+                    eggs.push('rfc_reader');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
     /* Credits page easter egg trigger */
     (function() {
         var buf = '';
