@@ -5784,6 +5784,18 @@ body {
   /* Noise texture: disabled */
   body::after { display: none !important; }
 
+  /* Named animations that loop: kill explicitly */
+  .aurora-drift,
+  .multiplier-glow,
+  .mood-pulse-cyan,
+  .mood-pulse-teal,
+  .mood-pulse-gold,
+  .mood-pulse-coral,
+  .mood-pulse-purple,
+  .skeleton-shimmer {
+    animation: none !important;
+  }
+
   /* Scroll reveal: show immediately */
   .parrot-card.will-reveal {
     opacity: 1 !important;
@@ -8224,6 +8236,20 @@ body {
   .tester-truncation-warning { background: rgba(249, 199, 79, 0.1); border-color: rgba(249, 199, 79, 0.3); color: #b8860b; }
 }
 
+/* Bingo, horoscope, predict, map, content-negotiation, profile tier, tester history — light theme */
+@media (prefers-color-scheme: light) {
+  .bingo-cell { background: rgba(255, 255, 255, 0.9); }
+  .horoscope-card { background: rgba(255, 255, 255, 0.9); }
+  .predict-scenario { background: rgba(255, 255, 255, 0.9); }
+  .predict-input { background: rgba(255, 255, 255, 0.9); }
+  .map-detail { background: rgba(255, 255, 255, 0.9); }
+  .conneg-panel { background: rgba(255, 255, 255, 0.9); }
+  .profile-tier-card { background: rgba(255, 255, 255, 0.9); }
+  .history-row:hover { background: rgba(0, 0, 0, 0.04); }
+  .insomnia-parrot { background: rgba(255, 255, 255, 0.95); }
+  .empty-state-title { color: #1a1a2e; }
+}
+
 /* --- Seasonal Reduced Motion --- */
 @media (prefers-reduced-motion: reduce) {
   .season-winter::before { animation: none !important; display: none !important; }
@@ -9577,4 +9603,59 @@ body {
   left: 0;
   font-size: 0.6rem;
   color: var(--text-muted);
+}
+
+/* ========================================================================
+   Design Consistency Utilities
+   ======================================================================== */
+
+/* Unified page header pattern */
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-top: 1rem;
+}
+
+.page-header h1 {
+  font-size: var(--text-2xl);
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header p {
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Unified card hover */
+.card-hover {
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.card-hover:active {
+  transform: translateY(0);
+}
+
+/* Focus-visible for interactive game/UI elements */
+.map-node:focus-visible,
+.bingo-cell:focus-visible,
+.method-pill:focus-visible,
+.speedrun-btn:focus-visible,
+.spirit-parrot-option:focus-visible,
+.accent-color-option:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
 }
