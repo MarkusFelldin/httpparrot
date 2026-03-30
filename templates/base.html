@@ -2319,6 +2319,19 @@
         });
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Credits page easter egg trigger */
+    (function() {
+        var buf = '';
+        var trigger = 'credits';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buf += e.key.toLowerCase();
+            if (buf.length > trigger.length) buf = buf.slice(-trigger.length);
+            if (buf === trigger) { buf = ''; window.location.href = '/credits'; }
+        });
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

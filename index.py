@@ -2106,6 +2106,12 @@ def sitemap():
     return resp
 
 
+@app.route('/credits')
+def credits_page():
+    """Render the hidden credits page."""
+    return render_template('credits.html')
+
+
 @app.route('/coffee')
 def coffee():
     """Hidden easter egg: a teapot that can't brew coffee. Returns 418."""

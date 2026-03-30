@@ -14337,3 +14337,12 @@ class TestRound7Pass9AnimationPolish:
     def test_css_has_details_animation(self, client):
         resp = client.get('/static/style.css')
         assert b'details-open' in resp.data
+
+
+class TestCreditsPage:
+    """Tests for the hidden /credits page."""
+
+    def test_credits_page(self, client):
+        resp = client.get('/credits')
+        assert resp.status_code == 200
+        assert b'Credits' in resp.data or b'HTTP Parrots' in resp.data
