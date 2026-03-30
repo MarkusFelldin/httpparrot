@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Header Challenge - HTTP Parrots{% endblock %}
+{% block subtitle %}Header Challenge{% endblock %}
+{% block meta %}
+    <meta name="description" content="Fill in the missing HTTP header for each status code. Test your protocol knowledge!">
+{% endblock %}
+{% block content %}
+    <main class="hchallenge-container" id="main-content" role="main">
+        <div class="page-header">
+            <h1>Header Challenge</h1>
+            <p>What header does this status code require?</p>
+        </div>
+        <div class="roulette-score" role="region" aria-label="Score">
+            <div class="score-item score-correct"><div class="score-value" id="hc-correct">0</div><div class="score-label">Correct</div></div>
+            <div class="score-item score-streak"><div class="score-value" id="hc-streak">0</div><div class="score-label">Streak</div></div>
+        </div>
+        <div class="hchallenge-card" id="hc-card">
+            <div class="hchallenge-prompt">
+                <span class="hchallenge-code" id="hc-code">301</span>
+                <span class="hchallenge-desc" id="hc-desc">Moved Permanently</span>
+            </div>
+            <div class="hchallenge-question" id="hc-question">This response MUST include a _____ header.</div>
+            <div class="hchallenge-input">
+                <input type="text" id="hc-answer" class="predict-input" placeholder="Header name..." autocomplete="off" autocapitalize="none">
+                <button class="btn-back" id="hc-submit" type="button">Check</button>
+            </div>
+        </div>
+        <div class="hchallenge-feedback" id="hc-feedback" aria-live="polite"></div>
+        <div class="hchallenge-next" id="hc-next" style="display:none">
+            <button class="btn-back" id="hc-next-btn" type="button">Next</button>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var challenges = [
+            {code:'301',name:'Moved Permanently',header:'Location',hint:'This response MUST include a _____ header pointing to the new URL.'},
+            {code:'302',name:'Found',header:'Location',hint:'This temporary redirect MUST include a _____ header.'},
+            {code:'307',name:'Temporary Redirect',header:'Location',hint:'Method-preserving redirect requires a _____ header.'},
+            {code:'308',name:'Permanent Redirect',header:'Location',hint:'Permanent method-preserving redirect needs a _____ header.'},
+            {code:'401',name:'Unauthorized',header:'WWW-Authenticate',hint:'This response MUST include a _____ header specifying the auth scheme.'},
+            {code:'405',name:'Method Not Allowed',header:'Allow',hint:'This response MUST include an _____ header listing permitted methods.'},
+            {code:'407',name:'Proxy Authentication Required',header:'Proxy-Authenticate',hint:'This response MUST include a _____ header for proxy auth.'},
+            {code:'206',name:'Partial Content',header:'Content-Range',hint:'This response MUST include a _____ header specifying the byte range.'},
+            {code:'429',name:'Too Many Requests',header:'Retry-After',hint:'This response SHOULD include a _____ header telling when to retry.'},
+            {code:'503',name:'Service Unavailable',header:'Retry-After',hint:'This response SHOULD include a _____ header with recovery time.'},
+            {code:'416',name:'Range Not Satisfiable',header:'Content-Range',hint:'This response MUST include a _____ header with the unsatisfied range.'},
+            {code:'304',name:'Not Modified',header:'ETag',hint:'This cache response SHOULD include an _____ header for validation.'},
+        ];
+        var idx = 0, correct = 0, streak = 0;
+        var answered = false;
+
+        function shuffle(a) { for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;} return a; }
+        shuffle(challenges);
+
+        function show() {
+            if (idx >= challenges.length) { shuffle(challenges); idx = 0; }
+            var c = challenges[idx];
+            document.getElementById('hc-code').textContent = c.code;
+            document.getElementById('hc-desc').textContent = c.name;
+            document.getElementById('hc-question').textContent = c.hint;
+            document.getElementById('hc-answer').value = '';
+            document.getElementById('hc-feedback').textContent = '';
+            document.getElementById('hc-feedback').className = 'hchallenge-feedback';
+            document.getElementById('hc-next').style.display = 'none';
+            document.getElementById('hc-answer').disabled = false;
+            document.getElementById('hc-submit').disabled = false;
+            answered = false;
+            document.getElementById('hc-answer').focus();
+        }
+
+        function check() {
+            if (answered) return;
+            var guess = document.getElementById('hc-answer').value.trim();
+            if (!guess) return;
+            answered = true;
+            var c = challenges[idx];
+            var isCorrect = guess.toLowerCase().replace(/[^a-z-]/g,'') === c.header.toLowerCase().replace(/[^a-z-]/g,'');
+            var fb = document.getElementById('hc-feedback');
+            if (isCorrect) {
+                correct++; streak++;
+                fb.textContent = 'Correct! ' + c.code + ' requires ' + c.header + '.';
+                fb.className = 'hchallenge-feedback roulette-correct';
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(15, 'header_challenge');
+            } else {
+                streak = 0;
+                fb.textContent = 'The answer is ' + c.header + '. ' + c.code + ' ' + c.name + ' requires this header.';
+                fb.className = 'hchallenge-feedback roulette-wrong';
+            }
+            document.getElementById('hc-correct').textContent = correct;
+            document.getElementById('hc-streak').textContent = streak;
+            document.getElementById('hc-answer').disabled = true;
+            document.getElementById('hc-submit').disabled = true;
+            document.getElementById('hc-next').style.display = '';
+        }
+
+        document.getElementById('hc-submit').addEventListener('click', check);
+        document.getElementById('hc-answer').addEventListener('keydown', function(e) { if (e.key === 'Enter') check(); });
+        document.getElementById('hc-next-btn').addEventListener('click', function() { idx++; show(); });
+        show();
+    })();
+    </script>
+{% endblock %}

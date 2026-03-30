@@ -734,6 +734,12 @@ def verb_roulette():
     return render_template('verb_roulette.html', codes_json=json.dumps(codes))
 
 
+@app.route('/header-challenge')
+def header_challenge():
+    """Render the Fill-in-the-Header challenge page."""
+    return render_template('header_challenge.html')
+
+
 @app.route('/personality')
 def personality():
     """Render the 'Which HTTP Status Code Are You?' personality quiz."""
@@ -2139,7 +2145,8 @@ def sitemap():
                  '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo', '/horoscope', '/map', '/incidents', '/verb-roulette']:
+                 '/bingo', '/horoscope', '/map', '/incidents', '/verb-roulette',
+                 '/header-challenge']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

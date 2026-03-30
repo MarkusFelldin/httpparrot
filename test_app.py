@@ -12139,6 +12139,38 @@ class TestVerbRoulette:
         assert 'href="/verb-roulette"' in html
 
 
+class TestHeaderChallenge:
+    """Tests for the /header-challenge fill-in-the-header page."""
+
+    def test_header_challenge_page(self, client):
+        resp = client.get('/header-challenge')
+        assert resp.status_code == 200
+        assert b'Header Challenge' in resp.data
+
+    def test_header_challenge_has_game_elements(self, client):
+        resp = client.get('/header-challenge')
+        html = resp.data.decode()
+        assert 'id="hc-code"' in html
+        assert 'id="hc-answer"' in html
+        assert 'id="hc-submit"' in html
+        assert 'id="hc-feedback"' in html
+
+    def test_header_challenge_has_score(self, client):
+        resp = client.get('/header-challenge')
+        html = resp.data.decode()
+        assert 'id="hc-correct"' in html
+        assert 'id="hc-streak"' in html
+
+    def test_header_challenge_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/header-challenge' in resp.data
+
+    def test_header_challenge_in_nav(self, client):
+        resp = client.get('/header-challenge')
+        html = resp.data.decode()
+        assert 'href="/header-challenge"' in html
+
+
 class TestStatusCodeMap:
     """Tests for the /map status code relationship map page."""
 
