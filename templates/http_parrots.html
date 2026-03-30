@@ -868,9 +868,9 @@
                     var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
                     if (eggs.indexOf('konami') === -1) { eggs.push('konami'); localStorage.setItem('eggs_found', JSON.stringify(eggs)); }
                 }
-            } else if (konamiCode.indexOf(e.key) === -1) {
-                /* Only reset on non-Konami keys — arrow keys are part of the sequence */
-                pos = 0;
+            } else {
+                /* On mismatch, check if this key starts a new sequence */
+                pos = (e.key === konamiCode[0]) ? 1 : 0;
             }
         }, true);
 
