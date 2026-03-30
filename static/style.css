@@ -9933,3 +9933,27 @@ main {
   from { opacity: 0.5; }
   to { opacity: 1; }
 }
+
+/* Challenge countdown */
+.daily-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+}
+
+.countdown-icon { font-size: 1rem; }
+.countdown-text {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-gold);
+  min-width: 70px;
+  text-align: center;
+}
+.countdown-label { color: var(--text-muted); }

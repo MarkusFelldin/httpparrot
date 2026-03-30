@@ -384,6 +384,21 @@
         });
 
         document.getElementById('url-input').focus();
+
+        /* Auto-detect paste */
+        var urlInput = document.querySelector('input[type="url"], input[name="url"], #url-input, .tester-input');
+        if (urlInput) {
+            urlInput.addEventListener('paste', function() {
+                setTimeout(function() {
+                    if (urlInput.value.trim().match(/^https?:\/\//)) {
+                        /* Show hint that auto-submit is available */
+                        if (typeof ParrotToast !== 'undefined') {
+                            ParrotToast.show('URL detected! Press Enter to test.', 'info', 2000);
+                        }
+                    }
+                }, 100);
+            });
+        }
     })();
     </script>
 {% endblock %}

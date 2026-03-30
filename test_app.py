@@ -12509,6 +12509,16 @@ class TestDailySuggestedActions:
         assert '.daily-suggested-label' in css
         assert '.daily-suggested-link' in css
 
+    def test_daily_has_countdown(self, client):
+        """Daily page should have a countdown timer for next challenge."""
+        resp = client.get('/daily')
+        assert b'countdown' in resp.data.lower()
+
+    def test_weekly_has_countdown(self, client):
+        """Weekly page should have a countdown timer for next weekly challenge."""
+        resp = client.get('/weekly')
+        assert b'countdown' in resp.data.lower()
+
 
 # --- Command Palette ---
 
@@ -12588,6 +12598,16 @@ class TestCommandPalette:
         html = resp.data.decode()
         assert 'Take Quiz' in html
         assert 'Random Parrot' in html
+
+    def test_keyboard_shortcuts_include_navigation(self, client):
+        """Keyboard shortcuts overlay should list G-key navigation shortcuts."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Go to Homepage' in html
+        assert 'Go to Quiz' in html
+        assert 'Go to Daily' in html
+        assert 'Go to Profile' in html
+        assert 'Random parrot' in html
 
     def test_keyboard_shortcuts_includes_cmdk(self, client):
         """Keyboard shortcuts overlay should list Cmd+K."""

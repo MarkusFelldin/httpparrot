@@ -220,6 +220,11 @@
                     <div class="kbd-shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
                     <div class="kbd-shortcut-row"><kbd>&#8984;K</kbd> / <kbd>Ctrl+K</kbd><span>Command palette</span></div>
                     <div class="kbd-shortcut-row"><kbd>Esc</kbd><span>Close overlay / unfocus</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>H</kbd><span>Go to Homepage</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>Q</kbd><span>Go to Quiz</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>D</kbd><span>Go to Daily</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>P</kbd><span>Go to Profile</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>R</kbd><span>Random parrot</span></div>
                 </div>
                 <div class="kbd-shortcuts-group" data-context="home">
                     <h3 class="kbd-shortcuts-group-title">Homepage</h3>
@@ -2269,6 +2274,49 @@
                 }
             }, 1500);
         }
+    })();
+    </script>
+    <script>
+    /* G-key navigation shortcuts */
+    (function() {
+        var gPressed = false;
+        var gTimer = null;
+        var routes = {
+            'h': '/',
+            'q': '/quiz',
+            'd': '/daily',
+            'p': '/profile',
+            'r': '/random',
+            'b': '/bingo',
+            'w': '/weekly',
+            'm': '/map',
+            'i': '/incidents',
+            'c': '/cheatsheet'
+        };
+
+        document.addEventListener('keydown', function(e) {
+            var tag = document.activeElement ? document.activeElement.tagName : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            if (e.key === 'g' || e.key === 'G') {
+                if (!gPressed) {
+                    gPressed = true;
+                    if (gTimer) clearTimeout(gTimer);
+                    gTimer = setTimeout(function() { gPressed = false; }, 1500);
+                    return;
+                }
+            }
+
+            if (gPressed) {
+                gPressed = false;
+                if (gTimer) clearTimeout(gTimer);
+                var route = routes[e.key.toLowerCase()];
+                if (route) {
+                    e.preventDefault();
+                    window.location.href = route;
+                }
+            }
+        });
     })();
     </script>
     {% block scripts %}{% endblock %}
