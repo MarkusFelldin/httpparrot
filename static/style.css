@@ -9519,3 +9519,62 @@ body {
 .map-conn-reason { color: var(--text-body); font-size: var(--text-sm); line-height: 1.4; }
 
 @media (max-width: 480px) { .map-node { font-size: 0.7rem; padding: 0.3rem 0.5rem; } }
+
+/* Prestige system */
+.prestige-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.prestige-stars {
+  font-size: 1.25rem;
+  letter-spacing: 2px;
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
+}
+
+.prestige-label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.prestige-btn {
+  margin-top: 1rem;
+  background: linear-gradient(135deg, var(--color-gold), var(--color-orange));
+  color: #000;
+  font-weight: 700;
+  border: none;
+}
+
+.prestige-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Feather progress indicators */
+.feather-progress {
+  position: relative;
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  margin-top: 0.35rem;
+  overflow: hidden;
+}
+
+.feather-progress-bar {
+  height: 100%;
+  background: var(--color-teal);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+.feather-progress-text {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}

@@ -583,6 +583,20 @@
             }
         }
 
+        var PRESTIGE_KEY = 'httpparrot_prestige';
+        function getPrestige() {
+            return parseInt(localStorage.getItem(PRESTIGE_KEY) || '0', 10);
+        }
+        function prestige() {
+            var total = getTotal();
+            if (total < 12000) return false;
+            var p = getPrestige() + 1;
+            localStorage.setItem(PRESTIGE_KEY, String(p));
+            localStorage.setItem('httpparrot_xp', '0');
+            updateBadge();
+            return p;
+        }
+
         function award(amount, action) {
             if (!amount || amount <= 0) return;
             var total = getTotal() + amount;
@@ -1095,6 +1109,7 @@
         function awardWithFeathers(amount, action) {
             if (!amount || amount <= 0) return;
             var mult = getMultiplier();
+            mult *= (1 + getPrestige() * 0.1);
             amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
@@ -1128,6 +1143,8 @@
             getMultiplier: getMultiplier,
             updateVisitStreak: updateVisitStreak,
             updateMultiplierIndicator: updateMultiplierIndicator,
+            prestige: prestige,
+            getPrestige: getPrestige,
             XP_MILESTONES: XP_MILESTONES,
             RANKS: RANKS,
             FEATHERS: FEATHERS

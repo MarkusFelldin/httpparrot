@@ -12,6 +12,13 @@
                 <h1 class="profile-rank-title" id="profile-rank-title">Fledgling</h1>
                 <p class="profile-level" id="profile-level">Level 1</p>
             </div>
+            <div class="prestige-display" id="prestige-display" style="display:none">
+                <span class="prestige-stars" id="prestige-stars"></span>
+                <span class="prestige-label">Prestige</span>
+            </div>
+            <button class="btn-back prestige-btn" id="prestige-btn" type="button" style="display:none">
+                Prestige (Reset XP for +10% bonus)
+            </button>
             <div class="profile-xp-section">
                 <div class="profile-xp-total" id="profile-xp-total">0 XP</div>
                 <div class="profile-progress-wrap">
@@ -692,6 +699,30 @@
         }
     }
 
+    /* Progress for locked feathers */
+    function getFeatherProgress(featherId) {
+        var activity = typeof ParrotXP !== 'undefined' ? ParrotXP.getActivity() : [];
+        var parrotdex = [];
+        try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+
+        switch(featherId) {
+            case 'quiz_whiz':
+                var qc = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
+                return {current: Math.min(qc, 10), max: 10};
+            case 'scholar':
+                var pc = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
+                return {current: Math.min(pc, 10), max: 10};
+            case 'explorer_10': return {current: Math.min(parrotdex.length, 10), max: 10};
+            case 'explorer_25': return {current: Math.min(parrotdex.length, 25), max: 25};
+            case 'explorer_50': return {current: Math.min(parrotdex.length, 50), max: 50};
+            case 'completionist': return {current: Math.min(parrotdex.length, 72), max: 72};
+            case 'centurion':
+                var xp = typeof ParrotXP !== 'undefined' ? ParrotXP.getTotal() : 0;
+                return {current: Math.min(xp, 100), max: 100};
+            default: return null;
+        }
+    }
+
     /* Feathers grid */
     var feathersGrid = document.getElementById('profile-feathers-grid');
     if (feathersGrid && ParrotXP.FEATHERS) {
@@ -720,6 +751,15 @@
             bonusEl.className = 'feather-card-bonus';
             bonusEl.textContent = '+' + f.bonus + ' XP';
             card.appendChild(bonusEl);
+
+            var progress = getFeatherProgress(f.id);
+            if (progress && !isEarned) {
+                var pbar = document.createElement('div');
+                pbar.className = 'feather-progress';
+                pbar.innerHTML = '<div class="feather-progress-bar" style="width:' + (progress.current / progress.max * 100) + '%"></div>'
+                    + '<span class="feather-progress-text">' + progress.current + '/' + progress.max + '</span>';
+                card.appendChild(pbar);
+            }
 
             feathersGrid.appendChild(card);
         });
@@ -786,6 +826,34 @@
             el.appendChild(span);
         });
     }
+})();
+
+/* Prestige display */
+(function() {
+    var p = typeof ParrotXP !== 'undefined' ? ParrotXP.getPrestige() : 0;
+    if (p > 0) {
+        var display = document.getElementById('prestige-display');
+        var stars = document.getElementById('prestige-stars');
+        if (display) display.style.display = '';
+        if (stars) stars.textContent = '\u2B50'.repeat(Math.min(p, 10));
+    }
+})();
+
+/* Prestige button */
+(function() {
+    var btn = document.getElementById('prestige-btn');
+    if (!btn) return;
+    var total = typeof ParrotXP !== 'undefined' ? ParrotXP.getTotal() : 0;
+    if (total >= 12000) btn.style.display = '';
+    btn.addEventListener('click', function() {
+        if (typeof ParrotXP !== 'undefined') {
+            var p = ParrotXP.prestige();
+            if (p) {
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('Prestige ' + p + '! XP reset with +' + (p * 10) + '% bonus.', 'success', 5000);
+                setTimeout(function() { location.reload(); }, 1500);
+            }
+        }
+    });
 })();
 
 /* --- Customize: Spirit Parrot & Theme Accent --- */

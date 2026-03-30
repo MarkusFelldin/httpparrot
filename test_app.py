@@ -10387,6 +10387,97 @@ class TestProfileWeeklyTier:
         assert '.top3-feather' in css
 
 
+# --- Prestige System & Feather Progress ---
+
+class TestPrestigeSystem:
+    """Tests for the prestige system and feather progress indicators."""
+
+    def test_profile_has_prestige_display(self, client):
+        """Profile page should contain prestige display elements."""
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+        assert b'prestige' in resp.data.lower()
+
+    def test_profile_has_prestige_btn(self, client):
+        """Profile page should contain the prestige button."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige-btn' in html
+
+    def test_profile_has_prestige_stars(self, client):
+        """Profile page should contain the prestige stars element."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige-stars' in html
+
+    def test_base_has_prestige_functions(self, client):
+        """Base template should define getPrestige and prestige functions."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getPrestige' in html
+        assert 'PRESTIGE_KEY' in html
+
+    def test_base_prestige_in_parrotxp(self, client):
+        """ParrotXP object should expose prestige and getPrestige."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige: prestige' in html
+        assert 'getPrestige: getPrestige' in html
+
+    def test_award_includes_prestige_bonus(self, client):
+        """awardWithFeathers should multiply by prestige bonus."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getPrestige() * 0.1' in html
+
+    def test_prestige_css_exists(self, client):
+        """CSS should contain prestige system styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.prestige-display' in css
+        assert '.prestige-stars' in css
+        assert '.prestige-btn' in css
+
+    def test_feather_progress_css_exists(self, client):
+        """CSS should contain feather progress indicator styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-progress' in css
+        assert '.feather-progress-bar' in css
+        assert '.feather-progress-text' in css
+
+    def test_profile_has_feather_progress_function(self, client):
+        """Profile page should define getFeatherProgress function."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getFeatherProgress' in html
+
+    def test_feather_progress_tracks_quiz_whiz(self, client):
+        """getFeatherProgress should track quiz_whiz progress."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert "'quiz_whiz'" in html or '"quiz_whiz"' in html
+
+    def test_feather_progress_tracks_explorer(self, client):
+        """getFeatherProgress should track explorer feathers via parrotdex."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert "'explorer_10'" in html or '"explorer_10"' in html
+
+    def test_prestige_button_js_calls_prestige(self, client):
+        """Profile prestige button JS should call ParrotXP.prestige()."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotXP.prestige()' in html
+
+    def test_prestige_toast_on_success(self, client):
+        """Profile prestige JS should show toast on successful prestige."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotToast.show' in html
+        assert 'XP reset with' in html
+
+
 # --- Compare Page Transitions ---
 
 class TestCompareTransitions:
