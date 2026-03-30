@@ -599,6 +599,24 @@ RELATED_CODES = {
     ],
 }
 
+# HTTP methods that commonly return each status code category
+METHOD_APPLICABILITY = {
+    "GET": ["200", "204", "206", "301", "302", "303", "304", "307", "308",
+            "400", "401", "403", "404", "405", "406", "408", "410", "414",
+            "429", "500", "502", "503", "504"],
+    "POST": ["200", "201", "202", "204", "301", "302", "303", "307", "308",
+             "400", "401", "403", "404", "405", "409", "413", "415", "422",
+             "429", "500", "502", "503"],
+    "PUT": ["200", "201", "204", "301", "307", "308",
+            "400", "401", "403", "404", "405", "409", "412", "413", "415",
+            "422", "428", "429", "500", "502", "503"],
+    "DELETE": ["200", "202", "204", "301", "307", "308",
+               "400", "401", "403", "404", "405", "409", "429", "500", "502", "503"],
+    "PATCH": ["200", "204", "301", "307", "308",
+              "400", "401", "403", "404", "405", "409", "412", "415", "422",
+              "428", "429", "500", "502", "503"],
+}
+
 
 # --- FAQ generation helper ---
 
@@ -664,7 +682,8 @@ def http_parrots():
     return render_template('http_parrots.html', status_code_list=codes, featured=featured,
                            status_info=STATUS_INFO, featured_description=featured_description,
                            featured_image=featured_parrot.image,
-                           featured_fun_fact=featured_fun_fact)
+                           featured_fun_fact=featured_fun_fact,
+                           method_applicability=json.dumps(METHOD_APPLICABILITY))
 
 
 @app.route('/quiz')

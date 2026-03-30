@@ -6370,6 +6370,13 @@ class TestViewTransitions:
         assert '::view-transition-old(root)' in css
         assert '::view-transition-new(root)' in css
 
+    def test_homepage_method_filter(self, client):
+        """Homepage should include method filter data."""
+        resp = client.get('/')
+        assert resp.status_code == 200
+        assert b'method-pill' in resp.data
+        assert b'GET' in resp.data
+
     def test_homepage_cards_have_view_transition_name(self, client):
         """Each parrot card image on the homepage should have a view-transition-name."""
         resp = client.get('/')

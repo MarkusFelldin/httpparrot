@@ -236,7 +236,7 @@
 
     {% block content %}{% endblock %}
 
-    <footer class="site-footer" role="contentinfo">
+    <footer class="site-footer" role="contentinfo" style="view-transition-name: site-footer">
         <div class="footer-inner">
             <span>Made by <a href="https://github.com/MarkusFelldin" class="footer-link" target="_blank" rel="noopener">Markus Felldin</a></span>
             <span class="footer-sep">&middot;</span>
@@ -246,6 +246,45 @@
             </a>
         </div>
     </footer>
+
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Global Toast Notification System */
+    (function() {
+        var container = document.getElementById('toast-container');
+        if (!container) return;
+
+        function showToast(message, type, duration) {
+            type = type || 'info';
+            duration = duration || 3000;
+            var icons = { success: '\u2705', error: '\u274C', info: '\u2139\uFE0F' };
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            var content = document.createElement('div');
+            content.className = 'toast-content';
+            var iconSpan = document.createElement('span');
+            iconSpan.className = 'toast-icon';
+            iconSpan.textContent = icons[type] || '';
+            var msgSpan = document.createElement('span');
+            msgSpan.className = 'toast-message';
+            msgSpan.textContent = message;
+            content.appendChild(iconSpan);
+            content.appendChild(msgSpan);
+            toast.appendChild(content);
+            container.appendChild(toast);
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() { toast.classList.add('toast-visible'); });
+            });
+            setTimeout(function() {
+                toast.classList.remove('toast-visible');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, duration);
+        }
+
+        window.ParrotToast = { show: showToast };
+    })();
+    </script>
 
     <script nonce="{{ csp_nonce }}">
     (function() {

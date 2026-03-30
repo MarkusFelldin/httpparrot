@@ -37,6 +37,14 @@
                         <button class="cat-pill cat-5xx" data-cat="5" role="menuitem">5xx Server Error</button>
                     </div>
                 </div>
+                <div class="method-filter-wrap" id="method-filter-wrap">
+                    <button class="method-pill active" data-method="all" type="button">All</button>
+                    <button class="method-pill" data-method="GET" type="button">GET</button>
+                    <button class="method-pill" data-method="POST" type="button">POST</button>
+                    <button class="method-pill" data-method="PUT" type="button">PUT</button>
+                    <button class="method-pill" data-method="DELETE" type="button">DELETE</button>
+                    <button class="method-pill" data-method="PATCH" type="button">PATCH</button>
+                </div>
             </div>
 {% endblock %}
 
@@ -887,6 +895,32 @@
                 while (container.firstChild) { container.removeChild(container.firstChild); }
             }, 5000);
         }
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Method filter */
+    (function() {
+        var methodMap = {{ method_applicability | safe }};
+        var methodPills = document.querySelectorAll('.method-pill');
+        var cards = document.querySelectorAll('.parrot-card');
+
+        methodPills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                methodPills.forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                var method = pill.getAttribute('data-method');
+                var codes = method === 'all' ? null : methodMap[method] || [];
+                cards.forEach(function(card) {
+                    var code = card.getAttribute('data-code');
+                    if (!codes || codes.indexOf(code) !== -1) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
     })();
     </script>
 {% endblock %}
