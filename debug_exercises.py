@@ -620,4 +620,60 @@ DEBUG_EXERCISES = [
         ],
         "related_codes": ["201", "200"],
     },
+    {
+        "id": "302-method-change",
+        "difficulty": "intermediate",
+        "category": "redirects",
+        "title": "302 Changing POST to GET",
+        "description": "A form submits data via POST, but after the redirect, the data is lost because the browser changed the method.",
+        "request": "POST /api/submit HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{\"name\": \"Alice\"}",
+        "response": "HTTP/1.1 302 Found\nLocation: /api/process\nContent-Length: 0",
+        "bugs": [
+            {
+                "id": "method-not-preserved",
+                "description": "302 may change POST to GET — use 307 to preserve method",
+                "explanation": "Historically, browsers changed POST to GET on 302 redirects. If the form data must reach the redirect target, use 307 Temporary Redirect which guarantees the method is preserved.",
+            },
+        ],
+        "related_codes": ["302", "307"],
+    },
+    {
+        "id": "429-aggressive-retry",
+        "difficulty": "expert",
+        "category": "api-design",
+        "title": "429 Without Backoff Guidance",
+        "description": "An API rate-limits clients but doesn't provide enough information for proper retry behavior.",
+        "request": "GET /api/data HTTP/1.1\nHost: api.example.com\nAuthorization: Bearer eyJhbG...",
+        "response": "HTTP/1.1 429 Too Many Requests\nContent-Type: application/json\n\n{\"error\": \"rate limit exceeded\", \"limit\": 100, \"window\": \"1m\"}",
+        "bugs": [
+            {
+                "id": "missing-retry-after-header",
+                "description": "Missing Retry-After header",
+                "explanation": "While the body mentions the rate limit, the Retry-After header is the standard mechanism for telling clients when to retry. Without it, clients may retry immediately, worsening the overload. Add: Retry-After: 60",
+            },
+            {
+                "id": "missing-ratelimit-headers",
+                "description": "Missing X-RateLimit-* headers for proactive throttling",
+                "explanation": "Best practice is to include X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers so clients can throttle proactively before hitting the limit.",
+            },
+        ],
+        "related_codes": ["429", "503"],
+    },
+    {
+        "id": "200-wrong-content-type",
+        "difficulty": "beginner",
+        "category": "crud",
+        "title": "JSON Response with Wrong Content-Type",
+        "description": "A client expects JSON but the response header says otherwise.",
+        "request": "GET /api/users/42 HTTP/1.1\nHost: api.example.com\nAccept: application/json",
+        "response": "HTTP/1.1 200 OK\nContent-Type: text/html\n\n{\"id\": 42, \"name\": \"Alice\"}",
+        "bugs": [
+            {
+                "id": "content-type-mismatch",
+                "description": "Content-Type says text/html but body is JSON",
+                "explanation": "The response body is valid JSON but the Content-Type header says text/html. Clients relying on the Content-Type will try to render it as HTML instead of parsing it as JSON. Set Content-Type: application/json.",
+            },
+        ],
+        "related_codes": ["200", "406"],
+    },
 ]

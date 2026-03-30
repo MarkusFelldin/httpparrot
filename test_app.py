@@ -12856,3 +12856,40 @@ class TestSmokeTest:
 
         resp = client.get('/200.jpg')
         assert resp.status_code == 200
+
+
+class TestRound10Pass7DebugExercises:
+    """Tests for Round 10 Pass 7 — 3 new debug exercises."""
+
+    def test_debug_exercise_302_method_change(self, client):
+        resp = client.get('/debug')
+        assert b'302 Changing POST to GET' in resp.data or b'302-method-change' in resp.data
+
+    def test_debug_exercise_count_at_least_36(self):
+        from debug_exercises import DEBUG_EXERCISES
+        assert len(DEBUG_EXERCISES) >= 36
+
+    def test_debug_exercise_429_aggressive_retry(self, client):
+        resp = client.get('/debug')
+        assert b'429 Without Backoff Guidance' in resp.data or b'429-aggressive-retry' in resp.data
+
+    def test_debug_exercise_200_wrong_content_type(self, client):
+        resp = client.get('/debug')
+        assert b'JSON Response with Wrong Content-Type' in resp.data or b'200-wrong-content-type' in resp.data
+
+
+class TestRound10Pass8DesignPolish:
+    """Tests for Round 10 Pass 8 — CSS design polish."""
+
+    def test_css_has_path_step_hover(self, client):
+        resp = client.get('/static/style.css')
+        assert b'path-step:hover' in resp.data
+
+    def test_css_has_path_card_hover(self, client):
+        resp = client.get('/static/style.css')
+        assert b'path-card:hover' in resp.data
+        assert b'color-teal' in resp.data
+
+    def test_css_has_collect_progress_fill(self, client):
+        resp = client.get('/static/style.css')
+        assert b'collect-progress-fill' in resp.data

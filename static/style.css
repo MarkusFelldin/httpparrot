@@ -10706,3 +10706,43 @@ select {
 .quiz-results-streak { color: var(--text-secondary); margin-bottom: 1.5rem; }
 .quiz-results-actions { display: flex; gap: 1rem; justify-content: center; }
 .quiz-share-btn, .quiz-continue-btn { min-width: 120px; }
+
+/* Learning path detail — step card hover enhancement */
+.path-step {
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.path-step:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Comparison page — smoother select transitions */
+.compare-select {
+  transition: border-color var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.compare-select:focus {
+  border-color: var(--color-teal);
+  box-shadow: 0 0 0 3px rgba(0, 201, 167, 0.1);
+}
+
+/* Collection page — category progress bar animation */
+.collect-progress-fill {
+  transition: width var(--duration-slow) var(--ease-out);
+}
+
+/* Paths index — card hover lift */
+.path-card {
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.path-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-teal);
+}
