@@ -2056,6 +2056,46 @@
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Footer parrot counter */
+    (function() {
+        var footer = document.querySelector('.footer-inner');
+        if (!footer) return;
+        var github = footer.querySelector('.footer-github');
+        if (!github) return;
+        var counter = document.createElement('span');
+        counter.className = 'footer-parrot-counter';
+        counter.style.cssText = 'cursor:pointer;margin-left:0.5rem;user-select:none;';
+        counter.textContent = '\uD83E\uDD9C';
+        counter.setAttribute('aria-hidden', 'true');
+        var count = 0;
+        counter.addEventListener('click', function(e) {
+            e.preventDefault();
+            count++;
+            if (count === 1) counter.textContent = '\uD83E\uDD9C';
+            if (count >= 10) {
+                counter.textContent = '\uD83E\uDD9C\u2728';
+                /* Secret parrot party */
+                for (var i = 0; i < 10; i++) {
+                    var p = document.createElement('span');
+                    p.textContent = '\uD83E\uDD9C';
+                    p.style.cssText = 'position:fixed;bottom:' + (20 + Math.random() * 60) + 'px;font-size:' + (14 + Math.random() * 20) + 'px;pointer-events:none;z-index:9999;animation:footer-parrot-fly 2s ease-out forwards;left:' + (Math.random() * 100) + 'vw;';
+                    document.body.appendChild(p);
+                    setTimeout(function(el){ el.remove(); }, 2100, p);
+                }
+                count = 0;
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('footer_party') === -1) {
+                    eggs.push('footer_party');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        });
+        footer.appendChild(counter);
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

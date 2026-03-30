@@ -3301,7 +3301,15 @@ textarea:focus-visible,
   .confetti-particle,
   .playground-actions,
   .pg-add-header,
-  .pg-remove-header {
+  .pg-remove-header,
+  .mobile-nav,
+  .mobile-nav-overlay,
+  .cmd-palette-overlay,
+  .kbd-shortcuts-overlay,
+  .toast-container,
+  .xp-badge,
+  .sound-toggle-btn,
+  .footer-parrot-counter {
     display: none !important;
   }
 
@@ -5271,30 +5279,29 @@ textarea:focus-visible,
   height: 44px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-default);
-  background: var(--surface-1-heavy);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: rgba(255, 255, 255, 0.6);
-  font-size: var(--text-lg);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 1.2rem;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(12px);
-  transition: opacity var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out), background var(--duration-fast) var(--ease-in-out), color var(--duration-fast) var(--ease-in-out);
-  pointer-events: none;
-  z-index: 90;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out), visibility var(--duration-normal), background var(--duration-fast) var(--ease-in-out);
+  z-index: 100;
+  box-shadow: var(--shadow-md);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .back-to-top.visible {
   opacity: 1;
+  visibility: visible;
   transform: translateY(0);
-  pointer-events: auto;
 }
 .back-to-top:hover {
-  background: rgba(0, 201, 167, 0.15);
-  color: var(--color-emerald);
-  border-color: rgba(0, 201, 167, 0.3);
+  background: var(--surface-3);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 /* === Page: Response Playground === */
@@ -5605,10 +5612,13 @@ body {
 
   /* Footer */
   .site-footer {
-    padding: 2rem 1rem 1.5rem;
+    padding: 1.25rem 1rem;
   }
 
   .footer-inner {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
     font-size: var(--text-sm);
   }
 }
@@ -5779,7 +5789,7 @@ body {
   /* Scroll progress & back to top */
   .scroll-progress { transition: none !important; }
   .back-to-top { transition: none !important; }
-  .back-to-top.visible { opacity: 1 !important; transform: none !important; }
+  .back-to-top.visible { opacity: 1 !important; visibility: visible !important; transform: none !important; }
 
   /* Parrot breathing */
   .parrot .img img { animation: none !important; }
@@ -9073,4 +9083,10 @@ body {
   0% { opacity: 1; transform: scale(0) rotate(0deg); }
   30% { opacity: 1; transform: scale(1.2) rotate(180deg); }
   100% { opacity: 0; transform: scale(0.5) rotate(720deg) translateY(-100px); }
+}
+
+/* === Footer Parrot Fly Animation (footer counter easter egg) === */
+@keyframes footer-parrot-fly {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(-200px) rotate(360deg); }
 }

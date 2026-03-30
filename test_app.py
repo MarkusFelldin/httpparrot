@@ -13738,3 +13738,118 @@ class TestCheatsheetPrintFeedback:
         html = resp.data.decode()
         assert 'Print this page' in html
         assert 'setTimeout' in html
+
+
+class TestBackToTopButton:
+    """Test the back-to-top button styling and behavior."""
+
+    def test_back_to_top_css_visibility(self):
+        """Back-to-top CSS should use visibility for show/hide."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'visibility: hidden' in css
+        assert 'visibility: visible' in css
+
+    def test_back_to_top_css_box_shadow(self):
+        """Back-to-top button should use shadow token."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.back-to-top' in css
+        assert 'box-shadow: var(--shadow-md)' in css
+
+    def test_back_to_top_visible_class(self):
+        """Back-to-top .visible class should set visibility: visible."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Check that .back-to-top.visible rule exists
+        assert '.back-to-top.visible' in css
+
+
+class TestFooterParrotCounter:
+    """Test the footer parrot counter easter egg."""
+
+    def test_footer_parrot_counter_script(self, client):
+        """Footer should include the parrot counter easter egg script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer-parrot-counter' in html
+
+    def test_footer_parrot_counter_eggs_found(self, client):
+        """Footer parrot counter should register footer_party egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer_party' in html
+        assert 'eggs_found' in html
+
+    def test_footer_parrot_counter_awards_xp(self, client):
+        """Footer parrot counter should award XP on easter egg trigger."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_footer_parrot_fly_animation(self):
+        """CSS should contain the footer-parrot-fly keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@keyframes footer-parrot-fly' in css
+
+
+class TestMobileFooterSpacing:
+    """Test mobile footer spacing styles."""
+
+    def test_footer_mobile_padding(self):
+        """Footer should have reduced padding on 480px screens."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'padding: 1.25rem 1rem' in css
+
+
+class TestPrintStylesCompleteness:
+    """Test that print styles hide all interactive elements."""
+
+    def test_print_hides_mobile_nav(self):
+        """Print styles should hide mobile navigation."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.mobile-nav,' in css or '.mobile-nav\n' in css
+
+    def test_print_hides_toast_container(self):
+        """Print styles should hide toast container."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.toast-container' in css
+
+    def test_print_hides_cmd_palette(self):
+        """Print styles should hide command palette overlay."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.cmd-palette-overlay' in css
+
+    def test_print_hides_footer_parrot_counter(self):
+        """Print styles should hide footer parrot counter."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.footer-parrot-counter' in css
+
+
+class TestDoubleClickCopyCodeBlocks:
+    """Test double-click-to-copy on code blocks in detail pages."""
+
+    def test_detail_page_has_dblclick_copy(self, client):
+        """Detail page should have double-click-to-copy on code snippets."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'dblclick' in html
+        assert 'Double-click to copy' in html
+
+    def test_detail_page_dblclick_uses_clipboard(self, client):
+        """Double-click handler should use navigator.clipboard."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'navigator.clipboard.writeText' in html
+
+    def test_detail_page_dblclick_shows_toast(self, client):
+        """Double-click copy should show a success toast."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'Code copied!' in html

@@ -691,4 +691,17 @@
         }
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Double-click to copy code blocks */
+    document.querySelectorAll('.code-snippet').forEach(function(block) {
+        block.title = 'Double-click to copy';
+        block.style.cursor = 'pointer';
+        block.addEventListener('dblclick', function() {
+            var text = block.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('Code copied!', 'success', 2000);
+            });
+        });
+    });
+    </script>
 {% endblock %}
