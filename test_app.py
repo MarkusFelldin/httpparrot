@@ -10296,6 +10296,73 @@ class TestProfileWeeklyChart:
         assert 'display: flex' in css
 
 
+class TestProfileWeeklyTier:
+    """Tests for the weekly tier leaderboard on the profile page."""
+
+    def test_profile_has_weekly_tier(self, client):
+        """Profile page should contain the Weekly Tier section."""
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+        assert b'Weekly Tier' in resp.data
+
+    def test_profile_tier_card_exists(self, client):
+        """Profile page should contain the tier card element."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-tier-card' in html
+
+    def test_profile_tier_has_progress_bar(self, client):
+        """Profile tier card should have a progress bar."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'tier-bar' in html
+        assert 'tier-bar-wrap' in html
+
+    def test_profile_tier_js_calculates_weekly_xp(self, client):
+        """Profile script should calculate weekly XP from activity."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'weeklyXP' in html
+        assert 'weekStartStr' in html
+
+    def test_profile_tier_js_has_all_tiers(self, client):
+        """Profile script should define Bronze, Silver, Gold, Platinum tiers."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Bronze' in html
+        assert 'Silver' in html
+        assert 'Gold' in html
+        assert 'Platinum' in html
+
+    def test_profile_tier_css_exists(self, client):
+        """CSS should contain styles for the weekly tier system."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-tier-card' in css
+        assert '.tier-bar' in css
+        assert '.tier-bar-wrap' in css
+        assert '.tier-name' in css
+
+    def test_profile_share_card_top3_exists(self, client):
+        """Profile share card should contain the top 3 rarest feathers container."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-card-top3' in html
+
+    def test_profile_top3_js_sorts_by_bonus(self, client):
+        """Profile script should sort earned feathers by bonus XP descending."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'b.bonus - a.bonus' in html
+
+    def test_profile_top3_css_exists(self, client):
+        """CSS should contain styles for the top 3 rarest feathers."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-share-card-top3' in css
+        assert '.top3-feather' in css
+
+
 # --- Compare Page Transitions ---
 
 class TestCompareTransitions:

@@ -123,6 +123,20 @@
             </div>
         </section>
 
+        <section class="profile-tier-section" aria-label="Weekly tier">
+            <h2>Weekly Tier</h2>
+            <div class="profile-tier-card" id="profile-tier-card">
+                <span class="tier-icon" id="tier-icon"></span>
+                <div class="tier-info">
+                    <div class="tier-name" id="tier-name">Bronze</div>
+                    <div class="tier-progress" id="tier-progress">0 / 100 XP this week</div>
+                    <div class="tier-bar-wrap">
+                        <div class="tier-bar" id="tier-bar" role="progressbar"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="profile-milestones-section" aria-label="Milestone history">
             <h2>Milestones</h2>
             <div class="profile-milestones-list" id="profile-milestones-list">
@@ -192,6 +206,7 @@
                         <span class="profile-share-card-stat" id="profile-card-collection">Collection: 0/72</span>
                     </div>
                     <div class="profile-share-card-feathers" id="profile-card-feathers"></div>
+                    <div class="profile-share-card-top3" id="profile-card-top3"></div>
                     <div class="profile-share-card-brand">httpparrots.com</div>
                 </div>
             </div>
@@ -694,6 +709,68 @@
             card.appendChild(bonusEl);
 
             feathersGrid.appendChild(card);
+        });
+    }
+})();
+
+/* Weekly tier system */
+(function() {
+    var activity = typeof ParrotXP !== 'undefined' ? ParrotXP.getActivity() : [];
+    var now = new Date();
+    var weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    var weekStartStr = weekStart.toISOString().slice(0, 10);
+    var weeklyXP = 0;
+    activity.forEach(function(a) {
+        if (a.date >= weekStartStr) weeklyXP += (a.xp || 0);
+    });
+
+    var tiers = [
+        {name: 'Bronze', icon: '\uD83E\uDD49', min: 0, next: 100, color: '#cd7f32'},
+        {name: 'Silver', icon: '\uD83E\uDD48', min: 100, next: 250, color: '#c0c0c0'},
+        {name: 'Gold', icon: '\uD83E\uDD47', min: 250, next: 500, color: '#ffd700'},
+        {name: 'Platinum', icon: '\uD83D\uDC8E', min: 500, next: null, color: '#e5e4e2'}
+    ];
+
+    var tier = tiers[0];
+    for (var i = tiers.length - 1; i >= 0; i--) {
+        if (weeklyXP >= tiers[i].min) { tier = tiers[i]; break; }
+    }
+
+    var iconEl = document.getElementById('tier-icon');
+    var nameEl = document.getElementById('tier-name');
+    var progressEl = document.getElementById('tier-progress');
+    var barEl = document.getElementById('tier-bar');
+    var cardEl = document.getElementById('profile-tier-card');
+
+    if (iconEl) iconEl.textContent = tier.icon;
+    if (nameEl) { nameEl.textContent = tier.name; nameEl.style.color = tier.color; }
+    if (tier.next) {
+        if (progressEl) progressEl.textContent = weeklyXP + ' / ' + tier.next + ' XP this week';
+        if (barEl) barEl.style.width = Math.min((weeklyXP - tier.min) / (tier.next - tier.min) * 100, 100) + '%';
+    } else {
+        if (progressEl) progressEl.textContent = weeklyXP + ' XP this week \u2014 Max tier!';
+        if (barEl) barEl.style.width = '100%';
+    }
+    if (barEl) barEl.style.background = tier.color;
+    if (cardEl) cardEl.style.borderColor = tier.color;
+})();
+
+/* Top 3 rarest feathers for card */
+(function() {
+    var earned = typeof ParrotXP !== 'undefined' ? ParrotXP.getFeathers() : [];
+    var feathers = typeof ParrotXP !== 'undefined' ? ParrotXP.FEATHERS : [];
+    var earnedFeathers = feathers.filter(function(f) { return earned.indexOf(f.id) !== -1; });
+    earnedFeathers.sort(function(a, b) { return b.bonus - a.bonus; });
+    var top3 = earnedFeathers.slice(0, 3);
+    var el = document.getElementById('profile-card-top3');
+    if (el && top3.length > 0) {
+        top3.forEach(function(f) {
+            var span = document.createElement('span');
+            span.className = 'top3-feather';
+            span.title = f.name;
+            span.textContent = f.icon;
+            el.appendChild(span);
         });
     }
 })();
