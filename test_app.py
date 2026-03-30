@@ -1336,7 +1336,7 @@ class TestQuizResults:
         assert 'showResults' in html
         assert 'quiz-results-overlay' in html
         assert 'quiz-results-card' in html
-        assert 'Copy Result' in html
+        assert 'Share Result' in html
         assert 'Play Again' in html
         assert 'quiz-results-grid' in html
         assert 'httpparrots.com/quiz' in html
@@ -10245,6 +10245,70 @@ class TestQuizDifficultySelector:
         assert '.quiz-difficulty' in css
         assert '.quiz-diff-btn' in css
         assert '.quiz-hard-input' in css
+
+
+# --- Hover Sparkle ---
+
+class TestHoverSparkle:
+    """Tests for subtle hover sparkle particles on parrot cards."""
+
+    def test_homepage_has_hover_sparkle_script(self, client):
+        """Homepage should include the hover sparkle particle script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'hover-sparkle' in html
+        assert 'mouseenter' in html
+        assert 'prefers-reduced-motion' in html
+
+    def test_hover_sparkle_respects_touch(self, client):
+        """Sparkle script should skip on touch devices."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ontouchstart' in html
+
+    def test_hover_sparkle_css(self, client):
+        """CSS should include hover sparkle styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.hover-sparkle' in css
+        assert 'sparkle-fade' in css
+
+
+# --- Quiz Share ---
+
+class TestQuizShare:
+    """Tests for enhanced quiz results sharing."""
+
+    def test_quiz_has_share_functionality(self, client):
+        """Quiz should have share result button in results overlay."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-share-btn' in html
+        assert 'Share Result' in html
+
+    def test_quiz_has_best_streak_tracking(self, client):
+        """Quiz should track best streak across the round."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'bestStreak' in html
+        assert 'Best streak' in html
+
+    def test_quiz_results_score_display(self, client):
+        """Quiz results should display score with percentage."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-results-score' in html
+        assert 'quiz-results-streak' in html
+        assert 'quiz-results-actions' in html
+
+    def test_quiz_share_css(self, client):
+        """CSS should include quiz share styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.quiz-results-score' in css
+        assert '.quiz-results-streak' in css
+        assert '.quiz-results-actions' in css
+        assert '.quiz-share-btn' in css
 
 
 # --- Copy Helper ---

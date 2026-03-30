@@ -1113,4 +1113,28 @@
         });
     })();
     </script>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Hover sparkle particles on parrot cards */
+    (function() {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if ('ontouchstart' in window) return; /* Skip on touch devices */
+
+        var cards = document.querySelectorAll('.parrot-card');
+        cards.forEach(function(card) {
+            card.addEventListener('mouseenter', function() {
+                for (var i = 0; i < 3; i++) {
+                    setTimeout(function() {
+                        var sparkle = document.createElement('span');
+                        sparkle.className = 'hover-sparkle';
+                        sparkle.style.left = (20 + Math.random() * 60) + '%';
+                        sparkle.style.top = (20 + Math.random() * 60) + '%';
+                        card.querySelector('.parrot').appendChild(sparkle);
+                        sparkle.addEventListener('animationend', function() { sparkle.remove(); });
+                    }, i * 100);
+                }
+            });
+        });
+    })();
+    </script>
 {% endblock %}
