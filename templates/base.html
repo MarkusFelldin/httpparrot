@@ -88,7 +88,7 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map','/incidents'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map','/incidents','/verb-roulette','/header-challenge'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
                             <a href="/predict" role="menuitem" {% if request.path == '/predict' %}aria-current="page"{% endif %}>Guess the Response</a>
@@ -103,6 +103,8 @@
                             <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
                             <a href="/map" role="menuitem" {% if request.path == '/map' %}aria-current="page"{% endif %}>Code Map</a>
                             <a href="/incidents" role="menuitem" {% if request.path == '/incidents' %}aria-current="page"{% endif %}>War Stories</a>
+                            <a href="/verb-roulette" role="menuitem" {% if request.path == '/verb-roulette' %}aria-current="page"{% endif %}>Verb Roulette</a>
+                            <a href="/header-challenge" role="menuitem" {% if request.path == '/header-challenge' %}aria-current="page"{% endif %}>Header Challenge</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -168,6 +170,8 @@
             <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
             <a href="/map" {% if request.path == '/map' %}class="nav-active" aria-current="page"{% endif %}>Code Map</a>
             <a href="/incidents" {% if request.path == '/incidents' %}class="nav-active" aria-current="page"{% endif %}>War Stories</a>
+            <a href="/verb-roulette" {% if request.path == '/verb-roulette' %}class="nav-active" aria-current="page"{% endif %}>Verb Roulette</a>
+            <a href="/header-challenge" {% if request.path == '/header-challenge' %}class="nav-active" aria-current="page"{% endif %}>Header Challenge</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
@@ -2005,6 +2009,7 @@
             {name: 'Confusion Pairs', path: '/learn', icon: '\uD83D\uDD00', desc: 'Compare confusing status codes'},
             {name: 'Learning Paths', path: '/paths', icon: '\uD83D\uDEE4\uFE0F', desc: 'Guided learning journeys'},
             {name: 'Flowchart', path: '/flowchart', icon: '\uD83D\uDDFA\uFE0F', desc: 'Which status code should I use?'},
+            {name: 'Header Challenge', path: '/header-challenge', icon: '\uD83D\uDCDD', desc: 'Fill in the missing HTTP header'},
             {name: 'URL Tester', path: '/tester', icon: '\uD83D\uDD17', desc: 'Test any URL\'s response'},
             {name: 'Header Explainer', path: '/headers', icon: '\uD83D\uDCE8', desc: 'Explain HTTP headers'},
             {name: 'Content Negotiation', path: '/content-negotiation', icon: '\uD83E\uDD1D', desc: 'Explore Accept & Content-Type negotiation'},

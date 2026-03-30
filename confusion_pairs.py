@@ -402,6 +402,28 @@ CONFUSION_PAIRS = [
         ],
     },
     {
+        "slug": "403-vs-404",
+        "codes": ["403", "404"],
+        "title": "403 Forbidden vs 404 Not Found",
+        "category": "Client error pairs",
+        "tldr": "403 means the server knows you're not allowed to access this resource; 404 means the resource doesn't exist (or the server pretends it doesn't to hide its existence).",
+        "decision_tree": [
+            {"question": "Does the resource exist?", "yes": "403 (if unauthorized) or 200", "no": "404"},
+            {"question": "Should you reveal that the resource exists?", "yes": "403", "no": "404 (to hide it)"},
+            {"question": "Would authenticating or changing permissions fix this?", "yes": "403", "no": "404"},
+        ],
+        "examples": [
+            {"scenario": "A logged-in regular user tries to access /admin/settings.", "code": "403", "explanation": "The resource exists, but this user's role doesn't have permission."},
+            {"scenario": "A user requests /api/users/99999 and no user has that ID.", "code": "404", "explanation": "The resource genuinely doesn't exist \u2014 there's nothing to forbid."},
+            {"scenario": "An unauthenticated user tries /api/private/data and you don't want to reveal the endpoint exists.", "code": "404", "explanation": "Returning 403 would confirm the endpoint exists. Use 404 to hide it for security."},
+        ],
+        "quiz": [
+            {"scenario": "A user with 'viewer' role tries to DELETE a record they can see but not modify.", "correct": "403", "wrong": "404"},
+            {"scenario": "Someone requests /api/v3/users but your API only has v1 and v2.", "correct": "404", "wrong": "403"},
+            {"scenario": "A security-conscious API hides admin endpoints from non-admin users.", "correct": "404", "wrong": "403"},
+        ],
+    },
+    {
         "slug": "200-vs-201",
         "codes": ["200", "201"],
         "title": "200 OK vs 201 Created",

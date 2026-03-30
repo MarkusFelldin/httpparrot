@@ -10,20 +10,20 @@ HTTP Parrots -- a Flask web app that explains HTTP status codes with illustrated
 - Run locally: `.venv/bin/python index.py` (serves on http://127.0.0.1:5000)
 - Flask is NOT in debug mode -- restart the server after changing Python files or templates
 - Tests: `.venv/bin/python -m pytest`
-- 1623 tests across test_app.py (1605) and test_cli.py (18)
+- 1499 tests across test_app.py (1481) and test_cli.py (18) — consolidated via parametrize
 - Coverage: 97%+ of index.py
 
 ## Architecture
 
-- `index.py` -- main Flask app with all routes (~2267 lines)
+- `index.py` -- main Flask app with all routes (~2281 lines)
 - `status_descriptions.py` -- STATUS_INFO dict with descriptions, history, meaning for each code
 - `status_extra.py` -- STATUS_EXTRA dict with examples, ELI5 text (all 72 codes), case studies (135 entries across 70 codes), 96 common mistakes (48 codes), 15 "When NOT to use" sections, code snippets in 5 languages (Python, Node.js, Go, Java, Rust)
 - `http_examples.py` -- HTTP_EXAMPLES dict with request/response text for each code
-- `scenarios.py` -- 60 practice scenarios (including 5 security category) with difficulty, options, and explanations
-- `debug_exercises.py` -- 33 debug exercises with broken HTTP exchanges and 44 bugs to find
-- `confusion_pairs.py` -- 19 confusion pair lesson definitions with slugs, categories, and content
+- `scenarios.py` -- 64 practice scenarios (including 5 security category) with difficulty, options, and explanations
+- `debug_exercises.py` -- 36 debug exercises with broken HTTP exchanges and bugs to find
+- `confusion_pairs.py` -- 21 confusion pair lesson definitions with slugs, categories, and content
 - `learning_paths.py` -- 5 guided learning paths (http-foundations, error-whisperer, redirect-master, api-designer, security-sentinel)
-- `templates/` -- 38 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
+- `templates/` -- 40 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
 - `static/` -- parrot images (72 codes), CSS (design-token-based system), and static assets
 - `cli/` -- standalone CLI tool (no Flask dependency)
 

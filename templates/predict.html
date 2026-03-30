@@ -45,6 +45,7 @@
         var scenarios = {{ scenarios | safe }};
         var idx = 0, correct = 0, streak = 0, total = 0;
         var answered = false;
+        var questionStartTime = 0;
 
         function shuffle(arr) {
             for (var i = arr.length - 1; i > 0; i--) {
@@ -66,6 +67,7 @@
             document.getElementById('predict-next').style.display = 'none';
             document.getElementById('predict-input-section').style.display = '';
             answered = false;
+            questionStartTime = Date.now();
         }
 
         function submit() {
@@ -77,12 +79,30 @@
             var s = scenarios[idx];
             var isCorrect = guess === s.correct;
             var fb = document.getElementById('predict-feedback');
+            var answerTime = Date.now() - questionStartTime;
             if (isCorrect) {
                 correct++;
                 streak++;
                 fb.textContent = 'Correct! ' + s.correct + ' \u2014 ' + (s.explanations[s.correct] || '');
                 fb.className = 'predict-feedback predict-correct';
                 if (typeof ParrotXP !== 'undefined') ParrotXP.award(20, 'predict_correct');
+                if (answerTime < 2000) {
+                    var badge = document.createElement('span');
+                    badge.className = 'lightning-badge';
+                    badge.textContent = '\u26A1 Lightning Fast! (' + (answerTime / 1000).toFixed(1) + 's)';
+                    fb.appendChild(badge);
+                    /* Easter egg for 5 lightning-fast answers */
+                    var lightningCount = parseInt(localStorage.getItem('httpparrot_lightning_count') || '0', 10) + 1;
+                    localStorage.setItem('httpparrot_lightning_count', String(lightningCount));
+                    if (lightningCount >= 5) {
+                        var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                        if (eggs.indexOf('lightning_predictor') === -1) {
+                            eggs.push('lightning_predictor');
+                            localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                        }
+                    }
+                }
             } else {
                 streak = 0;
                 fb.textContent = 'Not quite. The answer is ' + s.correct + ' \u2014 ' + (s.explanations[s.correct] || '');

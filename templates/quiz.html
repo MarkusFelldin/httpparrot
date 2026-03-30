@@ -48,6 +48,7 @@
     (function() {
         const allCodes = {{ quiz_data | tojson }};
         let score = 0, streak = 0, total = 0;
+        var bestStreak = 0;
         let answered = false;
         let history = [];
         var difficulty = 'easy';
@@ -180,6 +181,7 @@
             if (isCorrect) {
                 score++;
                 streak++;
+                if (streak > bestStreak) bestStreak = streak;
                 history.push(true);
                 removeMistake(correct.code);
                 spawnComboConfetti(originEl, streak);
@@ -312,8 +314,9 @@
                 localStorage.setItem('httpparrot_perfect_quiz', 'true');
                 if (typeof ParrotXP !== 'undefined') ParrotXP.checkFeathers();
             }
+            var pct = Math.round(score / 10 * 100);
             var emojis = history.map(function(h) { return h ? '\uD83D\uDFE2' : '\uD83D\uDD34'; }).join('');
-            var resultText = 'HTTP Parrots Quiz: ' + score + '/10\n' + emojis + '\nhttpparrots.com/quiz';
+            var resultText = 'HTTP Parrots Quiz: ' + score + '/10 (' + pct + '%) \uD83E\uDD9C\nBest streak: ' + bestStreak + '\n' + emojis + '\nhttpparrots.com/quiz';
             var overlay = document.createElement('div');
             overlay.className = 'quiz-results-overlay';
             var card = document.createElement('div');
@@ -322,29 +325,41 @@
             title.className = 'quiz-results-title';
             title.textContent = score + '/10 Parrots Identified!';
             card.appendChild(title);
+            var scoreDiv = document.createElement('div');
+            scoreDiv.className = 'quiz-results-score';
+            scoreDiv.textContent = score + '/10 (' + pct + '%)';
+            card.appendChild(scoreDiv);
+            var streakDiv = document.createElement('div');
+            streakDiv.className = 'quiz-results-streak';
+            streakDiv.textContent = 'Best streak: ' + bestStreak;
+            card.appendChild(streakDiv);
             var grid = document.createElement('div');
             grid.className = 'quiz-results-grid';
             grid.textContent = emojis;
             card.appendChild(grid);
-            var copyBtn = document.createElement('button');
-            copyBtn.className = 'btn-back quiz-results-copy';
-            copyBtn.textContent = 'Copy Result';
-            copyBtn.addEventListener('click', function() {
+            var actionsDiv = document.createElement('div');
+            actionsDiv.className = 'quiz-results-actions';
+            var shareBtn = document.createElement('button');
+            shareBtn.className = 'btn-back quiz-share-btn';
+            shareBtn.type = 'button';
+            shareBtn.textContent = 'Share Result';
+            shareBtn.addEventListener('click', function() {
                 navigator.clipboard.writeText(resultText).then(function() {
-                    copyBtn.textContent = 'Copied!';
-                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                    if (typeof ParrotToast !== 'undefined') ParrotToast.show('Result copied!', 'success');
+                    shareBtn.textContent = 'Copied!';
+                    setTimeout(function() { shareBtn.textContent = 'Share Result'; }, 2000);
                 }).catch(function() {
-                    copyBtn.textContent = 'Failed';
-                    setTimeout(function() { copyBtn.textContent = 'Copy Result'; }, 2000);
+                    shareBtn.textContent = 'Failed';
+                    setTimeout(function() { shareBtn.textContent = 'Share Result'; }, 2000);
                 });
             });
-            card.appendChild(copyBtn);
+            actionsDiv.appendChild(shareBtn);
             var again = document.createElement('button');
             again.className = 'btn-back quiz-results-again';
             again.textContent = 'Play Again';
             again.addEventListener('click', function() {
                 overlay.remove();
-                score = 0; streak = 0; total = 0; history = [];
+                score = 0; streak = 0; total = 0; history = []; bestStreak = 0;
                 document.getElementById('score').textContent = '0';
                 document.getElementById('streak').textContent = '0';
                 document.getElementById('total').textContent = '0';
@@ -352,7 +367,8 @@
                 streakEl.classList.remove('on-fire', 'blazing');
                 nextRound();
             });
-            card.appendChild(again);
+            actionsDiv.appendChild(again);
+            card.appendChild(actionsDiv);
             overlay.appendChild(card);
             document.body.appendChild(overlay);
         }
