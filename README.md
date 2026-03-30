@@ -25,12 +25,12 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **Embed codes** - Copy HTML, Markdown, or direct image URL for any parrot
 
 **Structured learning**
-- **Confusion Pair Lessons** (`/learn`) - 15 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 301 vs 302), grouped by category
+- **Confusion Pair Lessons** (`/learn`) - 16 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 301 vs 302, 502 vs 503), grouped by category
 - **Guided Learning Paths** (`/paths`) - 3 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master) with step-by-step checklists mixing visits, practice, quizzes, and lessons; completion certificates on finishing a path
 - **Spaced Repetition Review** (`/review`) - Leitner box-based review queue pulling from scenarios, debug exercises, and confusion pairs for long-term retention
 
 **Interactive tools**
-- **Quiz** (`/quiz`) - Guess the status code from the parrot image (10 questions per round) with adaptive difficulty weighted by past mistakes
+- **Quiz** (`/quiz`) - Guess the status code from the parrot image (10 questions per round) with adaptive difficulty weighted by past mistakes and confetti combo escalation
 - **Daily Challenge** (`/daily`) - Wordle-style daily quiz with streak tracking, streak freeze, milestones, shareable results, and suggested next actions
 - **Weekly Challenge** (`/weekly`) - 5-question themed challenges rotating through 8 themes (Redirect Week, Auth Week, Error Week, etc.) with challenge history; Theme Master feather for perfect scores
 - **Scenario Practice** (`/practice`) - 56 real-world API scenarios (including 5 security category) sorted by difficulty (beginner/intermediate/expert) with category filters and results summary
@@ -47,6 +47,7 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **Redirect Tracer** (`/trace`) - Visualize full redirect chains with timing, headers, and SSRF protection at every hop
 - **Fault Simulator** (`/fault-simulator`) - Simulate network faults: configurable delay, byte drip, JSON streaming, random jitter, and unstable endpoints
 - **Webhook Inspector** (`/webhook-inspector`) - Create ephemeral request bins to capture and inspect incoming webhooks (1-hour TTL, 50 requests max)
+- **Content Negotiation** (`/content-negotiation`) - Interactive tool demonstrating how Accept, Accept-Encoding, and Accept-Language headers affect server responses
 - **Cheat Sheet** (`/cheatsheet`) - Printable single-page reference with parrot thumbnails, filter/search, and compact toggle
 - **Parrotdex** (`/collection`) - Gamified collection tracker for visited status codes with milestones (10/25/50/72), category progress bars, and Konami code party mode
 - **Command Palette** - Press Cmd+K (Mac) or Ctrl+K (Windows/Linux) to open a global command palette for instant navigation
@@ -60,7 +61,13 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **10 Ranks** - Progress from Fledgling through Nestling, Feathered Apprentice, Wing Cadet, Parrot Scout, Plume Knight, Wing Commander, Sky Captain, Grand Macaw, to Legendary Lorikeet
 - **29 Achievement Badges** ("Feathers") - 23 base feathers (First Flight, Quiz Whiz, Perfect 10, Streak Starter, On Fire, Centurion, Wing Commander, Completionist, Error Expert, Server Sage, Egg Hunter, Scholar, Night Owl, Speed Demon, Frozen Solid, Memory Master, Parrot Petter, Photographic Memory, Loyal Parrot, Theme Master, Explorer 10, Explorer 25, Explorer 50) + 6 meta feathers (Explorer, Polyglot, Streak Lord, Triple Threat, Full Spectrum, Parrot Polymath)
 - **Meta-Feather Unlock Animations** - Golden confetti burst and screen shake when earning meta feathers
-- **Parrot Mood Ring** - XP badge color shifts based on recent activity categories
+- **Parrot Mood Ring** - XP badge color shifts with category-specific pulse animations (cyan/teal/gold/coral/purple) based on recent browsing
+- **XP Multiplier Chain** - Consecutive daily visits build a 1.0x to 2.0x XP multiplier, shown as a glowing gold badge indicator
+- **Weekly Bingo** (`/bingo`) - 5x5 bingo card of status codes, mark off by visiting pages, auto-syncs with Parrotdex, detects rows/cols/diagonals, 75 XP per weekly bingo
+- **Daily Horoscope** (`/horoscope`) - Personalized HTTP-themed fortune based on spirit parrot, with lucky codes and share button; 30-day streak easter egg
+- **Category Speed Runs** - Timed challenge to visit all codes in a category, triggered by category filter on homepage
+- **Status Code Mastery** - Per-code mastery tracking (0-3 stars) based on visits, quiz, and practice performance
+- **Quiz Confetti Combos** - Streaks of 5/10/15 trigger escalating confetti bursts with "COMBO!", "SUPER COMBO!", and "MEGA COMBO!" text
 - **Daily Login Rewards** - Calendar-based daily rewards for visiting the site, completing a full 7-day cycle earns the Loyal Parrot badge
 - **Daily Streak** tracking with streak freeze support and milestone celebrations
 - All gamification state stored client-side in localStorage (no account required)
@@ -69,7 +76,7 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Category-themed hover effects: 1xx pulses, 2xx glows, 3xx slides sideways, 4xx shakes, 5xx glitches
 - Interactive parrot clicks with category-specific animations on detail pages
 - Speech bubbles with typewriter effect -- each parrot has a witty one-liner
-- 15+ easter eggs on specific cards: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code party mode (verified working), hidden `/coffee` page, and more
+- 20+ easter eggs: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code party mode, hidden `/coffee` page, type "barrelroll" for page spin, 100 parrot clicks earns Parrot Whisperer, rapid click frenzy spawns flying parrots, footer parrot party, time-based messages, console API, and more
 - 404 memory card game -- find matching parrot pairs on the 404 page with replay and best time tracking
 - Procedural sound effects for interactions
 - View transitions between pages
@@ -84,10 +91,15 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Back-to-top buttons on long pages
 - Tactile micro-interactions (spring-physics easing, bounce, press states)
 - Breathing animation on idle elements
-- CSS design system with full tokenization (spacing, color, typography, and elevation tokens)
-- Mobile polish (optimized for 320px-375px edge cases, bento dashboard fixes)
-- Complete light theme support (`prefers-color-scheme: light`) including all tool pages
-- Print stylesheet feedback improvements and clipboard error handling
+- CSS design system with full tokenization (spacing, color, typography hierarchy, and elevation tokens)
+- Skeleton loading animations with shimmer effect for async tool results
+- Global toast notification system for copy/action feedback
+- HTTP method filter pills on homepage (GET/POST/PUT/DELETE/PATCH)
+- Button hover lift micro-animations with spring physics
+- Mobile polish (optimized for 320px-375px, expanded quiz touch targets to 56px)
+- Complete light theme support with boosted color saturation and enhanced depth
+- Print stylesheet for cheat sheet and all pages
+- Double-click-to-copy on code example blocks
 - Form validation on all tool pages (tester, headers, CORS checker, security audit, trace, playground, curl import)
 
 **API** - Programmatic access to all data:
