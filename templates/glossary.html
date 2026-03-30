@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}HTTP Glossary - HTTP Parrots{% endblock %}
+{% block subtitle %}Glossary{% endblock %}
+{% block meta %}<meta name="description" content="Comprehensive HTTP glossary covering methods, headers, concepts, and terminology.">{% endblock %}
+{% block content %}
+    <main class="glossary-container" id="main-content" role="main">
+        <div class="page-header"><h1>HTTP Glossary</h1><p>Quick reference for HTTP terminology</p></div>
+        <div class="glossary-search-wrap">
+            <input type="text" id="glossary-search" class="search-input" placeholder="Filter terms..." autocomplete="off" aria-label="Filter glossary">
+        </div>
+        <div class="glossary-grid" id="glossary-grid">
+            <div class="glossary-term" data-term="idempotent"><h3>Idempotent</h3><p>A request method is idempotent if multiple identical requests have the same effect as a single request. GET, PUT, DELETE, HEAD, OPTIONS are idempotent. POST and PATCH are not.</p></div>
+            <div class="glossary-term" data-term="safe method"><h3>Safe Method</h3><p>A method is safe if it doesn't modify server state. GET, HEAD, OPTIONS are safe. Safe methods can be cached and prefetched.</p></div>
+            <div class="glossary-term" data-term="content negotiation"><h3>Content Negotiation</h3><p>The mechanism by which client and server agree on the response format via Accept, Accept-Language, and Accept-Encoding headers.</p></div>
+            <div class="glossary-term" data-term="etag"><h3>ETag</h3><p>An opaque validator for a resource version. Used with If-None-Match for conditional requests and cache validation (304 Not Modified).</p></div>
+            <div class="glossary-term" data-term="cors"><h3>CORS</h3><p>Cross-Origin Resource Sharing. A mechanism using HTTP headers to allow a server to indicate which origins can access its resources.</p></div>
+            <div class="glossary-term" data-term="preflight"><h3>Preflight Request</h3><p>An OPTIONS request sent automatically by browsers before certain cross-origin requests to check if the actual request is safe to send.</p></div>
+            <div class="glossary-term" data-term="ttfb"><h3>TTFB (Time to First Byte)</h3><p>The time between sending a request and receiving the first byte of the response. Key performance metric indicating server processing time.</p></div>
+            <div class="glossary-term" data-term="hsts"><h3>HSTS</h3><p>HTTP Strict Transport Security. A header that tells browsers to only connect via HTTPS, preventing protocol downgrade attacks.</p></div>
+            <div class="glossary-term" data-term="csp"><h3>CSP (Content Security Policy)</h3><p>A security header controlling which resources the browser can load, mitigating XSS and injection attacks.</p></div>
+            <div class="glossary-term" data-term="cache-control"><h3>Cache-Control</h3><p>Header directing caching behavior: max-age sets freshness, no-cache requires revalidation, no-store prevents caching entirely.</p></div>
+            <div class="glossary-term" data-term="vary"><h3>Vary</h3><p>Response header telling caches which request headers affect the response. Vary: Accept means JSON and HTML responses are cached separately.</p></div>
+            <div class="glossary-term" data-term="transfer-encoding"><h3>Transfer-Encoding</h3><p>How the message body is encoded for transfer. chunked means the body is sent in pieces, enabling streaming without knowing total size upfront.</p></div>
+            <div class="glossary-term" data-term="connection keep-alive"><h3>Keep-Alive</h3><p>HTTP/1.1 default: reuse TCP connections for multiple requests, avoiding the overhead of establishing new connections each time.</p></div>
+            <div class="glossary-term" data-term="rest"><h3>REST</h3><p>Representational State Transfer. An architectural style using standard HTTP methods on resource URLs. Coined by Roy Fielding in 2000.</p></div>
+            <div class="glossary-term" data-term="status code"><h3>Status Code</h3><p>A 3-digit number in HTTP responses indicating the result: 1xx informational, 2xx success, 3xx redirection, 4xx client error, 5xx server error.</p></div>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var search = document.getElementById('glossary-search');
+        var terms = document.querySelectorAll('.glossary-term');
+        if (!search) return;
+        search.addEventListener('input', function() {
+            var q = search.value.toLowerCase().trim();
+            terms.forEach(function(t) {
+                var text = t.getAttribute('data-term') + ' ' + t.textContent.toLowerCase();
+                t.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
+            });
+        });
+        if (typeof ParrotXP !== 'undefined') ParrotXP.award(5, 'page_visit');
+    })();
+    </script>
+{% endblock %}

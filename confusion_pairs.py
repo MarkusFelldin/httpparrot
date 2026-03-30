@@ -424,6 +424,28 @@ CONFUSION_PAIRS = [
         ],
     },
     {
+        "slug": "408-vs-504",
+        "codes": ["408", "504"],
+        "title": "408 Request Timeout vs 504 Gateway Timeout",
+        "category": "Timeout pairs",
+        "tldr": "408 means the client was too slow sending the request; 504 means the upstream server was too slow responding to the gateway.",
+        "decision_tree": [
+            {"question": "Was the client too slow to complete the request?", "yes": "408", "no": "Check 504"},
+            {"question": "Did the server's upstream dependency fail to respond in time?", "yes": "504", "no": "408"},
+            {"question": "Is the timeout on the client side or the server's upstream?", "yes": "504 (upstream)", "no": "408 (client)"},
+        ],
+        "examples": [
+            {"scenario": "A client starts a POST but takes 30 seconds to send the body. The server times out waiting.", "code": "408", "explanation": "The server waited for the client to finish sending data, but the client was too slow."},
+            {"scenario": "A reverse proxy forwards a request to a backend API that hangs and never responds.", "code": "504", "explanation": "The gateway waited for the upstream server, but it timed out — the client was fine, the backend was slow."},
+            {"scenario": "A mobile app on a slow network connection can't finish uploading within the server's timeout window.", "code": "408", "explanation": "The timeout is on the client's slow connection, not the server's processing."},
+        ],
+        "quiz": [
+            {"scenario": "Nginx shows 'upstream timed out' in its error log.", "correct": "504", "wrong": "408"},
+            {"scenario": "A browser shows 'request timed out' because the upload was interrupted.", "correct": "408", "wrong": "504"},
+            {"scenario": "A CDN can't reach the origin server within 30 seconds.", "correct": "504", "wrong": "408"},
+        ],
+    },
+    {
         "slug": "200-vs-201",
         "codes": ["200", "201"],
         "title": "200 OK vs 201 Created",
@@ -460,7 +482,7 @@ for _pair in CONFUSION_PAIRS:
 CONFUSION_PAIR_CATEGORY_ORDER = [
     "Auth pairs", "Redirect pairs", "Success pairs",
     "Client error pairs", "Error pairs", "Server error pairs",
-    "Rate limit pairs",
+    "Rate limit pairs", "Timeout pairs",
 ]
 PAIRS_BY_CATEGORY = {}
 for _pair in CONFUSION_PAIRS:

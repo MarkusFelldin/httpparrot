@@ -676,4 +676,38 @@ DEBUG_EXERCISES = [
         ],
         "related_codes": ["200", "406"],
     },
+    {
+        "id": "307-location-missing",
+        "difficulty": "beginner",
+        "category": "redirects",
+        "title": "307 Without Location",
+        "description": "An API temporarily redirects a POST request but forgets to tell the client where to go.",
+        "request": "POST /api/v1/submit HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{\"data\": \"test\"}",
+        "response": "HTTP/1.1 307 Temporary Redirect\nContent-Length: 0",
+        "bugs": [
+            {
+                "id": "307-no-location",
+                "description": "Missing Location header",
+                "explanation": "A 307 Temporary Redirect must include a Location header. Without it, the client doesn't know where to resend the POST request. The body and method are preserved, but there's nowhere to send them.",
+            },
+        ],
+        "related_codes": ["307", "302"],
+    },
+    {
+        "id": "403-leaking-existence",
+        "difficulty": "intermediate",
+        "category": "security",
+        "title": "403 Leaking Resource Existence",
+        "description": "A security-sensitive API reveals that a resource exists to unauthorized users.",
+        "request": "GET /api/admin/users HTTP/1.1\nHost: api.example.com",
+        "response": "HTTP/1.1 403 Forbidden\nContent-Type: application/json\n\n{\"error\": \"You are not authorized to view admin users\"}",
+        "bugs": [
+            {
+                "id": "existence-leak",
+                "description": "Should return 404 to hide resource existence",
+                "explanation": "Returning 403 confirms that /api/admin/users exists. An attacker now knows this endpoint is real. For security-sensitive endpoints, return 404 Not Found to prevent information disclosure. This is called 'endpoint enumeration prevention'.",
+            },
+        ],
+        "related_codes": ["403", "404"],
+    },
 ]

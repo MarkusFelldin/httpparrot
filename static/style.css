@@ -8827,6 +8827,15 @@ body {
     align-items: center;
     justify-content: center;
   }
+
+  /* R11 glossary & onboarding at 375px */
+  .glossary-container { padding: 1.5rem 0.75rem 3rem; }
+  .glossary-term { padding: 0.75rem; }
+  .glossary-term h3 { font-size: var(--text-md); }
+  .glossary-term p { font-size: var(--text-xs); }
+  .onboarding-banner { padding: 1rem; max-width: calc(100% - 1rem); }
+  .onboarding-icon { font-size: 1.5rem; }
+  .onboarding-text strong { font-size: var(--text-sm); }
 }
 
 /* Compare selector stacking at tablet */
@@ -10850,3 +10859,170 @@ select {
     display: none !important;
   }
 }
+
+/* ========================================================================
+   Round 11 Pass 1 -- Glossary Page
+   ======================================================================== */
+.glossary-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.glossary-search-wrap { margin-bottom: 1.5rem; }
+.glossary-search-wrap .search-input { width: 100%; max-width: 400px; }
+.glossary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.glossary-term {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  transition: border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.glossary-term:hover { border-color: var(--color-teal); transform: translateY(-2px); }
+.glossary-term h3 { font-size: var(--text-lg); margin-bottom: 0.5rem; color: var(--color-teal); }
+.glossary-term p { font-size: var(--text-sm); color: var(--text-body); line-height: 1.6; }
+
+@media (max-width: 480px) { .glossary-grid { grid-template-columns: 1fr; } }
+
+/* ========================================================================
+   Round 11 Pass 2 -- Theme Toggle Button
+   ======================================================================== */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+@media (max-width: 576px) { .theme-toggle-btn { width: 28px; height: 28px; font-size: 0.85rem; } }
+
+/* Manual light theme via data-theme attribute */
+[data-theme="light"] { color-scheme: light; }
+
+/* ========================================================================
+   Round 11 Pass 5 -- Onboarding Banner
+   ======================================================================== */
+.onboarding-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-2);
+  border: 1px solid var(--color-teal);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  z-index: 9500;
+  box-shadow: var(--shadow-lg);
+  max-width: 560px;
+  width: calc(100% - 2rem);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+}
+
+.onboarding-banner.onboarding-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.onboarding-content { display: flex; align-items: flex-start; gap: 1rem; }
+.onboarding-icon { font-size: 2rem; flex-shrink: 0; }
+.onboarding-text { flex: 1; }
+.onboarding-text strong { display: block; margin-bottom: 0.25rem; }
+.onboarding-text p { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.onboarding-text kbd { font-family: var(--font-mono); font-size: 0.75rem; padding: 0.1rem 0.3rem; background: var(--surface-3); border-radius: var(--radius-xs); border: 1px solid var(--border-default); }
+.onboarding-dismiss {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-teal);
+  background: rgba(0, 201, 167, 0.1);
+  color: var(--color-teal);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  align-self: center;
+  transition: background var(--duration-fast);
+}
+.onboarding-dismiss:hover { background: rgba(0, 201, 167, 0.2); }
+
+/* ========================================================================
+   Round 11 Pass 6 -- Profile Export
+   ======================================================================== */
+.profile-export-section { margin-top: 2rem; }
+.profile-export-desc { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: 0.75rem; }
+
+@media (max-width: 480px) {
+  .onboarding-content { flex-direction: column; align-items: center; text-align: center; }
+  .onboarding-dismiss { width: 100%; }
+}
+
+/* ========================================================================
+   Round 11 Pass 11 -- Light Theme + Focus + Print + Mobile + Reduced Motion
+   ======================================================================== */
+
+/* Light theme for R11 elements */
+@media (prefers-color-scheme: light) {
+  /* Glossary */
+  .glossary-term { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 0, 0, 0.08); }
+  .glossary-term:hover { border-color: #009d82; }
+  .glossary-term h3 { color: #009d82; }
+  .glossary-term p { color: rgba(26, 26, 31, 0.7); }
+
+  /* Onboarding banner */
+  .onboarding-banner { background: rgba(255, 255, 255, 0.97); border-color: #009d82; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10); }
+  .onboarding-text strong { color: var(--text-primary); }
+  .onboarding-text p { color: rgba(26, 26, 31, 0.6); }
+  .onboarding-text kbd { background: rgba(0, 0, 0, 0.06); border-color: rgba(0, 0, 0, 0.1); }
+  .onboarding-dismiss { background: rgba(0, 157, 130, 0.1); border-color: #009d82; color: #009d82; }
+  .onboarding-dismiss:hover { background: rgba(0, 157, 130, 0.18); }
+
+  /* Theme toggle */
+  .theme-toggle-btn { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.12); }
+  .theme-toggle-btn:hover { background: rgba(0, 0, 0, 0.08); border-color: rgba(0, 0, 0, 0.2); }
+
+  /* Profile export */
+  .profile-export-btn { color: var(--text-primary); }
+  .profile-export-desc { color: rgba(26, 26, 31, 0.55); }
+}
+
+/* Focus states */
+.glossary-search-wrap .search-input:focus-visible,
+.onboarding-dismiss:focus-visible,
+.theme-toggle-btn:focus-visible,
+.profile-export-btn:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .onboarding-banner,
+  .theme-toggle-btn,
+  .profile-export-section,
+  .glossary-search-wrap {
+    display: none !important;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-banner { transition: none !important; }
+  .glossary-term { transition: none !important; }
+  .glossary-term:hover { transform: none !important; }
+  .theme-toggle-btn { transition: none !important; }
+  .onboarding-dismiss { transition: none !important; }
+}
+
+/* Mobile -- 480px */
+@media (max-width: 480px) {
+  .glossary-grid { grid-template-columns: 1fr; }
+  .glossary-term { padding: 1rem; }
+}
+

@@ -251,6 +251,12 @@
             <div class="profile-share-toast" id="profile-share-toast" role="status" aria-live="polite" style="display:none"></div>
         </section>
 
+        <section class="profile-export-section" aria-label="Export data">
+            <h2>Export Data</h2>
+            <p class="profile-export-desc">Download all your progress, stats, and settings as JSON.</p>
+            <button class="btn-back profile-export-btn" id="profile-export" type="button">Download My Data</button>
+        </section>
+
         <section class="profile-feathers-section" aria-label="Achievement badges">
             <h2>Feathers</h2>
             <div class="profile-feathers-grid" id="profile-feathers-grid"></div>
@@ -1021,6 +1027,40 @@
     }
 
     renderGoal();
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+/* Data export */
+(function() {
+    var btn = document.getElementById('profile-export');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var data = {};
+        for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            if (key && key.startsWith('httpparrot_')) {
+                try { data[key] = JSON.parse(localStorage.getItem(key)); }
+                catch(e) { data[key] = localStorage.getItem(key); }
+            }
+        }
+        /* Also collect non-prefixed keys used by the app */
+        ['parrotdex', 'eggs_found'].forEach(function(k) {
+            var val = localStorage.getItem(k);
+            if (val) { try { data[k] = JSON.parse(val); } catch(e) { data[k] = val; } }
+        });
+
+        var json = JSON.stringify(data, null, 2);
+        var blob = new Blob([json], {type: 'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'httpparrots-data-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (typeof ParrotToast !== 'undefined') ParrotToast.show('Data exported!', 'success');
+    });
 })();
 </script>
 {% endblock %}
