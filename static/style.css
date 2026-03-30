@@ -1521,18 +1521,32 @@ textarea:focus-visible,
   transform: translateY(-1px);
 }
 
-/* Button hover lift micro-animations */
+/* Button hover lift micro-animations — unified 3-level depth system */
 .btn-back,
 .btn-share,
 .btn-nav,
 .bento-tile-action,
 .btn-embed-copy,
-.code-copy-btn {
+.code-copy-btn,
+.cat-pill,
+.daily-btn,
+.quiz-btn,
+.practice-option-btn,
+.debug-bug-btn,
+.weekly-answer-btn,
+.accent-color-option,
+.spirit-parrot-option,
+.speedrun-btn,
+.method-pill,
+.conneg-select,
+.flow-option,
+.flow-start {
   transition: transform var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out),
               background var(--duration-fast) var(--ease-out),
               color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+              border-color var(--duration-fast) var(--ease-out),
+              filter var(--duration-fast) var(--ease-out);
 }
 
 .btn-back:hover,
@@ -1540,9 +1554,23 @@ textarea:focus-visible,
 .btn-nav:hover,
 .bento-tile-action:hover,
 .btn-embed-copy:hover,
-.code-copy-btn:hover {
+.code-copy-btn:hover,
+.cat-pill:hover,
+.daily-btn:hover,
+.quiz-btn:hover:not(:disabled),
+.practice-option-btn:hover,
+.debug-bug-btn:hover,
+.weekly-answer-btn:hover,
+.accent-color-option:hover,
+.spirit-parrot-option:hover,
+.speedrun-btn:hover,
+.method-pill:hover,
+.conneg-select:hover,
+.flow-option:hover,
+.flow-start:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 201, 167, 0.15);
+  filter: brightness(1.08);
 }
 
 .btn-back:active,
@@ -1550,9 +1578,70 @@ textarea:focus-visible,
 .btn-nav:active,
 .bento-tile-action:active,
 .btn-embed-copy:active,
-.code-copy-btn:active {
-  transform: translateY(0);
+.code-copy-btn:active,
+.cat-pill:active,
+.daily-btn:active,
+.quiz-btn:active:not(:disabled),
+.practice-option-btn:active,
+.debug-bug-btn:active,
+.weekly-answer-btn:active,
+.accent-color-option:active,
+.spirit-parrot-option:active,
+.speedrun-btn:active,
+.method-pill:active,
+.conneg-select:active,
+.flow-option:active,
+.flow-start:active {
+  transform: translateY(1px);
   box-shadow: none;
+  filter: brightness(0.95);
+  transition-duration: 50ms;
+}
+
+/* Tactile ripple feedback */
+.btn-back,
+.btn-share,
+.quiz-btn,
+.daily-btn,
+.bento-tile-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-back::after,
+.btn-share::after,
+.quiz-btn::after,
+.daily-btn::after,
+.bento-tile-action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), rgba(255,255,255,0.15) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+  pointer-events: none;
+}
+
+.btn-back:active::after,
+.btn-share:active::after,
+.quiz-btn:active::after,
+.daily-btn:active::after,
+.bento-tile-action:active::after {
+  opacity: 1;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Uniform cursor for all interactive elements */
+button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn {
+  cursor: pointer;
 }
 
 .detail-list {
@@ -4217,6 +4306,7 @@ textarea:focus-visible,
 }
 @keyframes confetti-burst {
   0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  50% { transform: translate(calc(var(--tx) * 0.5 + var(--wobble, 0px)), calc(var(--ty) * 0.5)) rotate(calc(var(--rot) * 0.5)); opacity: 0.8; }
   100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); opacity: 0; }
 }
 
@@ -9076,6 +9166,38 @@ body {
 @media (max-width: 768px) {
   .conneg-demo { grid-template-columns: 1fr; }
   .conneg-arrow { transform: rotate(90deg); justify-self: center; }
+}
+
+/* Mobile swipe navigation indicator */
+.swipe-indicator {
+  position: fixed;
+  bottom: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--color-teal);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+  pointer-events: none;
+  z-index: 9000;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.swipe-indicator--visible {
+  opacity: 0.9;
+}
+
+/* Only show swipe on touch devices */
+@media (hover: hover) {
+  .swipe-indicator { display: none; }
 }
 
 /* === Parrot Frenzy Animation (rapid click easter egg) === */

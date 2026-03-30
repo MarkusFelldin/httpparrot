@@ -13853,3 +13853,12 @@ class TestDoubleClickCopyCodeBlocks:
         resp = client.get('/200')
         html = resp.data.decode()
         assert 'Code copied!' in html
+
+
+class TestMobileSwipeNavigation:
+    """Test mobile swipe navigation on detail pages."""
+
+    def test_detail_page_has_swipe_navigation(self, client):
+        """Detail pages should include swipe navigation script."""
+        resp = client.get('/200')
+        assert b'swipe' in resp.data.lower() or b'touchstart' in resp.data
