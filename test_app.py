@@ -3449,12 +3449,12 @@ class TestCSSMediaQueries:
         assert '@media (prefers-color-scheme: light)' in css
 
     def test_light_theme_background_color(self, client):
-        """Light theme should use light background (#f5f5f7)."""
+        """Light theme should use light background (#f8f9fc)."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         idx = css.index('@media (prefers-color-scheme: light)')
         block = css[idx:]
-        assert '#f5f5f7' in block
+        assert '#f8f9fc' in block
 
     def test_light_theme_dark_text(self, client):
         """Light theme should use dark text (#1a1a1f)."""
