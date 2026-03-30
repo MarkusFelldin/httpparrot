@@ -158,6 +158,11 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Horoscope' in resp.data or b'Oracle' in resp.data
 
+    def test_incidents_page(self, client):
+        resp = client.get('/incidents')
+        assert resp.status_code == 200
+        assert b'War Stories' in resp.data
+
 
 # --- Content negotiation ---
 
@@ -6206,7 +6211,7 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '17 pairs' in html
+        assert '18 pairs' in html
         assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
@@ -6300,6 +6305,19 @@ class TestLearnPairRoute:
         resp = client.get('/learn/429-vs-503')
         assert resp.status_code == 200
         assert b'Too Many Requests' in resp.data
+
+    def test_learn_pair_200_vs_201(self, client):
+        resp = client.get('/learn/200-vs-201')
+        assert resp.status_code == 200
+
+    def test_learn_pair_301_vs_308(self, client):
+        resp = client.get('/learn/301-vs-308')
+        assert resp.status_code == 200
+
+    def test_scenario_count_at_least_60(self, client):
+        """Scenarios should have at least 60 entries."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 60
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""

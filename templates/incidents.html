@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}War Stories - HTTP Parrots{% endblock %}
+{% block subtitle %}War Stories{% endblock %}
+{% block meta %}
+    <meta name="description" content="Real-world HTTP incidents told as interactive timelines. Learn how status codes reveal system failures.">
+{% endblock %}
+{% block content %}
+    <main class="incidents-container" id="main-content" role="main">
+        <div class="page-header">
+            <h1>War Stories</h1>
+            <p>Real production incidents told through HTTP status codes</p>
+        </div>
+        <div class="incidents-grid" id="incidents-grid">
+            <article class="incident-card">
+                <div class="incident-header">
+                    <span class="incident-icon" aria-hidden="true">&#x1F4A5;</span>
+                    <h2>The Cascading 503</h2>
+                    <span class="incident-tag">Microservices</span>
+                </div>
+                <p class="incident-summary">A single failing health check brought down an entire microservices cluster through cascading 503 responses.</p>
+                <div class="incident-timeline">
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">All services healthy. Load balancer distributing traffic normally.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-5xx">503</span>
+                        <span class="timeline-text">Auth service deploys bad config. Health check starts failing.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-5xx">502</span>
+                        <span class="timeline-text">Gateway can't reach auth service. All authenticated requests fail.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-5xx">503</span>
+                        <span class="timeline-text">Dependent services start failing. Circuit breakers trip.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Config rolled back. Services recover within 5 minutes.</span>
+                    </div>
+                </div>
+                <div class="incident-lesson"><strong>Lesson:</strong> Always implement circuit breakers and don't let one service's failure cascade. Return 503 with Retry-After header.</div>
+            </article>
+
+            <article class="incident-card">
+                <div class="incident-header">
+                    <span class="incident-icon" aria-hidden="true">&#x1F6A8;</span>
+                    <h2>The Rate Limit Surprise</h2>
+                    <span class="incident-tag">API Design</span>
+                </div>
+                <p class="incident-summary">A mobile app update caused 10x traffic spike. The API returned 429s, but the app retried immediately — making it worse.</p>
+                <div class="incident-timeline">
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Normal traffic: 1000 req/min. API handles it fine.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-4xx">429</span>
+                        <span class="timeline-text">App update causes 10,000 req/min. Rate limiter kicks in.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-4xx">429</span>
+                        <span class="timeline-text">App retries immediately without backoff. Traffic doubles to 20,000 req/min.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-5xx">503</span>
+                        <span class="timeline-text">Rate limiter overwhelmed. Entire API goes down for all users.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Hotfix deployed: app respects Retry-After header. Traffic normalizes.</span>
+                    </div>
+                </div>
+                <div class="incident-lesson"><strong>Lesson:</strong> Always include Retry-After with 429. Client apps must implement exponential backoff.</div>
+            </article>
+
+            <article class="incident-card">
+                <div class="incident-header">
+                    <span class="incident-icon" aria-hidden="true">&#x1F50D;</span>
+                    <h2>The Silent 200 Error</h2>
+                    <span class="incident-tag">Anti-Pattern</span>
+                </div>
+                <p class="incident-summary">An API returned 200 OK for every request — even errors. Monitoring showed 100% success while users couldn't log in.</p>
+                <div class="incident-timeline">
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">API returns 200 with {"error": "invalid_credentials"} in body.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Monitoring shows 100% success rate. No alerts triggered.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Users report login failures. Support tickets pile up for 6 hours.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-4xx">401</span>
+                        <span class="timeline-text">Fix: Return proper 401 for auth failures. Monitoring catches it instantly.</span>
+                    </div>
+                </div>
+                <div class="incident-lesson"><strong>Lesson:</strong> Never return 200 for error conditions. Proper status codes enable monitoring, caching, and client error handling.</div>
+            </article>
+
+            <article class="incident-card">
+                <div class="incident-header">
+                    <span class="incident-icon" aria-hidden="true">&#x1F504;</span>
+                    <h2>The Redirect Loop</h2>
+                    <span class="incident-tag">Redirects</span>
+                </div>
+                <p class="incident-summary">A misconfigured nginx rule created a 301 loop between HTTP and HTTPS, crashing browsers and blocking search engines.</p>
+                <div class="incident-timeline">
+                    <div class="timeline-event">
+                        <span class="timeline-code category-3xx">301</span>
+                        <span class="timeline-text">http://site.com → https://site.com (correct HTTPS upgrade)</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-3xx">301</span>
+                        <span class="timeline-text">https://site.com → http://site.com (bad rule redirects back!)</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-3xx">301</span>
+                        <span class="timeline-text">Infinite loop. Browsers show ERR_TOO_MANY_REDIRECTS.</span>
+                    </div>
+                    <div class="timeline-event">
+                        <span class="timeline-code category-2xx">200</span>
+                        <span class="timeline-text">Fix: Remove conflicting rule. Test with curl -L to verify chain.</span>
+                    </div>
+                </div>
+                <div class="incident-lesson"><strong>Lesson:</strong> Always test redirect chains with curl -L. Use 308 for HTTPS upgrades to preserve POST requests.</div>
+            </article>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'page_visit');
+    })();
+    </script>
+{% endblock %}

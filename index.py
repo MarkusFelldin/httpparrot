@@ -893,6 +893,12 @@ def horoscope():
     ), day_number=day_number, date_str=today.isoformat())
 
 
+@app.route('/incidents')
+def incidents():
+    """Render the War Stories — real HTTP incident timelines page."""
+    return render_template('incidents.html')
+
+
 @app.route('/map')
 def status_map():
     """Render the status code relationship map."""
@@ -2082,7 +2088,7 @@ def sitemap():
                  '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo', '/horoscope', '/map']:
+                 '/bingo', '/horoscope', '/map', '/incidents']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

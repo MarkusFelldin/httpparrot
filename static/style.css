@@ -9800,6 +9800,90 @@ main {
   100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
 }
 
+/* === Page: Incidents (War Stories) === */
+.incidents-container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.incidents-grid { display: flex; flex-direction: column; gap: 2rem; }
+
+.incident-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.incident-card:hover { border-color: rgba(255, 255, 255, 0.12); }
+.incident-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.incident-icon { font-size: 1.5rem; }
+.incident-header h2 { font-size: var(--text-lg); flex: 1; }
+.incident-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.incident-summary { color: var(--text-secondary); line-height: 1.5; margin-bottom: 1.25rem; }
+
+.incident-timeline {
+  position: relative;
+  padding-left: 2rem;
+  margin-bottom: 1rem;
+}
+
+.incident-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-default);
+}
+
+.timeline-event {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+}
+
+.timeline-event::before {
+  content: '';
+  position: absolute;
+  left: -1.5rem;
+  top: 0.85rem;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-teal);
+  border: 2px solid var(--surface-1);
+}
+
+.timeline-code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.timeline-text { color: var(--text-body); font-size: var(--text-sm); line-height: 1.5; }
+
+.incident-lesson {
+  padding: 0.75rem 1rem;
+  background: rgba(0, 201, 167, 0.06);
+  border-left: 3px solid var(--color-teal);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
 /* Focus-visible for interactive game/UI elements */
 .map-node:focus-visible,
 .bingo-cell:focus-visible,
