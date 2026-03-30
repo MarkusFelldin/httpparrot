@@ -21,6 +21,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <!-- ===== Holiday Plumage (early — must run before ParrotXP) ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Holiday Plumage — Seasonal Theme Detection */
     (function() {
@@ -278,6 +279,7 @@
 
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
+    <!-- ===== Global Utilities (Toast, Copy) ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Global Toast Notification System */
     (function() {
@@ -335,6 +337,7 @@
     };
     </script>
 
+    <!-- ===== Global Search ===== -->
     <script nonce="{{ csp_nonce }}">
     (function() {
         var gs = document.getElementById('global-search');
@@ -468,6 +471,7 @@
         });
     })();
     </script>
+    <!-- ===== Mobile Navigation ===== -->
     <script nonce="{{ csp_nonce }}">
     (function() {
         var btn = document.getElementById('hamburger-btn');
@@ -511,6 +515,7 @@
         });
     })();
     </script>
+    <!-- ===== Desktop Nav Dropdowns ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Nav dropdown menus */
     (function() {
@@ -540,6 +545,7 @@
         });
     })();
     </script>
+    <!-- ===== ParrotXP System ===== -->
     <script nonce="{{ csp_nonce }}">
     /* ParrotXP — global XP tracking system (all state in localStorage) */
     (function() {
@@ -1296,6 +1302,7 @@
         }
     })();
     </script>
+    <!-- ===== ParrotSound System ===== -->
     <script nonce="{{ csp_nonce }}">
     /* ParrotSound — Procedural sound effects via Web Audio API */
     (function() {
@@ -1443,6 +1450,7 @@
         };
     })();
     </script>
+    <!-- ===== Holiday Plumage (DOM effects) ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Holiday Plumage — Seasonal Effects */
     (function() {
@@ -1516,6 +1524,7 @@
         }
     })();
     </script>
+    <!-- ===== Easter Eggs ===== -->
     <script nonce="{{ csp_nonce }}">
     (function() {
         var footerInner = document.querySelector('.footer-inner');
@@ -1824,6 +1833,7 @@
         });
     })();
     </script>
+    <!-- ===== ParrotSearch Utility ===== -->
     <script nonce="{{ csp_nonce }}">
     /* ParrotSearch — shared fuzzy/typo-tolerant search utility */
     window.ParrotSearch = (function() {
@@ -1897,6 +1907,7 @@
         };
     })();
     </script>
+    <!-- ===== Keyboard Shortcuts ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Keyboard Shortcuts Overlay — press ? to open */
     (function() {
@@ -1957,8 +1968,17 @@
 
         if (backdrop) backdrop.addEventListener('click', closeShortcuts);
         if (closeBtn) closeBtn.addEventListener('click', closeShortcuts);
+
+        /* Focus trap — keep Tab cycling within the overlay while open */
+        overlay.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab' && isShortcutsOpen()) {
+                e.preventDefault();
+                closeBtn.focus();
+            }
+        });
     })();
     </script>
+    <!-- ===== Command Palette ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Command Palette — Cmd+K / Ctrl+K */
     (function() {
@@ -2205,6 +2225,7 @@
         };
     })();
     </script>
+    <!-- ===== Avatar & Theme Preferences ===== -->
     <script nonce="{{ csp_nonce }}">
     /* Avatar & Theme Accent — apply saved preferences on every page */
     (function() {
@@ -2341,6 +2362,7 @@
         }
     })();
     </script>
+    <!-- ===== G-key Navigation Shortcuts ===== -->
     <script nonce="{{ csp_nonce }}">
     /* G-key navigation shortcuts */
     (function() {

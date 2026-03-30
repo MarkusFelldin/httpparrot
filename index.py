@@ -677,7 +677,9 @@ def get_featured_parrot():
     return codes[day_index]
 
 
-# --- Routes ---
+# ---------------------------------------------------------------------------
+# Page Routes — HTML pages rendered via Jinja2 templates
+# ---------------------------------------------------------------------------
 
 @app.errorhandler(404)
 def page_not_found(e):
@@ -1005,6 +1007,10 @@ _LEARN_CAT_BGS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Learning Routes — confusion pairs, guided paths, spaced review
+# ---------------------------------------------------------------------------
+
 @app.route('/learn')
 def learn_index():
     """List all confusion pair lessons, grouped by category."""
@@ -1099,6 +1105,10 @@ def cors_checker():
     """Render the CORS Checker page for testing cross-origin policies."""
     return render_template('cors_checker.html')
 
+
+# ---------------------------------------------------------------------------
+# API Endpoints — JSON responses for tools, search, and integrations
+# ---------------------------------------------------------------------------
 
 @app.route('/api/check-cors')
 def check_cors():
@@ -1536,6 +1546,10 @@ def fetch_url():
         return jsonify({"error": "Could not connect to the provided URL"}), 502
 
 
+# ---------------------------------------------------------------------------
+# Tool Routes — pages and API endpoints for developer tools
+# ---------------------------------------------------------------------------
+
 @app.route('/trace')
 def trace_page():
     """Render the Redirect Tracer page for visualizing redirect chains."""
@@ -1683,6 +1697,10 @@ def fault_simulator():
     return render_template('fault_simulator.html')
 
 
+# ---------------------------------------------------------------------------
+# Fault Simulation API — delay, drip, stream, jitter, unstable endpoints
+# ---------------------------------------------------------------------------
+
 @app.route('/api/delay/<int:seconds>')
 def api_delay(seconds):
     """Wait N seconds (max 10), then respond with JSON. Rate-limited."""
@@ -1813,6 +1831,10 @@ def api_unstable():
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
+
+# ---------------------------------------------------------------------------
+# Utility Routes — status returns, echo, random, images, feeds, SEO
+# ---------------------------------------------------------------------------
 
 @app.route('/return/<int:code>')
 def return_status(code):
@@ -2170,6 +2192,10 @@ def robots():
     )
     return app.response_class(content, mimetype='text/plain')
 
+
+# ---------------------------------------------------------------------------
+# Webhook Inspector Routes — bin creation, capture, and retrieval
+# ---------------------------------------------------------------------------
 
 @app.route('/webhook-inspector')
 def webhook_inspector():

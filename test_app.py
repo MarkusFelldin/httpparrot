@@ -1133,7 +1133,7 @@ class TestHeaderExplainer:
 
 # --- Content Negotiation ---
 
-class TestContentNegotiation:
+class TestContentNegotiationPage:
     def test_content_negotiation_page(self, client):
         resp = client.get('/content-negotiation')
         assert resp.status_code == 200
@@ -3258,7 +3258,12 @@ class TestTemplateAutoEscaping:
 
 
 class TestRateLimitingEndpoints:
-    """Verify all outbound-request endpoints are rate-limited."""
+    """Verify all outbound-request endpoints are rate-limited.
+
+    Note: check-cors, mock-response, and trace-redirects rate limiting
+    are tested more thoroughly in their feature-specific classes
+    (TestCORSChecker, TestMockResponse, TestRedirectTracer).
+    """
 
     def test_check_url_rate_limited(self, client):
         for _ in range(10):
@@ -3266,31 +3271,11 @@ class TestRateLimitingEndpoints:
         resp = client.get('/api/check-url?url=https://example.com')
         assert resp.status_code == 429
 
-    def test_check_cors_rate_limited(self, client):
-        for _ in range(10):
-            client.get('/api/check-cors?url=http://127.0.0.1/&origin=https://x.com')
-        resp = client.get('/api/check-cors?url=https://example.com&origin=https://x.com')
-        assert resp.status_code == 429
-
-    def test_mock_response_rate_limited(self, client):
-        for _ in range(10):
-            client.post('/api/mock-response',
-                        json={'status_code': 200, 'headers': {}, 'body': ''})
-        resp = client.post('/api/mock-response',
-                           json={'status_code': 200, 'headers': {}, 'body': ''})
-        assert resp.status_code == 429
-
     def test_return_delay_rate_limited(self, client):
         """Return endpoint with delay should be rate-limited."""
         for _ in range(10):
             client.get('/return/200?delay=0.01')
         resp = client.get('/return/200?delay=0.01')
-        assert resp.status_code == 429
-
-    def test_trace_redirects_rate_limited(self, client):
-        for _ in range(10):
-            client.get('/api/trace-redirects?url=http://127.0.0.1/')
-        resp = client.get('/api/trace-redirects?url=https://example.com')
         assert resp.status_code == 429
 
 
@@ -3443,22 +3428,12 @@ class TestCommonMistakes:
 class TestDesignTokenReplacement:
     """Tests for replacing hardcoded rgba(26,26,31,...) with design tokens."""
 
-    def test_surface_1_light_token_defined(self, client):
-        """--surface-1-light token should be defined in :root."""
+    def test_surface_1_opacity_tokens_defined(self, client):
+        """Surface-1 opacity variant tokens should all be defined in :root."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         assert '--surface-1-light:' in css
-
-    def test_surface_1_heavy_token_defined(self, client):
-        """--surface-1-heavy token should be defined in :root."""
-        resp = client.get('/static/style.css')
-        css = resp.data.decode()
         assert '--surface-1-heavy:' in css
-
-    def test_surface_1_solid_token_defined(self, client):
-        """--surface-1-solid token should be defined in :root."""
-        resp = client.get('/static/style.css')
-        css = resp.data.decode()
         assert '--surface-1-solid:' in css
 
     def test_no_hardcoded_surface_bg_in_main_css(self, client):
@@ -6778,10 +6753,13 @@ class TestWeeklyRoute:
     def test_weekly_contains_week_number(self, client):
         """Weekly page should display the current week number."""
         from datetime import date
-        week_num = date.today().isocalendar()[1]
-        resp = client.get('/weekly')
-        html = resp.data.decode()
-        assert f'Week {week_num}' in html
+        fixed_date = date(2025, 3, 10)  # Monday of ISO week 11
+        with patch('index.date') as mock_date:
+            mock_date.today.return_value = fixed_date
+            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+            resp = client.get('/weekly')
+            html = resp.data.decode()
+            assert 'Week 11' in html
 
     def test_weekly_has_five_questions(self, client):
         """Weekly challenge should have exactly 5 questions in the QUESTIONS array."""
@@ -6869,16 +6847,19 @@ class TestWeeklyDeterministic:
     def test_weekly_theme_deterministic_from_week_number(self):
         """Theme selection should be deterministic based on week number."""
         from datetime import date
-        week_number = date.today().isocalendar()[1]
+        fixed_date = date(2025, 3, 10)  # ISO week 11
         themes = [
             'Redirect Week', 'Auth Week', 'Error Week', 'Success Week',
             'Caching Week', 'API Design Week', 'Debug Week', 'Speed Round',
         ]
-        expected_theme = themes[week_number % len(themes)]
-        with app.test_client() as client:
-            resp = client.get('/weekly')
-            html = resp.data.decode()
-            assert expected_theme in html
+        expected_theme = themes[11 % len(themes)]  # week 11
+        with patch('index.date') as mock_date:
+            mock_date.today.return_value = fixed_date
+            mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+            with app.test_client() as client:
+                resp = client.get('/weekly')
+                html = resp.data.decode()
+                assert expected_theme in html
 
 
 class TestWeeklyXPAndBadges:
@@ -12682,3 +12663,51 @@ class TestDesignAuditRound8:
         for page in pages:
             resp = client.get(page)
             assert resp.status_code in (200, 404, 500), f'{page} returned {resp.status_code}'
+
+
+class TestSmokeTest:
+    """Quick smoke test covering all major features."""
+
+    def test_all_page_routes_accessible(self, client):
+        """Every page route returns 200 or expected status."""
+        routes = [
+            ('/', 200), ('/quiz', 200), ('/daily', 200), ('/weekly', 200),
+            ('/practice', 200), ('/debug', 200), ('/review', 200),
+            ('/bingo', 200), ('/horoscope', 200), ('/predict', 200),
+            ('/incidents', 200), ('/content-negotiation', 200),
+            ('/map', 200), ('/credits', 200), ('/paths', 200),
+            ('/learn', 200), ('/tester', 200), ('/headers', 200),
+            ('/cors-checker', 200), ('/security-audit', 200),
+            ('/trace', 200), ('/playground', 200), ('/curl-import', 200),
+            ('/fault-simulator', 200), ('/webhook-inspector', 200),
+            ('/compare', 200), ('/personality', 200), ('/collection', 200),
+            ('/cheatsheet', 200), ('/flowchart', 200), ('/api-docs', 200),
+            ('/profile', 200), ('/200', 200), ('/404', 404), ('/500', 500),
+            ('/coffee', 418), ('/random', 302),
+        ]
+        for path, expected in routes:
+            resp = client.get(path)
+            assert resp.status_code == expected, (
+                f'{path} returned {resp.status_code}, expected {expected}'
+            )
+
+    def test_api_endpoints_respond(self, client):
+        """Core API endpoints return JSON."""
+        resp = client.get('/api/search?q=200')
+        assert resp.status_code == 200
+        assert resp.content_type.startswith('application/json')
+
+        resp = client.get('/api/diff?code1=200&code2=404')
+        assert resp.status_code == 200
+
+        resp = client.get('/echo')
+        assert resp.status_code == 200
+
+    def test_static_assets_serve(self, client):
+        """CSS and images are accessible."""
+        resp = client.get('/static/style.css')
+        assert resp.status_code == 200
+        assert b':root' in resp.data
+
+        resp = client.get('/200.jpg')
+        assert resp.status_code == 200
