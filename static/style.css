@@ -9894,3 +9894,42 @@ main {
   outline: 2px solid var(--color-teal);
   outline-offset: 2px;
 }
+
+/* Flash XP Event */
+.flash-event-banner {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: linear-gradient(135deg, var(--color-gold), var(--color-orange));
+  color: #000;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: var(--text-md);
+  z-index: 9500;
+  box-shadow: 0 8px 30px rgba(249, 199, 79, 0.3);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.flash-event-banner.flash-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.flash-icon { font-size: 1.25rem; }
+
+.flash-indicator {
+  font-size: 0.7rem;
+  margin-left: 0.25rem;
+  animation: flash-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes flash-pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}

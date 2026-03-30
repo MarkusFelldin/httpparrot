@@ -601,6 +601,56 @@
             }
         }
 
+        function updateFlashIndicator() {
+            if (!isFlashActive()) return;
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            var existing = badge.querySelector('.flash-indicator');
+            if (!existing) {
+                var ind = document.createElement('span');
+                ind.className = 'flash-indicator';
+                ind.textContent = '\u26A1';
+                ind.title = 'Flash Event Active \u2014 2x XP!';
+                badge.appendChild(ind);
+            }
+        }
+
+        /* Flash XP event — random 2x bonus */
+        var FLASH_KEY = 'httpparrot_flash_event';
+        function isFlashActive() {
+            try {
+                var flash = JSON.parse(localStorage.getItem(FLASH_KEY) || '{}');
+                if (flash.expires && Date.now() < flash.expires) return true;
+                if (flash.expires && Date.now() >= flash.expires) localStorage.removeItem(FLASH_KEY);
+            } catch(e) {}
+            return false;
+        }
+
+        function maybeStartFlash() {
+            if (isFlashActive()) return;
+            /* 5% chance per page load */
+            if (Math.random() > 0.05) return;
+            var expires = Date.now() + 30 * 60 * 1000; /* 30 minutes */
+            localStorage.setItem(FLASH_KEY, JSON.stringify({expires: expires}));
+            showFlashBanner();
+        }
+
+        function showFlashBanner() {
+            var banner = document.createElement('div');
+            banner.className = 'flash-event-banner';
+            banner.setAttribute('role', 'status');
+            banner.innerHTML = '<span class="flash-icon" aria-hidden="true">&#x26A1;</span>'
+                + '<span class="flash-text">Flash Event! 2x XP for 30 minutes!</span>';
+            document.body.appendChild(banner);
+            setTimeout(function() { banner.classList.add('flash-visible'); }, 50);
+            setTimeout(function() {
+                banner.classList.remove('flash-visible');
+                setTimeout(function() { banner.remove(); }, 400);
+            }, 5000);
+        }
+
+        maybeStartFlash();
+
         var PRESTIGE_KEY = 'httpparrot_prestige';
         function getPrestige() {
             return parseInt(localStorage.getItem(PRESTIGE_KEY) || '0', 10);
@@ -1128,6 +1178,7 @@
             if (!amount || amount <= 0) return;
             var mult = getMultiplier();
             mult *= (1 + getPrestige() * 0.1);
+            if (isFlashActive()) mult *= 2;
             amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
@@ -1161,6 +1212,8 @@
             getMultiplier: getMultiplier,
             updateVisitStreak: updateVisitStreak,
             updateMultiplierIndicator: updateMultiplierIndicator,
+            isFlashActive: isFlashActive,
+            updateFlashIndicator: updateFlashIndicator,
             prestige: prestige,
             getPrestige: getPrestige,
             XP_MILESTONES: XP_MILESTONES,
@@ -1170,6 +1223,7 @@
 
         updateBadge();
         updateMultiplierIndicator();
+        updateFlashIndicator();
         /* Check feathers on every page load for time-based badges like Night Owl */
         checkFeathers();
         /* Award pending seasonal egg XP if queued before ParrotXP loaded */

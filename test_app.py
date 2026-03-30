@@ -14257,3 +14257,39 @@ class TestRound7DesignRefinements:
     def test_css_has_sticky_profile_headers(self, client):
         resp = client.get('/static/style.css')
         assert b'sticky' in resp.data and b'profile-container' in resp.data
+
+
+class TestRound7Pass5Engagement:
+    """Tests for Round 7 Pass 5 engagement features."""
+
+    def test_detail_page_has_musical_tones(self, client):
+        resp = client.get('/200')
+        assert b'AudioContext' in resp.data or b'musical' in resp.data.lower()
+
+    def test_detail_page_musical_tones_has_chords(self, client):
+        resp = client.get('/404')
+        assert b'chords' in resp.data
+        assert b'sawtooth' in resp.data
+
+    def test_flash_xp_event_code_in_base(self, client):
+        resp = client.get('/')
+        assert b'flash_event' in resp.data or b'FLASH_KEY' in resp.data
+
+    def test_flash_xp_banner_css(self, client):
+        resp = client.get('/static/style.css')
+        assert b'flash-event-banner' in resp.data
+
+    def test_flash_indicator_css(self, client):
+        resp = client.get('/static/style.css')
+        assert b'flash-indicator' in resp.data
+        assert b'flash-pulse' in resp.data
+
+    def test_flash_multiplier_in_award(self, client):
+        resp = client.get('/')
+        assert b'isFlashActive()' in resp.data
+
+    def test_musical_tones_category_chords(self, client):
+        """Each category should have a distinct chord mapping."""
+        resp = client.get('/500')
+        html = resp.data.decode()
+        assert '294, 349, 440' in html  # D minor for 5xx

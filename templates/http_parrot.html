@@ -764,4 +764,44 @@
         }, {passive: true});
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Status code musical tone on visit */
+    (function() {
+        if (typeof ParrotSound === 'undefined' || !ParrotSound.isEnabled()) return;
+        var code = '{{ status_code }}';
+        var cat = code[0];
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+
+        /* Category-specific chord */
+        var chords = {
+            '1': [440, 554, 659],   /* A major - informational, neutral */
+            '2': [523, 659, 784],   /* C major - success, happy */
+            '3': [392, 494, 587],   /* G major - redirection, moving */
+            '4': [349, 440, 523],   /* F minor-ish - client error, warning */
+            '5': [294, 349, 440]    /* D minor - server error, ominous */
+        };
+
+        var freqs = chords[cat] || chords['2'];
+
+        setTimeout(function() {
+            try {
+                var ctx = new AC();
+                var now = ctx.currentTime;
+                freqs.forEach(function(freq, i) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.type = cat >= '4' ? 'sawtooth' : 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                    gain.gain.setValueAtTime(0.04, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.8);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.8);
+                });
+            } catch(e) {}
+        }, 500);
+    })();
+    </script>
 {% endblock %}
