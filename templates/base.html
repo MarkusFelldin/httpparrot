@@ -731,6 +731,15 @@
         }
 
         function showFeatherToast(feather) {
+            /* Pre-animation: egg hatch */
+            var egg = document.createElement('div');
+            egg.className = 'egg-hatch';
+            egg.innerHTML = '<span class="egg-shell">\uD83E\uDD5A</span>';
+            document.body.appendChild(egg);
+            setTimeout(function() { egg.classList.add('egg-cracking'); }, 50);
+            setTimeout(function() { egg.classList.add('egg-hatched'); }, 600);
+            setTimeout(function() { egg.remove(); }, 1200);
+
             var isMeta = !!feather.meta;
             var toast = document.createElement('div');
             toast.className = 'feather-toast' + (isMeta ? ' feather-toast-meta' : '');
@@ -2097,6 +2106,47 @@
             }
         });
         footer.appendChild(counter);
+    })();
+
+    /* Midnight Insomnia Parrot */
+    (function() {
+        var h = new Date().getHours();
+        if (h < 23 && h >= 4) return;
+
+        var tips = [
+            "500 errors taste like regret and cold coffee.",
+            "Your cache headers are judging your sleep schedule.",
+            "The 418 teapot wishes it was a coffee pot right now.",
+            "At this hour, every request feels like a 408 Timeout.",
+            "Fun fact: servers don't sleep either. You have that in common.",
+            "The 503 fairy says: you are Service Unavailable tomorrow.",
+            "Pro tip: bugs written after midnight have a 100% reproduction rate.",
+            "Your Retry-After header should say 'until morning'.",
+            "Is this a 301 to your bed? You should follow it."
+        ];
+
+        var parrot = document.createElement('div');
+        parrot.className = 'insomnia-parrot';
+        parrot.setAttribute('aria-hidden', 'true');
+        parrot.innerHTML = '<span class="insomnia-emoji">\uD83E\uDD9C\uD83D\uDCA4</span>'
+            + '<span class="insomnia-tip">' + tips[Math.floor(Math.random() * tips.length)] + '</span>'
+            + '<button class="insomnia-close" type="button" aria-label="Dismiss">\u00D7</button>';
+        document.body.appendChild(parrot);
+
+        setTimeout(function() { parrot.classList.add('insomnia-visible'); }, 3000);
+
+        parrot.querySelector('.insomnia-close').addEventListener('click', function() {
+            parrot.classList.remove('insomnia-visible');
+            setTimeout(function() { parrot.remove(); }, 300);
+        });
+
+        /* Register egg */
+        var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        if (eggs.indexOf('night_coder') === -1) {
+            eggs.push('night_coder');
+            localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+        }
     })();
     </script>
     {% block scripts %}{% endblock %}

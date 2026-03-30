@@ -969,6 +969,36 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Parrot evolution cosmetics */
+    (function() {
+        var dex = [];
+        try { dex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+        var count = dex.length;
+        var cards = document.querySelectorAll('.parrot-card');
+        cards.forEach(function(card) {
+            var code = card.getAttribute('data-code');
+            if (dex.indexOf(code) !== -1) {
+                var badge = document.createElement('span');
+                badge.className = 'parrot-collected-badge';
+                badge.setAttribute('aria-hidden', 'true');
+                badge.textContent = '\u2713';
+                card.querySelector('.parrot').appendChild(badge);
+            }
+        });
+        /* Show collector level */
+        if (count >= 50) {
+            document.querySelectorAll('.parrot-collected-badge').forEach(function(b) {
+                b.classList.add('badge-gold');
+            });
+        } else if (count >= 25) {
+            document.querySelectorAll('.parrot-collected-badge').forEach(function(b) {
+                b.classList.add('badge-silver');
+            });
+        }
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
     /* Method filter */
     (function() {
         var methodMap = {{ method_applicability | safe }};
