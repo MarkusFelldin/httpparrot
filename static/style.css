@@ -3518,6 +3518,7 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
   .sound-toggle-btn,
   .footer-parrot-counter,
   .flash-event-banner,
+  .comeback-banner,
   .daily-countdown,
   .favorites-bar,
   .insomnia-parrot,
@@ -10326,4 +10327,64 @@ details > :not(summary) {
   color: var(--color-teal) !important;
   border-color: var(--color-teal) !important;
   transition: all var(--duration-fast) var(--ease-out);
+}
+
+/* === Comeback banner === */
+.comeback-banner {
+  position: fixed;
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: var(--surface-2);
+  border: 1px solid var(--color-teal);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 9500;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+}
+
+.comeback-banner.comeback-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.comeback-icon { font-size: 1.5rem; }
+.comeback-text { font-weight: 600; color: var(--text-primary); }
+.comeback-close { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+
+/* === Personal goals === */
+.profile-goals-section { margin-top: 2rem; }
+.goal-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.goal-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.goal-input:focus { border-color: var(--color-teal); outline: none; }
+.goal-date { min-width: 140px; }
+.goal-set-btn { font-size: var(--text-sm); padding: 0.5rem 1rem; }
+
+.goal-display { background: var(--surface-1); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1rem; }
+.goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.goal-target { font-weight: 700; }
+.goal-clear { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+.goal-progress-wrap { height: 8px; background: var(--surface-2); border-radius: var(--radius-full); overflow: hidden; margin-bottom: 0.5rem; }
+.goal-progress-bar { height: 100%; background: var(--color-purple); border-radius: var(--radius-full); transition: width var(--duration-slow) var(--ease-out); }
+.goal-status { font-size: var(--text-sm); color: var(--text-secondary); }
+
+@media (max-width: 480px) {
+  .goal-form { flex-direction: column; }
+  .goal-input { width: 100%; }
+  .comeback-banner { left: 1rem; right: 1rem; transform: translateY(-20px); }
+  .comeback-banner.comeback-visible { transform: translateY(0); }
 }

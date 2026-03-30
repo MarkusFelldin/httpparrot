@@ -676,6 +676,44 @@
 
         maybeStartFlash();
 
+        /* Comeback mechanic */
+        (function() {
+            var LAST_VISIT_KEY = 'httpparrot_last_visit_date';
+            var COMEBACK_KEY = 'httpparrot_comeback_shown';
+            var today = new Date().toISOString().slice(0, 10);
+            var lastVisit = localStorage.getItem(LAST_VISIT_KEY);
+
+            if (lastVisit && lastVisit !== today) {
+                var daysDiff = Math.floor((new Date(today) - new Date(lastVisit)) / 86400000);
+                if (daysDiff >= 3) {
+                    var comebackToday = localStorage.getItem(COMEBACK_KEY);
+                    if (comebackToday !== today) {
+                        localStorage.setItem(COMEBACK_KEY, today);
+                        /* Show welcome back banner */
+                        var bonusXP = Math.min(daysDiff * 10, 100);
+                        var banner = document.createElement('div');
+                        banner.className = 'comeback-banner';
+                        banner.setAttribute('role', 'status');
+                        banner.innerHTML = '<span class="comeback-icon" aria-hidden="true">&#x1F44B;</span>'
+                            + '<span class="comeback-text">Welcome back! +' + bonusXP + ' XP comeback bonus!</span>'
+                            + '<button class="comeback-close" type="button" aria-label="Dismiss">&times;</button>';
+                        document.body.appendChild(banner);
+                        setTimeout(function() { banner.classList.add('comeback-visible'); }, 100);
+                        banner.querySelector('.comeback-close').addEventListener('click', function() {
+                            banner.classList.remove('comeback-visible');
+                            setTimeout(function() { banner.remove(); }, 300);
+                        });
+                        setTimeout(function() {
+                            banner.classList.remove('comeback-visible');
+                            setTimeout(function() { banner.remove(); }, 300);
+                        }, 8000);
+                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(bonusXP, 'comeback_bonus');
+                    }
+                }
+            }
+            localStorage.setItem(LAST_VISIT_KEY, today);
+        })();
+
         var PRESTIGE_KEY = 'httpparrot_prestige';
         function getPrestige() {
             return parseInt(localStorage.getItem(PRESTIGE_KEY) || '0', 10);

@@ -130,6 +130,27 @@
             </div>
         </section>
 
+        <section class="profile-goals-section" aria-label="Personal goals">
+            <h2>Goals</h2>
+            <div class="goals-container" id="goals-container">
+                <div class="goal-form" id="goal-form">
+                    <input type="number" id="goal-xp" class="goal-input" placeholder="XP target" min="100" step="100">
+                    <input type="date" id="goal-date" class="goal-input goal-date">
+                    <button class="btn-back goal-set-btn" id="goal-set" type="button">Set Goal</button>
+                </div>
+                <div class="goal-display" id="goal-display" style="display:none">
+                    <div class="goal-header">
+                        <span class="goal-target" id="goal-target-text"></span>
+                        <button class="goal-clear" id="goal-clear" type="button" aria-label="Clear goal">&times;</button>
+                    </div>
+                    <div class="goal-progress-wrap">
+                        <div class="goal-progress-bar" id="goal-progress-bar" role="progressbar"></div>
+                    </div>
+                    <div class="goal-status" id="goal-status"></div>
+                </div>
+            </div>
+        </section>
+
         <section class="profile-tier-section" aria-label="Weekly tier">
             <h2>Weekly Tier</h2>
             <div class="profile-tier-card" id="profile-tier-card">
@@ -941,6 +962,59 @@
             });
         });
     }
+})();
+
+/* Personal goals */
+(function() {
+    var GOAL_KEY = 'httpparrot_goal';
+    var form = document.getElementById('goal-form');
+    var display = document.getElementById('goal-display');
+    var setBtn = document.getElementById('goal-set');
+    var clearBtn = document.getElementById('goal-clear');
+
+    function getGoal() {
+        try { return JSON.parse(localStorage.getItem(GOAL_KEY)); } catch(e) { return null; }
+    }
+
+    function renderGoal() {
+        var goal = getGoal();
+        if (!goal) { form.style.display = ''; display.style.display = 'none'; return; }
+        form.style.display = 'none';
+        display.style.display = '';
+        var currentXP = typeof ParrotXP !== 'undefined' ? ParrotXP.getTotal() : 0;
+        var progress = Math.min(currentXP / goal.target * 100, 100);
+        document.getElementById('goal-target-text').textContent = goal.target + ' XP by ' + goal.date;
+        document.getElementById('goal-progress-bar').style.width = progress + '%';
+        var deadline = new Date(goal.date);
+        var now = new Date();
+        var daysLeft = Math.ceil((deadline - now) / 86400000);
+        var status = progress >= 100 ? 'Goal reached!' : daysLeft + ' days left — ' + Math.round(progress) + '% complete';
+        document.getElementById('goal-status').textContent = status;
+        if (progress >= 100) document.getElementById('goal-progress-bar').style.background = 'var(--color-teal)';
+    }
+
+    if (setBtn) setBtn.addEventListener('click', function() {
+        var xp = parseInt(document.getElementById('goal-xp').value, 10);
+        var date = document.getElementById('goal-date').value;
+        if (!xp || xp < 100 || !date) return;
+        localStorage.setItem(GOAL_KEY, JSON.stringify({target: xp, date: date}));
+        renderGoal();
+    });
+
+    if (clearBtn) clearBtn.addEventListener('click', function() {
+        localStorage.removeItem(GOAL_KEY);
+        renderGoal();
+    });
+
+    /* Set min date to tomorrow */
+    var dateInput = document.getElementById('goal-date');
+    if (dateInput) {
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        dateInput.min = tomorrow.toISOString().slice(0, 10);
+    }
+
+    renderGoal();
 })();
 </script>
 {% endblock %}

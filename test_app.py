@@ -10497,6 +10497,80 @@ class TestPrestigeSystem:
         assert 'ParrotToast.show' in html
         assert 'XP reset with' in html
 
+    def test_profile_has_goals(self, client):
+        """Profile page should have goals section with goal form."""
+        resp = client.get('/profile')
+        assert b'Goals' in resp.data and b'goal-form' in resp.data
+
+    def test_profile_goals_has_xp_input(self, client):
+        """Profile goals should have XP target input."""
+        resp = client.get('/profile')
+        assert b'goal-xp' in resp.data
+
+    def test_profile_goals_has_date_input(self, client):
+        """Profile goals should have date input for deadline."""
+        resp = client.get('/profile')
+        assert b'goal-date' in resp.data
+
+    def test_profile_goals_has_set_button(self, client):
+        """Profile goals should have a set goal button."""
+        resp = client.get('/profile')
+        assert b'goal-set' in resp.data and b'Set Goal' in resp.data
+
+    def test_profile_goals_has_display(self, client):
+        """Profile goals should have goal display container."""
+        resp = client.get('/profile')
+        assert b'goal-display' in resp.data
+
+    def test_profile_goals_has_progress_bar(self, client):
+        """Profile goals should have a progress bar."""
+        resp = client.get('/profile')
+        assert b'goal-progress-bar' in resp.data
+
+    def test_profile_goals_has_clear_button(self, client):
+        """Profile goals should have a clear goal button."""
+        resp = client.get('/profile')
+        assert b'goal-clear' in resp.data
+
+    def test_profile_goals_js_reads_localstorage(self, client):
+        """Profile goals JS should read goal from localStorage."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'httpparrot_goal' in html
+
+    def test_profile_goals_js_renders_goal(self, client):
+        """Profile goals JS should define renderGoal function."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'renderGoal' in html
+
+    def test_comeback_mechanic_in_base(self, client):
+        """Base template should include comeback mechanic JS."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_last_visit_date' in html
+        assert 'comeback-banner' in html
+
+    def test_comeback_awards_bonus_xp(self, client):
+        """Comeback mechanic should award bonus XP via ParrotXP."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'comeback_bonus' in html
+
+    def test_comeback_css_exists(self, client):
+        """CSS should define comeback banner styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.comeback-banner' in css
+
+    def test_goals_css_exists(self, client):
+        """CSS should define goal form and display styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.goal-form' in css
+        assert '.goal-display' in css
+        assert '.goal-progress-bar' in css
+
 
 # --- Compare Page Transitions ---
 
