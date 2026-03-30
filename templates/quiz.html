@@ -91,6 +91,8 @@
                 p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
                 p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
                 p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.setProperty('--wobble', (Math.random() * 30 - 15) + 'px');
+                p.style.animationDuration = (0.5 + Math.random() * 0.4) + 's';
                 p.style.backgroundColor = ['#00c9a7','#00b4d8','#7b61ff','#ff6b6b','#ffd93d'][Math.floor(Math.random()*5)];
                 document.body.appendChild(p);
                 p.addEventListener('animationend', function() { this.remove(); });
@@ -119,6 +121,8 @@
                 p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
                 p.style.setProperty('--ty', Math.sin(angle) * dist - 30 + 'px');
                 p.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+                p.style.setProperty('--wobble', (Math.random() * 30 - 15) + 'px');
+                p.style.animationDuration = (0.5 + Math.random() * 0.4) + 's';
                 p.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)];
                 document.body.appendChild(p);
                 p.addEventListener('animationend', function() { this.remove(); });

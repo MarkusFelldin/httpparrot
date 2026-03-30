@@ -87,9 +87,10 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
+                            <a href="/predict" role="menuitem" {% if request.path == '/predict' %}aria-current="page"{% endif %}>Guess the Response</a>
                             <a href="/daily" role="menuitem" {% if request.path == '/daily' %}aria-current="page"{% endif %}>Daily Challenge</a>
                             <a href="/weekly" role="menuitem" {% if request.path == '/weekly' %}aria-current="page"{% endif %}>Weekly Challenge</a>
                             <a href="/practice" role="menuitem" {% if request.path == '/practice' %}aria-current="page"{% endif %}>Practice</a>
@@ -99,6 +100,7 @@
                             <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
                             <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
                             <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
+                            <a href="/map" role="menuitem" {% if request.path == '/map' %}aria-current="page"{% endif %}>Code Map</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -152,6 +154,7 @@
         <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" role="navigation">
             <div class="mobile-nav-group-label">Learn</div>
             <a href="/quiz" {% if request.path == '/quiz' %}class="nav-active" aria-current="page"{% endif %}>Quiz</a>
+            <a href="/predict" {% if request.path == '/predict' %}class="nav-active" aria-current="page"{% endif %}>Guess the Response</a>
             <a href="/daily" {% if request.path == '/daily' %}class="nav-active" aria-current="page"{% endif %}>Daily Challenge</a>
             <a href="/weekly" {% if request.path == '/weekly' %}class="nav-active" aria-current="page"{% endif %}>Weekly Challenge</a>
             <a href="/practice" {% if request.path == '/practice' %}class="nav-active" aria-current="page"{% endif %}>Practice</a>
@@ -161,6 +164,7 @@
             <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
             <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
+            <a href="/map" {% if request.path == '/map' %}class="nav-active" aria-current="page"{% endif %}>Code Map</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
@@ -579,6 +583,20 @@
             }
         }
 
+        var PRESTIGE_KEY = 'httpparrot_prestige';
+        function getPrestige() {
+            return parseInt(localStorage.getItem(PRESTIGE_KEY) || '0', 10);
+        }
+        function prestige() {
+            var total = getTotal();
+            if (total < 12000) return false;
+            var p = getPrestige() + 1;
+            localStorage.setItem(PRESTIGE_KEY, String(p));
+            localStorage.setItem('httpparrot_xp', '0');
+            updateBadge();
+            return p;
+        }
+
         function award(amount, action) {
             if (!amount || amount <= 0) return;
             var total = getTotal() + amount;
@@ -729,6 +747,15 @@
         }
 
         function showFeatherToast(feather) {
+            /* Pre-animation: egg hatch */
+            var egg = document.createElement('div');
+            egg.className = 'egg-hatch';
+            egg.innerHTML = '<span class="egg-shell">\uD83E\uDD5A</span>';
+            document.body.appendChild(egg);
+            setTimeout(function() { egg.classList.add('egg-cracking'); }, 50);
+            setTimeout(function() { egg.classList.add('egg-hatched'); }, 600);
+            setTimeout(function() { egg.remove(); }, 1200);
+
             var isMeta = !!feather.meta;
             var toast = document.createElement('div');
             toast.className = 'feather-toast' + (isMeta ? ' feather-toast-meta' : '');
@@ -1082,6 +1109,7 @@
         function awardWithFeathers(amount, action) {
             if (!amount || amount <= 0) return;
             var mult = getMultiplier();
+            mult *= (1 + getPrestige() * 0.1);
             amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
@@ -1115,6 +1143,8 @@
             getMultiplier: getMultiplier,
             updateVisitStreak: updateVisitStreak,
             updateMultiplierIndicator: updateMultiplierIndicator,
+            prestige: prestige,
+            getPrestige: getPrestige,
             XP_MILESTONES: XP_MILESTONES,
             RANKS: RANKS,
             FEATHERS: FEATHERS
@@ -1811,6 +1841,7 @@
         var PAGES = [
             {name: 'Home', path: '/', icon: '\uD83C\uDFE0', desc: 'Browse all HTTP status codes'},
             {name: 'Quiz', path: '/quiz', icon: '\uD83E\uDDE0', desc: 'Test your HTTP knowledge'},
+            {name: 'Guess the Response', path: '/predict', icon: '\uD83D\uDD2E', desc: 'Predict the HTTP status code from the request'},
             {name: 'Daily Challenge', path: '/daily', icon: '\uD83D\uDCC5', desc: 'Daily HTTP challenge'},
             {name: 'Weekly Challenge', path: '/weekly', icon: '\uD83D\uDCCA', desc: 'Weekly themed challenge'},
             {name: 'Practice', path: '/practice', icon: '\uD83C\uDFAF', desc: 'Practice HTTP scenarios'},
@@ -2094,6 +2125,78 @@
             }
         });
         footer.appendChild(counter);
+    })();
+
+    /* Midnight Insomnia Parrot */
+    (function() {
+        var h = new Date().getHours();
+        if (h < 23 && h >= 4) return;
+
+        var tips = [
+            "500 errors taste like regret and cold coffee.",
+            "Your cache headers are judging your sleep schedule.",
+            "The 418 teapot wishes it was a coffee pot right now.",
+            "At this hour, every request feels like a 408 Timeout.",
+            "Fun fact: servers don't sleep either. You have that in common.",
+            "The 503 fairy says: you are Service Unavailable tomorrow.",
+            "Pro tip: bugs written after midnight have a 100% reproduction rate.",
+            "Your Retry-After header should say 'until morning'.",
+            "Is this a 301 to your bed? You should follow it."
+        ];
+
+        var parrot = document.createElement('div');
+        parrot.className = 'insomnia-parrot';
+        parrot.setAttribute('aria-hidden', 'true');
+        parrot.innerHTML = '<span class="insomnia-emoji">\uD83E\uDD9C\uD83D\uDCA4</span>'
+            + '<span class="insomnia-tip">' + tips[Math.floor(Math.random() * tips.length)] + '</span>'
+            + '<button class="insomnia-close" type="button" aria-label="Dismiss">\u00D7</button>';
+        document.body.appendChild(parrot);
+
+        setTimeout(function() { parrot.classList.add('insomnia-visible'); }, 3000);
+
+        parrot.querySelector('.insomnia-close').addEventListener('click', function() {
+            parrot.classList.remove('insomnia-visible');
+            setTimeout(function() { parrot.remove(); }, 300);
+        });
+
+        /* Register egg */
+        var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+        if (eggs.indexOf('night_coder') === -1) {
+            eggs.push('night_coder');
+            localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+        }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* 200th visit celebration */
+    (function() {
+        var VISIT_KEY = 'httpparrot_total_visits';
+        var visits = parseInt(localStorage.getItem(VISIT_KEY) || '0', 10) + 1;
+        localStorage.setItem(VISIT_KEY, String(visits));
+
+        if (visits === 200) {
+            setTimeout(function() {
+                var banner = document.createElement('div');
+                banner.className = 'visit-200-banner';
+                banner.setAttribute('role', 'status');
+                banner.innerHTML = '<span class="visit-200-icon">&#x1F389;</span>'
+                    + '<span class="visit-200-text">200 OK! Your 200th page visit!</span>';
+                document.body.appendChild(banner);
+                setTimeout(function() { banner.classList.add('visit-200-visible'); }, 50);
+                setTimeout(function() {
+                    banner.classList.remove('visit-200-visible');
+                    setTimeout(function() { banner.remove(); }, 400);
+                }, 5000);
+
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('visit_200') === -1) {
+                    eggs.push('visit_200');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(200, 'easter_egg');
+                }
+            }, 1500);
+        }
     })();
     </script>
     {% block scripts %}{% endblock %}

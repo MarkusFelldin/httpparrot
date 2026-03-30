@@ -694,6 +694,16 @@ def quiz():
     return render_template('quiz.html', quiz_data=quiz_data)
 
 
+@app.route('/predict')
+def predict():
+    """Render the Guess the Response prediction game."""
+    scenarios = [s for s in SCENARIOS if s.get('difficulty') in ('beginner', 'intermediate')]
+    scenario_data = [{"id": s["id"], "description": s["description"],
+                      "correct": s["correct"], "options": s["options"],
+                      "explanations": s["explanations"]} for s in scenarios]
+    return render_template('predict.html', scenarios=json.dumps(scenario_data))
+
+
 @app.route('/personality')
 def personality():
     """Render the 'Which HTTP Status Code Are You?' personality quiz."""
@@ -881,6 +891,12 @@ def horoscope():
     return render_template('horoscope.html', codes_json=json.dumps(
         [{"code": c.code, "name": c.name, "image": c.image} for c in codes]
     ), day_number=day_number, date_str=today.isoformat())
+
+
+@app.route('/map')
+def status_map():
+    """Render the status code relationship map."""
+    return render_template('map.html', related_codes=json.dumps(RELATED_CODES))
 
 
 @app.route('/practice')
@@ -2060,13 +2076,13 @@ def sitemap():
     """Generate a dynamic XML sitemap."""
     base = request.url_root.rstrip('/')
     pages = []
-    for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
+    for rule in ['/', '/quiz', '/predict', '/personality', '/daily', '/weekly', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
                  '/cheatsheet', '/headers', '/content-negotiation', '/cors-checker',
                  '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo', '/horoscope']:
+                 '/bingo', '/horoscope', '/map']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

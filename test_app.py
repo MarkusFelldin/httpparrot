@@ -148,6 +148,11 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Bingo' in resp.data
 
+    def test_predict_page(self, client):
+        resp = client.get('/predict')
+        assert resp.status_code == 200
+        assert b'Guess the Response' in resp.data
+
     def test_horoscope_page(self, client):
         resp = client.get('/horoscope')
         assert resp.status_code == 200
@@ -3587,6 +3592,7 @@ class TestSitemapCompleteness:
         '/', '/quiz', '/personality', '/daily', '/practice', '/debug', '/flowchart',
         '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
         '/security-audit', '/collection', '/playground', '/api-docs', '/profile',
+        '/map',
     ]
 
     def test_sitemap_returns_xml(self, client):
@@ -6200,8 +6206,8 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '16 pairs' in html
-        assert '6 categories' in html
+        assert '17 pairs' in html
+        assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
         resp = client.get('/learn')
@@ -6284,6 +6290,16 @@ class TestLearnPairRoute:
         resp = client.get('/learn/502-vs-503')
         assert resp.status_code == 200
         assert b'Bad Gateway' in resp.data
+
+    def test_learn_pair_404_vs_410(self, client):
+        resp = client.get('/learn/404-vs-410')
+        assert resp.status_code == 200
+        assert b'Not Found' in resp.data
+
+    def test_learn_pair_429_vs_503(self, client):
+        resp = client.get('/learn/429-vs-503')
+        assert resp.status_code == 200
+        assert b'Too Many Requests' in resp.data
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""
@@ -7107,15 +7123,16 @@ class TestLearningPathsData:
                     assert step['target'] in debug_ids, \
                         f"Unknown debug id {step['target']} in path {path['id']}"
 
-    def test_three_paths_exist(self):
+    def test_four_paths_exist(self):
         from learning_paths import LEARNING_PATHS
-        assert len(LEARNING_PATHS) == 3
+        assert len(LEARNING_PATHS) == 4
 
     def test_lookup_by_id(self):
         from learning_paths import LEARNING_PATHS_BY_ID
         assert 'http-foundations' in LEARNING_PATHS_BY_ID
         assert 'error-whisperer' in LEARNING_PATHS_BY_ID
         assert 'redirect-master' in LEARNING_PATHS_BY_ID
+        assert 'api-designer' in LEARNING_PATHS_BY_ID
 
     def test_http_foundations_is_beginner(self):
         from learning_paths import LEARNING_PATHS_BY_ID
@@ -7148,6 +7165,7 @@ class TestPathsIndexRoute:
         assert 'HTTP Foundations' in html
         assert 'Error Whisperer' in html
         assert 'Redirect Master' in html
+        assert 'API Designer' in html
 
     def test_paths_index_has_difficulty_badges(self, client):
         resp = client.get('/paths')
@@ -7168,6 +7186,7 @@ class TestPathsIndexRoute:
         assert 'href="/paths/http-foundations"' in html
         assert 'href="/paths/error-whisperer"' in html
         assert 'href="/paths/redirect-master"' in html
+        assert 'href="/paths/api-designer"' in html
 
     def test_paths_index_has_step_counts(self, client):
         resp = client.get('/paths')
@@ -8392,6 +8411,11 @@ class TestReviewPage:
         resp = client.get('/review')
         html = resp.data.decode()
         assert 'total_reviews' in html
+
+    def test_review_page_has_empty_state(self, client):
+        resp = client.get('/review')
+        assert resp.status_code == 200
+        assert b'empty-state' in resp.data
 
 
 class TestReviewLeitnerSystem:
@@ -10296,6 +10320,164 @@ class TestProfileWeeklyChart:
         assert 'display: flex' in css
 
 
+class TestProfileWeeklyTier:
+    """Tests for the weekly tier leaderboard on the profile page."""
+
+    def test_profile_has_weekly_tier(self, client):
+        """Profile page should contain the Weekly Tier section."""
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+        assert b'Weekly Tier' in resp.data
+
+    def test_profile_tier_card_exists(self, client):
+        """Profile page should contain the tier card element."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-tier-card' in html
+
+    def test_profile_tier_has_progress_bar(self, client):
+        """Profile tier card should have a progress bar."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'tier-bar' in html
+        assert 'tier-bar-wrap' in html
+
+    def test_profile_tier_js_calculates_weekly_xp(self, client):
+        """Profile script should calculate weekly XP from activity."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'weeklyXP' in html
+        assert 'weekStartStr' in html
+
+    def test_profile_tier_js_has_all_tiers(self, client):
+        """Profile script should define Bronze, Silver, Gold, Platinum tiers."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'Bronze' in html
+        assert 'Silver' in html
+        assert 'Gold' in html
+        assert 'Platinum' in html
+
+    def test_profile_tier_css_exists(self, client):
+        """CSS should contain styles for the weekly tier system."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-tier-card' in css
+        assert '.tier-bar' in css
+        assert '.tier-bar-wrap' in css
+        assert '.tier-name' in css
+
+    def test_profile_share_card_top3_exists(self, client):
+        """Profile share card should contain the top 3 rarest feathers container."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'profile-card-top3' in html
+
+    def test_profile_top3_js_sorts_by_bonus(self, client):
+        """Profile script should sort earned feathers by bonus XP descending."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'b.bonus - a.bonus' in html
+
+    def test_profile_top3_css_exists(self, client):
+        """CSS should contain styles for the top 3 rarest feathers."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.profile-share-card-top3' in css
+        assert '.top3-feather' in css
+
+
+# --- Prestige System & Feather Progress ---
+
+class TestPrestigeSystem:
+    """Tests for the prestige system and feather progress indicators."""
+
+    def test_profile_has_prestige_display(self, client):
+        """Profile page should contain prestige display elements."""
+        resp = client.get('/profile')
+        assert resp.status_code == 200
+        assert b'prestige' in resp.data.lower()
+
+    def test_profile_has_prestige_btn(self, client):
+        """Profile page should contain the prestige button."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige-btn' in html
+
+    def test_profile_has_prestige_stars(self, client):
+        """Profile page should contain the prestige stars element."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige-stars' in html
+
+    def test_base_has_prestige_functions(self, client):
+        """Base template should define getPrestige and prestige functions."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getPrestige' in html
+        assert 'PRESTIGE_KEY' in html
+
+    def test_base_prestige_in_parrotxp(self, client):
+        """ParrotXP object should expose prestige and getPrestige."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'prestige: prestige' in html
+        assert 'getPrestige: getPrestige' in html
+
+    def test_award_includes_prestige_bonus(self, client):
+        """awardWithFeathers should multiply by prestige bonus."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getPrestige() * 0.1' in html
+
+    def test_prestige_css_exists(self, client):
+        """CSS should contain prestige system styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.prestige-display' in css
+        assert '.prestige-stars' in css
+        assert '.prestige-btn' in css
+
+    def test_feather_progress_css_exists(self, client):
+        """CSS should contain feather progress indicator styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.feather-progress' in css
+        assert '.feather-progress-bar' in css
+        assert '.feather-progress-text' in css
+
+    def test_profile_has_feather_progress_function(self, client):
+        """Profile page should define getFeatherProgress function."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'getFeatherProgress' in html
+
+    def test_feather_progress_tracks_quiz_whiz(self, client):
+        """getFeatherProgress should track quiz_whiz progress."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert "'quiz_whiz'" in html or '"quiz_whiz"' in html
+
+    def test_feather_progress_tracks_explorer(self, client):
+        """getFeatherProgress should track explorer feathers via parrotdex."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert "'explorer_10'" in html or '"explorer_10"' in html
+
+    def test_prestige_button_js_calls_prestige(self, client):
+        """Profile prestige button JS should call ParrotXP.prestige()."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotXP.prestige()' in html
+
+    def test_prestige_toast_on_success(self, client):
+        """Profile prestige JS should show toast on successful prestige."""
+        resp = client.get('/profile')
+        html = resp.data.decode()
+        assert 'ParrotToast.show' in html
+        assert 'XP reset with' in html
+
+
 # --- Compare Page Transitions ---
 
 class TestCompareTransitions:
@@ -11911,6 +12093,70 @@ class TestTesterTruncationWarning:
         resp = client.get('/tester')
         html = resp.get_data(as_text=True)
         assert 'if (data.truncated)' in html
+
+
+# --- FN2: Tester History, Export, Cross-links ---
+
+class TestTesterHistoryExportCrosslinks:
+    """Tests for tester request history panel, export buttons, and cross-tool links."""
+
+    def test_tester_has_history(self, client):
+        resp = client.get('/tester')
+        assert resp.status_code == 200
+        assert b'tester-history' in resp.data
+
+    def test_tester_has_export_buttons(self, client):
+        """Tester page should have export cURL and HAR buttons."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'export-curl' in html
+        assert 'export-har' in html
+        assert 'tester-export' in html
+
+    def test_tester_has_crosslinks(self, client):
+        """Tester page should have cross-tool link buttons."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'crosslink-trace' in html
+        assert 'crosslink-security' in html
+        assert 'crosslink-cors' in html
+        assert 'tester-crosslinks' in html
+
+    def test_tester_history_js(self, client):
+        """Tester page should contain history JS functions."""
+        resp = client.get('/tester')
+        html = resp.data.decode()
+        assert 'httpparrot_tester_history' in html
+        assert 'saveToHistory' in html
+        assert 'renderHistory' in html
+        assert 'getHistory' in html
+
+    def test_tester_export_css_exists(self):
+        """CSS should contain export button styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-export' in css
+        assert '.tester-export-btn' in css
+
+    def test_tester_crosslinks_css_exists(self):
+        """CSS should contain cross-tool link styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-crosslinks' in css
+        assert '.crosslink-btn' in css
+        assert '.crosslink-label' in css
+
+    def test_tester_history_css_exists(self):
+        """CSS should contain history panel styles."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.tester-history' in css
+        assert '.history-row' in css
+        assert '.history-method' in css
+        assert '.history-url' in css
+        assert '.history-status' in css
+        assert '.history-time' in css
+        assert '.tester-history-count' in css
 
 
 # --- ED5: Expanded Case Studies ---
@@ -13853,3 +14099,125 @@ class TestDoubleClickCopyCodeBlocks:
         resp = client.get('/200')
         html = resp.data.decode()
         assert 'Code copied!' in html
+
+
+class TestMobileSwipeNavigation:
+    """Test mobile swipe navigation on detail pages."""
+
+    def test_detail_page_has_swipe_navigation(self, client):
+        """Detail pages should include swipe navigation script."""
+        resp = client.get('/200')
+        assert b'swipe' in resp.data.lower() or b'touchstart' in resp.data
+
+
+class TestStatusCodeMap:
+    """Tests for the /map status code relationship map page."""
+
+    def test_map_page(self, client):
+        resp = client.get('/map')
+        assert resp.status_code == 200
+        assert b'Relationship Map' in resp.data or b'Status Code Map' in resp.data
+
+    def test_map_has_filter_buttons(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'data-cat="all"' in html
+        assert 'data-cat="1"' in html
+        assert 'data-cat="5"' in html
+
+    def test_map_has_grid_container(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'id="map-grid"' in html
+
+    def test_map_has_detail_panel(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'id="map-detail"' in html
+        assert 'map-detail-hint' in html
+
+    def test_map_includes_related_codes_json(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'related' in html
+
+    def test_map_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/map' in resp.data
+
+    def test_map_in_nav(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'href="/map"' in html
+
+    def test_map_has_meta_description(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'Visual map of HTTP status code relationships' in html
+
+
+class TestApiDesignerPath:
+    """Tests for the API Designer learning path."""
+
+    def test_paths_index_has_api_designer(self, client):
+        resp = client.get('/paths')
+        assert resp.status_code == 200
+        assert b'API Designer' in resp.data
+
+    def test_api_designer_path_detail(self, client):
+        resp = client.get('/paths/api-designer')
+        assert resp.status_code == 200
+        assert b'API Designer' in resp.data
+
+    def test_api_designer_has_steps(self, client):
+        resp = client.get('/paths/api-designer')
+        html = resp.data.decode()
+        assert 'Visit 200 OK' in html
+        assert 'Quiz: 10 questions' in html
+
+    def test_api_designer_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/paths/api-designer' in resp.data
+
+
+class TestRound6FinalPolish:
+    """Tests for Round 6 Pass 10 final polish features."""
+
+    def test_page_fade_in_css(self, client):
+        """CSS should include page fade-in animation."""
+        resp = client.get('/static/style.css')
+        assert b'page-fade-in' in resp.data
+
+    def test_visit_200_banner_css(self, client):
+        """CSS should include 200th visit celebration banner styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.visit-200-banner' in css
+        assert '.visit-200-visible' in css
+        assert '.visit-200-text' in css
+
+    def test_visit_200_script_in_base(self, client):
+        """Base template should contain 200th visit celebration script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'httpparrot_total_visits' in html
+        assert 'visit-200-banner' in html
+
+    def test_search_focused_css(self, client):
+        """CSS should include search focus pulse styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.search-input.search-focused' in css
+
+    def test_search_focus_animation_script(self, client):
+        """Homepage should have search focus/blur animation listeners."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'search-focused' in html
+
+    def test_reduced_motion_disables_page_fade(self, client):
+        """Page fade-in should be disabled for prefers-reduced-motion."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert 'prefers-reduced-motion' in css
+        assert 'page-fade-in' in css

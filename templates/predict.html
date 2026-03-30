@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Guess the Response - HTTP Parrots{% endblock %}
+{% block subtitle %}Guess the Response{% endblock %}
+{% block meta %}
+    <meta name="description" content="Given only the request context, predict the HTTP status code. A reverse-quiz that tests deep understanding.">
+{% endblock %}
+{% block content %}
+    <main class="predict-container" id="main-content" role="main">
+        <div class="predict-header">
+            <h1>Guess the Response</h1>
+            <p class="predict-subtitle">You see the request. Predict the status code.</p>
+        </div>
+        <div class="predict-score" role="region" aria-label="Score">
+            <div class="score-item score-correct">
+                <div class="score-value" id="predict-correct">0</div>
+                <div class="score-label">Correct</div>
+            </div>
+            <div class="score-item score-streak">
+                <div class="score-value" id="predict-streak">0</div>
+                <div class="score-label">Streak</div>
+            </div>
+            <div class="score-item score-total">
+                <div class="score-value" id="predict-total">0</div>
+                <div class="score-label">Total</div>
+            </div>
+        </div>
+        <div class="predict-scenario" id="predict-scenario">
+            <div class="predict-label">Scenario:</div>
+            <div class="predict-text" id="predict-text"></div>
+        </div>
+        <div class="predict-input-section" id="predict-input-section">
+            <label for="predict-guess" class="predict-input-label">Your prediction:</label>
+            <input type="text" id="predict-guess" class="predict-input" placeholder="Enter status code (e.g. 404)" autocomplete="off" maxlength="3" pattern="[0-9]{3}" inputmode="numeric">
+            <button class="btn-back predict-submit" id="predict-submit" type="button">Submit</button>
+        </div>
+        <div class="predict-feedback" id="predict-feedback" aria-live="polite" role="status"></div>
+        <div class="predict-next" id="predict-next" style="display:none">
+            <button class="btn-back" id="predict-next-btn" type="button">Next Scenario</button>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var scenarios = {{ scenarios | safe }};
+        var idx = 0, correct = 0, streak = 0, total = 0;
+        var answered = false;
+
+        function shuffle(arr) {
+            for (var i = arr.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+            }
+            return arr;
+        }
+        shuffle(scenarios);
+
+        function showScenario() {
+            if (idx >= scenarios.length) { shuffle(scenarios); idx = 0; }
+            var s = scenarios[idx];
+            document.getElementById('predict-text').textContent = s.description;
+            document.getElementById('predict-guess').value = '';
+            document.getElementById('predict-guess').focus();
+            document.getElementById('predict-feedback').textContent = '';
+            document.getElementById('predict-feedback').className = 'predict-feedback';
+            document.getElementById('predict-next').style.display = 'none';
+            document.getElementById('predict-input-section').style.display = '';
+            answered = false;
+        }
+
+        function submit() {
+            if (answered) return;
+            var guess = document.getElementById('predict-guess').value.trim();
+            if (!/^\d{3}$/.test(guess)) return;
+            answered = true;
+            total++;
+            var s = scenarios[idx];
+            var isCorrect = guess === s.correct;
+            var fb = document.getElementById('predict-feedback');
+            if (isCorrect) {
+                correct++;
+                streak++;
+                fb.textContent = 'Correct! ' + s.correct + ' \u2014 ' + (s.explanations[s.correct] || '');
+                fb.className = 'predict-feedback predict-correct';
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(20, 'predict_correct');
+            } else {
+                streak = 0;
+                fb.textContent = 'Not quite. The answer is ' + s.correct + ' \u2014 ' + (s.explanations[s.correct] || '');
+                fb.className = 'predict-feedback predict-wrong';
+            }
+            document.getElementById('predict-correct').textContent = correct;
+            document.getElementById('predict-streak').textContent = streak;
+            document.getElementById('predict-total').textContent = total;
+            document.getElementById('predict-input-section').style.display = 'none';
+            document.getElementById('predict-next').style.display = '';
+        }
+
+        document.getElementById('predict-submit').addEventListener('click', submit);
+        document.getElementById('predict-guess').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') submit();
+        });
+        document.getElementById('predict-next-btn').addEventListener('click', function() {
+            idx++;
+            showScenario();
+        });
+
+        showScenario();
+    })();
+    </script>
+{% endblock %}

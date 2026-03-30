@@ -12,6 +12,13 @@
                 <h1 class="profile-rank-title" id="profile-rank-title">Fledgling</h1>
                 <p class="profile-level" id="profile-level">Level 1</p>
             </div>
+            <div class="prestige-display" id="prestige-display" style="display:none">
+                <span class="prestige-stars" id="prestige-stars"></span>
+                <span class="prestige-label">Prestige</span>
+            </div>
+            <button class="btn-back prestige-btn" id="prestige-btn" type="button" style="display:none">
+                Prestige (Reset XP for +10% bonus)
+            </button>
             <div class="profile-xp-section">
                 <div class="profile-xp-total" id="profile-xp-total">0 XP</div>
                 <div class="profile-progress-wrap">
@@ -97,28 +104,42 @@
             <h2>Stats</h2>
             <div class="profile-stats-grid" id="profile-stats-grid">
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-quiz-answers">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-quiz-answers">0</div>
                     <div class="profile-stat-label">Quiz Answers</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-daily-streak">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-daily-streak">0</div>
                     <div class="profile-stat-label">Daily Streak</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-freeze-count">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-freeze-count">0</div>
                     <div class="profile-stat-label"><span aria-hidden="true">&#x2744;&#xFE0F;</span> Freezes</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-codes-visited">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-codes-visited">0</div>
                     <div class="profile-stat-label">Codes Visited</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-practice-completed">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-practice-completed">0</div>
                     <div class="profile-stat-label">Practice Completed</div>
                 </div>
                 <div class="profile-stat-card">
-                    <div class="profile-stat-value" id="stat-review-due" style="color:#7b61ff">0</div>
+                    <div class="profile-stat-value skeleton" id="stat-review-due" style="color:#7b61ff">0</div>
                     <div class="profile-stat-label"><a href="/review" style="color:inherit;text-decoration:none">Due for Review</a></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="profile-tier-section" aria-label="Weekly tier">
+            <h2>Weekly Tier</h2>
+            <div class="profile-tier-card" id="profile-tier-card">
+                <span class="tier-icon" id="tier-icon"></span>
+                <div class="tier-info">
+                    <div class="tier-name" id="tier-name">Bronze</div>
+                    <div class="tier-progress" id="tier-progress">0 / 100 XP this week</div>
+                    <div class="tier-bar-wrap">
+                        <div class="tier-bar" id="tier-bar" role="progressbar"></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -132,7 +153,7 @@
 
         <section class="profile-heatmap-section" aria-label="Activity heatmap">
             <h2>Activity (Last 90 Days)</h2>
-            <div class="profile-heatmap-container" id="profile-heatmap-container">
+            <div class="profile-heatmap-container skeleton" id="profile-heatmap-container">
                 <div class="profile-heatmap" id="profile-heatmap" role="img" aria-label="Activity heatmap showing daily XP for the last 90 days"></div>
                 <div class="profile-heatmap-legend">
                     <span>Less</span>
@@ -148,7 +169,7 @@
 
         <section class="profile-weekly-section" id="profile-weekly-section" aria-label="Weekly progress chart">
             <h2>Weekly Progress</h2>
-            <div class="profile-weekly-container" id="profile-weekly-container">
+            <div class="profile-weekly-container skeleton" id="profile-weekly-container">
                 <div class="profile-weekly-chart" id="profile-weekly-chart" role="img" aria-label="Bar chart showing XP earned per week for the last 12 weeks"></div>
                 <div class="profile-weekly-trend" id="profile-weekly-trend" aria-live="polite"></div>
             </div>
@@ -192,6 +213,7 @@
                         <span class="profile-share-card-stat" id="profile-card-collection">Collection: 0/72</span>
                     </div>
                     <div class="profile-share-card-feathers" id="profile-card-feathers"></div>
+                    <div class="profile-share-card-top3" id="profile-card-top3"></div>
                     <div class="profile-share-card-brand">httpparrots.com</div>
                 </div>
             </div>
@@ -488,9 +510,15 @@
     var quizCount = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
     var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
     var visitCount = activity.filter(function(e) { return e.action === 'page_visit'; }).length;
-    document.getElementById('stat-quiz-answers').textContent = quizCount;
-    document.getElementById('stat-practice-completed').textContent = practiceCount;
-    document.getElementById('stat-codes-visited').textContent = visitCount;
+    var statQuizEl = document.getElementById('stat-quiz-answers');
+    statQuizEl.textContent = quizCount;
+    statQuizEl.classList.remove('skeleton');
+    var statPracticeEl = document.getElementById('stat-practice-completed');
+    statPracticeEl.textContent = practiceCount;
+    statPracticeEl.classList.remove('skeleton');
+    var statVisitEl = document.getElementById('stat-codes-visited');
+    statVisitEl.textContent = visitCount;
+    statVisitEl.classList.remove('skeleton');
 
     /* Due for review */
     var reviewDueEl = document.getElementById('stat-review-due');
@@ -505,6 +533,7 @@
             }
             reviewDueEl.textContent = dueCount;
         }
+        reviewDueEl.classList.remove('skeleton');
     }
 
     /* Daily streak */
@@ -522,14 +551,17 @@
             if (diff === 1) { streak++; } else { break; }
         }
     }
-    document.getElementById('stat-daily-streak').textContent = streak;
+    var statStreakEl = document.getElementById('stat-daily-streak');
+    statStreakEl.textContent = streak;
+    statStreakEl.classList.remove('skeleton');
 
     /* Streak freeze count & milestones from daily state */
     var dailyState = null;
     try { dailyState = JSON.parse(localStorage.getItem('httpparrot_daily')); } catch(e) {}
+    var statFreezeEl = document.getElementById('stat-freeze-count');
     if (dailyState) {
         var freezes = dailyState.freezesAvailable || 0;
-        document.getElementById('stat-freeze-count').textContent = freezes;
+        statFreezeEl.textContent = freezes;
         var milestones = dailyState.milestonesHit || [];
         var MILESTONE_LABELS = {7: '7-Day Streak', 14: '14-Day Streak', 30: '30-Day Streak', 50: '50-Day Streak', 100: '100-Day Streak'};
         var list = document.getElementById('profile-milestones-list');
@@ -544,6 +576,7 @@
             });
         }
     }
+    statFreezeEl.classList.remove('skeleton');
 
     /* Heatmap */
     var heatmap = document.getElementById('profile-heatmap');
@@ -569,6 +602,7 @@
         cell.setAttribute('aria-label', key + ': ' + xpDay + ' XP');
         heatmap.appendChild(cell);
     }
+    document.getElementById('profile-heatmap-container').classList.remove('skeleton');
 
     /* Weekly Progress Chart */
     (function() {
@@ -653,6 +687,7 @@
                 trendEl.innerHTML = '<span class="weekly-trend-up" aria-label="New activity">\u25B2 New activity this week!</span>';
             }
         }
+        document.getElementById('profile-weekly-container').classList.remove('skeleton');
     })();
 
     /* Highlight current rank in ranks list */
@@ -661,6 +696,30 @@
         var thresh = parseInt(rows[r].getAttribute('data-threshold'), 10);
         if (thresh === info.currentThreshold) {
             rows[r].classList.add('rank-current');
+        }
+    }
+
+    /* Progress for locked feathers */
+    function getFeatherProgress(featherId) {
+        var activity = typeof ParrotXP !== 'undefined' ? ParrotXP.getActivity() : [];
+        var parrotdex = [];
+        try { parrotdex = JSON.parse(localStorage.getItem('parrotdex') || '[]'); } catch(e) {}
+
+        switch(featherId) {
+            case 'quiz_whiz':
+                var qc = activity.filter(function(e) { return e.action === 'quiz_correct'; }).length;
+                return {current: Math.min(qc, 10), max: 10};
+            case 'scholar':
+                var pc = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
+                return {current: Math.min(pc, 10), max: 10};
+            case 'explorer_10': return {current: Math.min(parrotdex.length, 10), max: 10};
+            case 'explorer_25': return {current: Math.min(parrotdex.length, 25), max: 25};
+            case 'explorer_50': return {current: Math.min(parrotdex.length, 50), max: 50};
+            case 'completionist': return {current: Math.min(parrotdex.length, 72), max: 72};
+            case 'centurion':
+                var xp = typeof ParrotXP !== 'undefined' ? ParrotXP.getTotal() : 0;
+                return {current: Math.min(xp, 100), max: 100};
+            default: return null;
         }
     }
 
@@ -693,9 +752,108 @@
             bonusEl.textContent = '+' + f.bonus + ' XP';
             card.appendChild(bonusEl);
 
+            var progress = getFeatherProgress(f.id);
+            if (progress && !isEarned) {
+                var pbar = document.createElement('div');
+                pbar.className = 'feather-progress';
+                pbar.innerHTML = '<div class="feather-progress-bar" style="width:' + (progress.current / progress.max * 100) + '%"></div>'
+                    + '<span class="feather-progress-text">' + progress.current + '/' + progress.max + '</span>';
+                card.appendChild(pbar);
+            }
+
             feathersGrid.appendChild(card);
         });
     }
+})();
+
+/* Weekly tier system */
+(function() {
+    var activity = typeof ParrotXP !== 'undefined' ? ParrotXP.getActivity() : [];
+    var now = new Date();
+    var weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    var weekStartStr = weekStart.toISOString().slice(0, 10);
+    var weeklyXP = 0;
+    activity.forEach(function(a) {
+        if (a.date >= weekStartStr) weeklyXP += (a.xp || 0);
+    });
+
+    var tiers = [
+        {name: 'Bronze', icon: '\uD83E\uDD49', min: 0, next: 100, color: '#cd7f32'},
+        {name: 'Silver', icon: '\uD83E\uDD48', min: 100, next: 250, color: '#c0c0c0'},
+        {name: 'Gold', icon: '\uD83E\uDD47', min: 250, next: 500, color: '#ffd700'},
+        {name: 'Platinum', icon: '\uD83D\uDC8E', min: 500, next: null, color: '#e5e4e2'}
+    ];
+
+    var tier = tiers[0];
+    for (var i = tiers.length - 1; i >= 0; i--) {
+        if (weeklyXP >= tiers[i].min) { tier = tiers[i]; break; }
+    }
+
+    var iconEl = document.getElementById('tier-icon');
+    var nameEl = document.getElementById('tier-name');
+    var progressEl = document.getElementById('tier-progress');
+    var barEl = document.getElementById('tier-bar');
+    var cardEl = document.getElementById('profile-tier-card');
+
+    if (iconEl) iconEl.textContent = tier.icon;
+    if (nameEl) { nameEl.textContent = tier.name; nameEl.style.color = tier.color; }
+    if (tier.next) {
+        if (progressEl) progressEl.textContent = weeklyXP + ' / ' + tier.next + ' XP this week';
+        if (barEl) barEl.style.width = Math.min((weeklyXP - tier.min) / (tier.next - tier.min) * 100, 100) + '%';
+    } else {
+        if (progressEl) progressEl.textContent = weeklyXP + ' XP this week \u2014 Max tier!';
+        if (barEl) barEl.style.width = '100%';
+    }
+    if (barEl) barEl.style.background = tier.color;
+    if (cardEl) cardEl.style.borderColor = tier.color;
+})();
+
+/* Top 3 rarest feathers for card */
+(function() {
+    var earned = typeof ParrotXP !== 'undefined' ? ParrotXP.getFeathers() : [];
+    var feathers = typeof ParrotXP !== 'undefined' ? ParrotXP.FEATHERS : [];
+    var earnedFeathers = feathers.filter(function(f) { return earned.indexOf(f.id) !== -1; });
+    earnedFeathers.sort(function(a, b) { return b.bonus - a.bonus; });
+    var top3 = earnedFeathers.slice(0, 3);
+    var el = document.getElementById('profile-card-top3');
+    if (el && top3.length > 0) {
+        top3.forEach(function(f) {
+            var span = document.createElement('span');
+            span.className = 'top3-feather';
+            span.title = f.name;
+            span.textContent = f.icon;
+            el.appendChild(span);
+        });
+    }
+})();
+
+/* Prestige display */
+(function() {
+    var p = typeof ParrotXP !== 'undefined' ? ParrotXP.getPrestige() : 0;
+    if (p > 0) {
+        var display = document.getElementById('prestige-display');
+        var stars = document.getElementById('prestige-stars');
+        if (display) display.style.display = '';
+        if (stars) stars.textContent = '\u2B50'.repeat(Math.min(p, 10));
+    }
+})();
+
+/* Prestige button */
+(function() {
+    var btn = document.getElementById('prestige-btn');
+    if (!btn) return;
+    var total = typeof ParrotXP !== 'undefined' ? ParrotXP.getTotal() : 0;
+    if (total >= 12000) btn.style.display = '';
+    btn.addEventListener('click', function() {
+        if (typeof ParrotXP !== 'undefined') {
+            var p = ParrotXP.prestige();
+            if (p) {
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('Prestige ' + p + '! XP reset with +' + (p * 10) + '% bonus.', 'success', 5000);
+                setTimeout(function() { location.reload(); }, 1500);
+            }
+        }
+    });
 })();
 
 /* --- Customize: Spirit Parrot & Theme Accent --- */

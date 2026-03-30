@@ -84,6 +84,31 @@ LEARNING_PATHS = [
             {"type": "debug", "target": "post-301-redirect", "label": "Debug: POST with 301 redirect"},
         ],
     },
+    {
+        "id": "api-designer",
+        "title": "API Designer",
+        "description": "Learn to pick the right status codes for REST APIs. Cover CRUD operations, error handling, rate limiting, and content negotiation.",
+        "difficulty": "intermediate",
+        "steps": [
+            {"type": "visit", "target": "200", "label": "Visit 200 OK"},
+            {"type": "visit", "target": "201", "label": "Visit 201 Created"},
+            {"type": "visit", "target": "204", "label": "Visit 204 No Content"},
+            {"type": "visit", "target": "422", "label": "Visit 422 Unprocessable Entity"},
+            {"type": "learn", "target": "200-vs-204", "label": "Learn: 200 OK vs 204 No Content"},
+            {"type": "learn", "target": "400-vs-422", "label": "Learn: 400 vs 422"},
+            {"type": "practice", "target": 1, "label": "Practice: successful GET"},
+            {"type": "practice", "target": 3, "label": "Practice: successful POST creation"},
+            {"type": "visit", "target": "429", "label": "Visit 429 Too Many Requests"},
+            {"type": "learn", "target": "429-vs-503", "label": "Learn: 429 vs 503"},
+            {"type": "visit", "target": "401", "label": "Visit 401 Unauthorized"},
+            {"type": "visit", "target": "403", "label": "Visit 403 Forbidden"},
+            {"type": "learn", "target": "401-vs-403", "label": "Learn: 401 vs 403"},
+            {"type": "practice", "target": 7, "label": "Practice: unauthorized access"},
+            {"type": "practice", "target": 9, "label": "Practice: rate-limited API"},
+            {"type": "debug", "target": "200-error-body", "label": "Debug: 200 with error body"},
+            {"type": "quiz", "target": 10, "label": "Quiz: 10 questions"},
+        ],
+    },
 ]
 
 # Quick lookup by path id
