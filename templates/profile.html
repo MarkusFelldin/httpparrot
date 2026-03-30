@@ -506,24 +506,33 @@
     var info = ParrotXP.getRankInfo(total);
 
     /* Hero section */
-    document.getElementById('profile-rank-title').textContent = info.rank;
-    document.getElementById('profile-level').textContent = 'Level ' + info.level;
-    document.getElementById('profile-xp-total').textContent = total + ' XP';
+    var el = document.getElementById('profile-rank-title');
+    if (el) el.textContent = info.rank;
+    el = document.getElementById('profile-level');
+    if (el) el.textContent = 'Level ' + info.level;
+    el = document.getElementById('profile-xp-total');
+    if (el) el.textContent = total + ' XP';
 
     /* Progress bar */
     if (info.nextXp !== null) {
         var progressInLevel = total - info.currentThreshold;
         var levelRange = info.nextXp - info.currentThreshold;
         var pct = Math.min(100, Math.round((progressInLevel / levelRange) * 100));
-        document.getElementById('profile-progress-current').textContent = progressInLevel;
-        document.getElementById('profile-progress-next').textContent = levelRange;
-        document.getElementById('profile-progress-bar').style.width = pct + '%';
+        el = document.getElementById('profile-progress-current');
+        if (el) el.textContent = progressInLevel;
+        el = document.getElementById('profile-progress-next');
+        if (el) el.textContent = levelRange;
+        el = document.getElementById('profile-progress-bar');
+        if (el) el.style.width = pct + '%';
         var pb = document.getElementById('profile-progressbar');
         if (pb) pb.setAttribute('aria-valuenow', pct);
     } else {
-        document.getElementById('profile-progress-current').textContent = 'MAX';
-        document.getElementById('profile-progress-next').textContent = 'MAX';
-        document.getElementById('profile-progress-bar').style.width = '100%';
+        el = document.getElementById('profile-progress-current');
+        if (el) el.textContent = 'MAX';
+        el = document.getElementById('profile-progress-next');
+        if (el) el.textContent = 'MAX';
+        el = document.getElementById('profile-progress-bar');
+        if (el) el.style.width = '100%';
     }
 
     /* Stats */
@@ -532,14 +541,11 @@
     var practiceCount = activity.filter(function(e) { return e.action === 'practice_correct'; }).length;
     var visitCount = activity.filter(function(e) { return e.action === 'page_visit'; }).length;
     var statQuizEl = document.getElementById('stat-quiz-answers');
-    statQuizEl.textContent = quizCount;
-    statQuizEl.classList.remove('skeleton');
+    if (statQuizEl) { statQuizEl.textContent = quizCount; statQuizEl.classList.remove('skeleton'); }
     var statPracticeEl = document.getElementById('stat-practice-completed');
-    statPracticeEl.textContent = practiceCount;
-    statPracticeEl.classList.remove('skeleton');
+    if (statPracticeEl) { statPracticeEl.textContent = practiceCount; statPracticeEl.classList.remove('skeleton'); }
     var statVisitEl = document.getElementById('stat-codes-visited');
-    statVisitEl.textContent = visitCount;
-    statVisitEl.classList.remove('skeleton');
+    if (statVisitEl) { statVisitEl.textContent = visitCount; statVisitEl.classList.remove('skeleton'); }
 
     /* Due for review */
     var reviewDueEl = document.getElementById('stat-review-due');
@@ -573,8 +579,7 @@
         }
     }
     var statStreakEl = document.getElementById('stat-daily-streak');
-    statStreakEl.textContent = streak;
-    statStreakEl.classList.remove('skeleton');
+    if (statStreakEl) { statStreakEl.textContent = streak; statStreakEl.classList.remove('skeleton'); }
 
     /* Streak freeze count & milestones from daily state */
     var dailyState = null;
@@ -582,12 +587,13 @@
     var statFreezeEl = document.getElementById('stat-freeze-count');
     if (dailyState) {
         var freezes = dailyState.freezesAvailable || 0;
-        statFreezeEl.textContent = freezes;
+        if (statFreezeEl) statFreezeEl.textContent = freezes;
         var milestones = dailyState.milestonesHit || [];
         var MILESTONE_LABELS = {7: '7-Day Streak', 14: '14-Day Streak', 30: '30-Day Streak', 50: '50-Day Streak', 100: '100-Day Streak'};
         var list = document.getElementById('profile-milestones-list');
         if (milestones.length > 0) {
-            document.getElementById('milestones-empty').style.display = 'none';
+            var milestonesEmpty = document.getElementById('milestones-empty');
+            if (milestonesEmpty) milestonesEmpty.style.display = 'none';
             milestones.sort(function(a, b) { return a - b; });
             milestones.forEach(function(m) {
                 var item = document.createElement('div');

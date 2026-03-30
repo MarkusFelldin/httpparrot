@@ -189,7 +189,7 @@
         </nav>
     </header>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
     /* Header scroll shadow */
     (function() {
         var header = document.querySelector('.site-header-compact');
@@ -1780,11 +1780,11 @@
                 overlay.classList.add('handshake-active');
             });
 
-            setTimeout(function() { document.getElementById('hs-syn').classList.add('hs-visible'); }, 400);
-            setTimeout(function() { document.getElementById('hs-synack').classList.add('hs-visible'); }, 1100);
-            setTimeout(function() { document.getElementById('hs-ack').classList.add('hs-visible'); }, 1800);
-            setTimeout(function() { document.getElementById('hs-ok').classList.add('hs-visible'); }, 2400);
-            setTimeout(function() { document.getElementById('hs-connected').classList.add('hs-visible'); }, 3000);
+            setTimeout(function() { var el = document.getElementById('hs-syn'); if (el) el.classList.add('hs-visible'); }, 400);
+            setTimeout(function() { var el = document.getElementById('hs-synack'); if (el) el.classList.add('hs-visible'); }, 1100);
+            setTimeout(function() { var el = document.getElementById('hs-ack'); if (el) el.classList.add('hs-visible'); }, 1800);
+            setTimeout(function() { var el = document.getElementById('hs-ok'); if (el) el.classList.add('hs-visible'); }, 2400);
+            setTimeout(function() { var el = document.getElementById('hs-connected'); if (el) el.classList.add('hs-visible'); }, 3000);
 
             setTimeout(function() {
                 overlay.classList.remove('handshake-active');
@@ -2341,7 +2341,7 @@
         }
     })();
     </script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
     /* G-key navigation shortcuts */
     (function() {
         var gPressed = false;
