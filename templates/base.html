@@ -316,6 +316,26 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Global copy helper with feedback */
+    window.ParrotCopy = {
+        copy: function(text, buttonEl) {
+            navigator.clipboard.writeText(text).then(function() {
+                if (buttonEl) {
+                    var orig = buttonEl.textContent;
+                    buttonEl.textContent = 'Copied!';
+                    buttonEl.classList.add('copy-success');
+                    setTimeout(function() {
+                        buttonEl.textContent = orig;
+                        buttonEl.classList.remove('copy-success');
+                    }, 1500);
+                }
+                if (typeof ParrotToast !== 'undefined') ParrotToast.show('Copied to clipboard', 'success', 1500);
+            });
+        }
+    };
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
     (function() {
         var gs = document.getElementById('global-search');
         if (!gs) return;

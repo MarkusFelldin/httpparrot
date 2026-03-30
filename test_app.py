@@ -12323,6 +12323,104 @@ class TestAdaptiveQuizDifficulty:
         assert 'const correct = pickWeightedCode()' in html
 
 
+# --- Quiz Difficulty Selector ---
+
+class TestQuizDifficultySelector:
+    """Tests for the quiz difficulty selector (easy/medium/hard)."""
+
+    def test_quiz_has_difficulty_selector(self, client):
+        """Quiz page should have the difficulty selector buttons."""
+        resp = client.get('/quiz')
+        assert b'quiz-difficulty' in resp.data or b'quiz-diff-btn' in resp.data
+
+    def test_quiz_difficulty_has_easy_button(self, client):
+        """Quiz page should have an easy difficulty button."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'data-diff="easy"' in html
+
+    def test_quiz_difficulty_has_medium_button(self, client):
+        """Quiz page should have a medium difficulty button."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'data-diff="medium"' in html
+
+    def test_quiz_difficulty_has_hard_button(self, client):
+        """Quiz page should have a hard difficulty button."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'data-diff="hard"' in html
+
+    def test_quiz_difficulty_easy_is_default(self, client):
+        """Easy should be the default active difficulty."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "var difficulty = 'easy'" in html
+
+    def test_quiz_hard_mode_has_free_type_input(self, client):
+        """Hard mode should render a free-type text input."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'quiz-hard-guess' in html
+        assert 'quiz-hard-submit' in html
+
+    def test_quiz_hard_mode_builds_input_via_dom(self, client):
+        """Hard mode should use buildHardModeUI to create the input."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'buildHardModeUI' in html
+
+    def test_quiz_medium_mode_uses_6_choices(self, client):
+        """Medium difficulty should produce 6 choices."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert "difficulty === 'medium' ? 6 : 4" in html
+
+    def test_quiz_has_handle_answer_function(self, client):
+        """Quiz should have a shared handleAnswer function."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'function handleAnswer(' in html
+
+    def test_quiz_difficulty_selector_has_role(self, client):
+        """Difficulty selector should have ARIA role group."""
+        resp = client.get('/quiz')
+        html = resp.data.decode()
+        assert 'aria-label="Difficulty"' in html
+
+    def test_quiz_difficulty_css(self, client):
+        """CSS should include quiz difficulty styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.quiz-difficulty' in css
+        assert '.quiz-diff-btn' in css
+        assert '.quiz-hard-input' in css
+
+
+# --- Copy Helper ---
+
+class TestCopyHelper:
+    """Tests for the global ParrotCopy clipboard helper."""
+
+    def test_base_has_copy_helper(self, client):
+        """Base template should include the ParrotCopy helper."""
+        resp = client.get('/')
+        assert b'ParrotCopy' in resp.data
+
+    def test_copy_helper_has_copy_method(self, client):
+        """ParrotCopy should expose a copy method."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'ParrotCopy' in html
+        assert 'copy: function(' in html
+
+    def test_copy_success_css(self, client):
+        """CSS should include copy-success flash styles."""
+        resp = client.get('/static/style.css')
+        css = resp.data.decode()
+        assert '.copy-success' in css
+
+
 # --- Form Validation UX ---
 
 class TestFormValidationUX:

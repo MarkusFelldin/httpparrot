@@ -2412,6 +2412,40 @@ button, [role="button"], .btn-back, .btn-share, .btn-nav, .quiz-btn, .daily-btn 
 .error-separator { color: rgba(255,255,255,0.2); margin: 0 1rem; }
 
 /* === Page: Quiz === */
+/* Quiz difficulty selector */
+.quiz-difficulty {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.quiz-diff-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+}
+
+.quiz-diff-btn:hover { border-color: var(--color-teal); color: var(--color-teal); }
+.quiz-diff-btn.active { background: rgba(0, 201, 167, 0.12); border-color: var(--color-teal); color: var(--color-teal); }
+
+.quiz-hard-input {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: end;
+  margin: 1rem 0;
+}
+
+.quiz-hard-input .predict-input { max-width: 140px; }
+
 .quiz-container { max-width: 640px; margin: 0 auto; padding: 2rem 1.5rem 3rem; text-align: center; }
 .quiz-image { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-md); margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; }
 .quiz-image img { max-width: 100%; height: 20em; object-fit: contain; border-radius: var(--radius-sm); margin: 1rem; display: block; }
@@ -10284,4 +10318,12 @@ details > :not(summary) {
 @media (max-width: 576px) {
   .map-container { padding: 1.5rem 1rem 3rem; }
   .map-grid { gap: 4px; }
+}
+
+/* === Copy success flash === */
+.copy-success {
+  background: rgba(0, 201, 167, 0.15) !important;
+  color: var(--color-teal) !important;
+  border-color: var(--color-teal) !important;
+  transition: all var(--duration-fast) var(--ease-out);
 }

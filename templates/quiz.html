@@ -25,6 +25,12 @@
             </div>
         </div>
 
+        <div class="quiz-difficulty" id="quiz-difficulty" role="group" aria-label="Difficulty">
+            <button class="quiz-diff-btn active" data-diff="easy" type="button">Easy (4)</button>
+            <button class="quiz-diff-btn" data-diff="medium" type="button">Medium (6)</button>
+            <button class="quiz-diff-btn" data-diff="hard" type="button">Hard (type)</button>
+        </div>
+
         <div class="quiz-image">
             <img id="quiz-img" src="" alt="Guess this HTTP status code" width="600" height="500">
         </div>
@@ -44,6 +50,17 @@
         let score = 0, streak = 0, total = 0;
         let answered = false;
         let history = [];
+        var difficulty = 'easy';
+
+        /* Difficulty selector */
+        document.querySelectorAll('.quiz-diff-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.quiz-diff-btn').forEach(function(b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                difficulty = btn.getAttribute('data-diff');
+                nextRound(); /* restart with new difficulty */
+            });
+        });
 
         /* Adaptive difficulty: load mistakes from localStorage */
         var MISTAKES_KEY = 'httpparrot_quiz_mistakes';
@@ -148,10 +165,89 @@
         }
 
         function pickChoices(correct) {
+            if (difficulty === 'hard') return null; /* free-type mode */
+            var numChoices = difficulty === 'medium' ? 6 : 4;
             const others = allCodes.filter(function(c) { return c.code !== correct.code; });
             shuffle(others);
-            const choices = [correct].concat(others.slice(0, 3));
+            const choices = [correct].concat(others.slice(0, numChoices - 1));
             return shuffle(choices);
+        }
+
+        function handleAnswer(isCorrect, correct, originEl) {
+            answered = true;
+            total++;
+            var fb = document.getElementById('feedback');
+            if (isCorrect) {
+                score++;
+                streak++;
+                history.push(true);
+                removeMistake(correct.code);
+                spawnComboConfetti(originEl, streak);
+                fb.textContent = 'Correct!';
+                fb.className = 'quiz-feedback right';
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'quiz_correct');
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
+            } else {
+                streak = 0;
+                history.push(false);
+                addMistake(correct.code);
+                fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
+                fb.className = 'quiz-feedback nope';
+                if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
+            }
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('streak').textContent = streak;
+            document.getElementById('total').textContent = total;
+
+            var streakEl = document.querySelector('.score-streak');
+            streakEl.classList.remove('on-fire', 'blazing');
+            if (streak >= 10) streakEl.classList.add('blazing');
+            else if (streak >= 5) streakEl.classList.add('on-fire');
+            var sv = document.getElementById('streak');
+            sv.classList.remove('streak-bump');
+            void sv.offsetWidth;
+            sv.classList.add('streak-bump');
+
+            document.getElementById('next-wrap').style.display = '';
+
+            if (total === 10) {
+                setTimeout(function() { showResults(); }, 800);
+            }
+        }
+
+        function buildHardModeUI(container, correct) {
+            /* Hard mode: free-type input */
+            var wrap = document.createElement('div');
+            wrap.className = 'quiz-hard-input';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'quiz-hard-guess';
+            input.className = 'predict-input';
+            input.placeholder = 'Type status code...';
+            input.maxLength = 3;
+            input.inputMode = 'numeric';
+            input.autocomplete = 'off';
+            var submit = document.createElement('button');
+            submit.className = 'btn-back';
+            submit.id = 'quiz-hard-submit';
+            submit.type = 'button';
+            submit.textContent = 'Submit';
+            wrap.appendChild(input);
+            wrap.appendChild(submit);
+            container.appendChild(wrap);
+            submit.addEventListener('click', function() {
+                if (answered) return;
+                var guess = input.value.trim();
+                var isCorrect = guess === correct.code;
+                handleAnswer(isCorrect, correct, container);
+                input.disabled = true;
+                submit.disabled = true;
+            });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') submit.click();
+            });
+            input.focus();
         }
 
         function nextRound() {
@@ -166,7 +262,15 @@
 
             const container = document.getElementById('choices');
             while (container.firstChild) container.removeChild(container.firstChild);
-            var labels = ['A', 'B', 'C', 'D'];
+
+            /* Hard mode: free-type input */
+            if (difficulty === 'hard') {
+                buildHardModeUI(container, correct);
+                return;
+            }
+
+            /* Easy / Medium mode: multiple choice buttons */
+            var labels = ['A', 'B', 'C', 'D', 'E', 'F'];
             choices.forEach(function(c, i) {
                 const btn = document.createElement('button');
                 btn.className = 'quiz-btn';
@@ -181,57 +285,23 @@
                 btn.dataset.code = c.code;
                 btn.addEventListener('click', function() {
                     if (answered) return;
-                    answered = true;
-                    total++;
+                    var isCorrect = c.code === correct.code;
 
                     const btns = container.querySelectorAll('.quiz-btn');
-                    const fb = document.getElementById('feedback');
-                    if (c.code === correct.code) {
+                    if (isCorrect) {
                         btns.forEach(function(b) {
                             b.disabled = true;
                             if (b.dataset.code === correct.code) b.classList.add('correct');
                         });
-                        score++;
-                        streak++;
-                        history.push(true);
-                        removeMistake(correct.code);
-                        spawnComboConfetti(btn, streak);
-                        fb.textContent = 'Correct!';
-                        fb.className = 'quiz-feedback right';
-                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'quiz_correct');
-                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.correct();
                     } else {
                         btn.classList.add('wrong');
                         btns.forEach(function(b) {
                             b.disabled = true;
                             if (b.dataset.code === correct.code) b.classList.add('correct', 'reveal-correct');
                         });
-                        streak = 0;
-                        history.push(false);
-                        addMistake(correct.code);
-                        fb.textContent = 'Nope! It was ' + correct.code + ' ' + correct.name;
-                        fb.className = 'quiz-feedback nope';
-                        if (typeof ParrotSound !== 'undefined' && ParrotSound.isEnabled()) ParrotSound.wrong();
                     }
 
-                    document.getElementById('score').textContent = score;
-                    document.getElementById('streak').textContent = streak;
-                    document.getElementById('total').textContent = total;
-
-                    var streakEl = document.querySelector('.score-streak');
-                    streakEl.classList.remove('on-fire', 'blazing');
-                    if (streak >= 10) streakEl.classList.add('blazing');
-                    else if (streak >= 5) streakEl.classList.add('on-fire');
-                    var sv = document.getElementById('streak');
-                    sv.classList.remove('streak-bump');
-                    void sv.offsetWidth;
-                    sv.classList.add('streak-bump');
-
-                    document.getElementById('next-wrap').style.display = '';
-
-                    if (total === 10) {
-                        setTimeout(function() { showResults(); }, 800);
-                    }
+                    handleAnswer(isCorrect, correct, btn);
                 });
                 container.appendChild(btn);
             });
@@ -293,7 +363,7 @@
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && answered && total < 10) nextRound();
-            if (!answered && e.key >= '1' && e.key <= '4') {
+            if (!answered && e.key >= '1' && e.key <= '6') {
                 const btns = document.querySelectorAll('.quiz-btn');
                 if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
             }
