@@ -37,6 +37,14 @@
                         <button class="cat-pill cat-5xx" data-cat="5" role="menuitem">5xx Server Error</button>
                     </div>
                 </div>
+                <div class="method-filter-wrap" id="method-filter-wrap">
+                    <button class="method-pill active" data-method="all" type="button">All</button>
+                    <button class="method-pill" data-method="GET" type="button">GET</button>
+                    <button class="method-pill" data-method="POST" type="button">POST</button>
+                    <button class="method-pill" data-method="PUT" type="button">PUT</button>
+                    <button class="method-pill" data-method="DELETE" type="button">DELETE</button>
+                    <button class="method-pill" data-method="PATCH" type="button">PATCH</button>
+                </div>
             </div>
 {% endblock %}
 
@@ -351,39 +359,25 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Viewport-triggered grid reveal */
     (function() {
         var cards = document.querySelectorAll('.parrot-card');
-
-        /* If the browser supports CSS scroll-driven animations, use them */
-        if (CSS.supports('animation-timeline: view()')) {
-            cards.forEach(function(card) {
-                card.classList.add('scroll-animated');
-            });
-            return;
+        if (!cards.length) return;
+        if ('IntersectionObserver' in window) {
+            cards.forEach(function(c) { c.classList.add('will-reveal'); });
+            var obs = new IntersectionObserver(function(entries) {
+                entries.forEach(function(e) {
+                    if (e.isIntersecting) {
+                        e.target.classList.remove('will-reveal');
+                        e.target.classList.add('revealed');
+                        obs.unobserve(e.target);
+                    }
+                });
+            }, {threshold: 0.05, rootMargin: '50px'});
+            cards.forEach(function(c) { obs.observe(c); });
+        } else {
+            cards.forEach(function(c) { c.classList.add('revealed'); });
         }
-
-        /* Fallback: IntersectionObserver with diagonal cascade delays */
-        var cols = 4;
-        if (window.matchMedia('(max-width: 575px)').matches) cols = 1;
-        else if (window.matchMedia('(max-width: 767px)').matches) cols = 2;
-        else if (window.matchMedia('(max-width: 991px)').matches) cols = 3;
-
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('revealed');
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.1 });
-
-        cards.forEach(function(card, i) {
-            card.classList.add('will-reveal');
-            var row = Math.floor(i / cols);
-            var col = i % cols;
-            card.style.transitionDelay = ((row + col) * 0.06) + 's';
-            observer.observe(card);
-        });
     })();
     </script>
 
@@ -887,6 +881,116 @@
                 while (container.firstChild) { container.removeChild(container.firstChild); }
             }, 5000);
         }
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Category Speed Run */
+    (function() {
+        var SR_KEY = 'httpparrot_speedrun';
+        var banner = document.createElement('div');
+        banner.className = 'speedrun-banner';
+        banner.id = 'speedrun-banner';
+        banner.hidden = true;
+
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'speedrun-icon';
+        iconSpan.setAttribute('aria-hidden', 'true');
+        iconSpan.textContent = '\u23F1';
+        banner.appendChild(iconSpan);
+
+        var textSpan = document.createElement('span');
+        textSpan.className = 'speedrun-text';
+        textSpan.id = 'speedrun-text';
+        textSpan.textContent = 'Speed Run';
+        banner.appendChild(textSpan);
+
+        var startBtn = document.createElement('button');
+        startBtn.className = 'speedrun-btn';
+        startBtn.id = 'speedrun-start';
+        startBtn.type = 'button';
+        startBtn.textContent = 'Start';
+        banner.appendChild(startBtn);
+
+        var timerSpan = document.createElement('span');
+        timerSpan.className = 'speedrun-timer';
+        timerSpan.id = 'speedrun-timer';
+        banner.appendChild(timerSpan);
+
+        var grid = document.getElementById('parrot-grid');
+        if (grid) grid.parentNode.insertBefore(banner, grid);
+
+        var timerInterval = null;
+        var startTime = null;
+        var activeCategory = null;
+
+        function getCatCodes(cat) {
+            var cards = document.querySelectorAll('.parrot-card');
+            var codes = [];
+            cards.forEach(function(c) {
+                if (c.getAttribute('data-code')[0] === cat) codes.push(c.getAttribute('data-code'));
+            });
+            return codes;
+        }
+
+        /* Show speed run option when category filter is active */
+        var catPills = document.querySelectorAll('.cat-pill');
+        catPills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                var cat = pill.getAttribute('data-cat');
+                if (cat !== 'all' && cat) {
+                    banner.hidden = false;
+                    activeCategory = cat;
+                    var catNames = {1:'1xx Informational',2:'2xx Success',3:'3xx Redirection',4:'4xx Client Error',5:'5xx Server Error'};
+                    document.getElementById('speedrun-text').textContent = 'Speed Run: ' + (catNames[cat] || cat + 'xx');
+                } else {
+                    banner.hidden = true;
+                    activeCategory = null;
+                    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                }
+            });
+        });
+
+        document.getElementById('speedrun-start').addEventListener('click', function() {
+            if (!activeCategory) return;
+            startTime = Date.now();
+            var codes = getCatCodes(activeCategory);
+            var state = {cat: activeCategory, codes: codes, visited: [], start: startTime};
+            localStorage.setItem(SR_KEY, JSON.stringify(state));
+            this.textContent = 'Running...';
+            this.disabled = true;
+            var timerEl = document.getElementById('speedrun-timer');
+            timerInterval = setInterval(function() {
+                var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                timerEl.textContent = elapsed + 's';
+            }, 100);
+        });
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Method filter */
+    (function() {
+        var methodMap = {{ method_applicability | safe }};
+        var methodPills = document.querySelectorAll('.method-pill');
+        var cards = document.querySelectorAll('.parrot-card');
+
+        methodPills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                methodPills.forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                var method = pill.getAttribute('data-method');
+                var codes = method === 'all' ? null : methodMap[method] || [];
+                cards.forEach(function(card) {
+                    var code = card.getAttribute('data-code');
+                    if (!codes || codes.indexOf(code) !== -1) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
     })();
     </script>
 {% endblock %}

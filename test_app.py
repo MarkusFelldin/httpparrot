@@ -143,6 +143,16 @@ class TestPages:
         assert 'href="/practice"' in html
         assert 'Practice' in html
 
+    def test_bingo_page(self, client):
+        resp = client.get('/bingo')
+        assert resp.status_code == 200
+        assert b'Bingo' in resp.data
+
+    def test_horoscope_page(self, client):
+        resp = client.get('/horoscope')
+        assert resp.status_code == 200
+        assert b'Horoscope' in resp.data or b'Oracle' in resp.data
+
 
 # --- Content negotiation ---
 
@@ -724,12 +734,12 @@ class TestScrollDrivenAnimations:
         assert 'scale(0.95)' in css
         assert 'rotate(-1deg)' in css
 
-    def test_homepage_has_scroll_animation_check(self, client):
-        """Homepage JS should check for scroll-driven animation support."""
+    def test_homepage_has_viewport_reveal(self, client):
+        """Homepage JS should use IntersectionObserver for viewport-triggered reveals."""
         resp = client.get('/')
         html = resp.data.decode()
-        assert "CSS.supports('animation-timeline: view()')" in html
-        assert 'scroll-animated' in html
+        assert 'IntersectionObserver' in html
+        assert 'will-reveal' in html
 
     def test_homepage_has_intersection_observer_fallback(self, client):
         """Homepage should still contain IntersectionObserver as a fallback."""
@@ -1373,6 +1383,15 @@ class TestHeaderExplainer:
         """Sitemap should include the headers page."""
         resp = client.get('/sitemap.xml')
         assert b'/headers' in resp.data
+
+
+# --- Content Negotiation ---
+
+class TestContentNegotiation:
+    def test_content_negotiation_page(self, client):
+        resp = client.get('/content-negotiation')
+        assert resp.status_code == 200
+        assert b'Content Negotiation' in resp.data
 
 
 # --- CORS Checker ---
@@ -3449,12 +3468,12 @@ class TestCSSMediaQueries:
         assert '@media (prefers-color-scheme: light)' in css
 
     def test_light_theme_background_color(self, client):
-        """Light theme should use light background (#f5f5f7)."""
+        """Light theme should use light background (#f8f9fc)."""
         resp = client.get('/static/style.css')
         css = resp.data.decode()
         idx = css.index('@media (prefers-color-scheme: light)')
         block = css[idx:]
-        assert '#f5f5f7' in block
+        assert '#f8f9fc' in block
 
     def test_light_theme_dark_text(self, client):
         """Light theme should use dark text (#1a1a1f)."""
@@ -6181,8 +6200,8 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '15 pairs' in html
-        assert '5 categories' in html
+        assert '16 pairs' in html
+        assert '6 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
         resp = client.get('/learn')
@@ -6193,6 +6212,7 @@ class TestLearnIndexRoute:
         assert '409-vs-412' in html
         assert '301-vs-308' in html
         assert '503-vs-504' in html
+        assert '502-vs-503' in html
 
 
 class TestLearnPairRoute:
@@ -6259,6 +6279,11 @@ class TestLearnPairRoute:
         html = resp.data.decode()
         assert 'ParrotXP' in html
         assert 'learn_quiz_correct' in html
+
+    def test_learn_pair_502_vs_503(self, client):
+        resp = client.get('/learn/502-vs-503')
+        assert resp.status_code == 200
+        assert b'Bad Gateway' in resp.data
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""
@@ -6359,6 +6384,13 @@ class TestViewTransitions:
             css = f.read()
         assert '::view-transition-old(root)' in css
         assert '::view-transition-new(root)' in css
+
+    def test_homepage_method_filter(self, client):
+        """Homepage should include method filter data."""
+        resp = client.get('/')
+        assert resp.status_code == 200
+        assert b'method-pill' in resp.data
+        assert b'GET' in resp.data
 
     def test_homepage_cards_have_view_transition_name(self, client):
         """Each parrot card image on the homepage should have a view-transition-name."""
@@ -13706,3 +13738,118 @@ class TestCheatsheetPrintFeedback:
         html = resp.data.decode()
         assert 'Print this page' in html
         assert 'setTimeout' in html
+
+
+class TestBackToTopButton:
+    """Test the back-to-top button styling and behavior."""
+
+    def test_back_to_top_css_visibility(self):
+        """Back-to-top CSS should use visibility for show/hide."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'visibility: hidden' in css
+        assert 'visibility: visible' in css
+
+    def test_back_to_top_css_box_shadow(self):
+        """Back-to-top button should use shadow token."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.back-to-top' in css
+        assert 'box-shadow: var(--shadow-md)' in css
+
+    def test_back_to_top_visible_class(self):
+        """Back-to-top .visible class should set visibility: visible."""
+        with open('static/style.css') as f:
+            css = f.read()
+        # Check that .back-to-top.visible rule exists
+        assert '.back-to-top.visible' in css
+
+
+class TestFooterParrotCounter:
+    """Test the footer parrot counter easter egg."""
+
+    def test_footer_parrot_counter_script(self, client):
+        """Footer should include the parrot counter easter egg script."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer-parrot-counter' in html
+
+    def test_footer_parrot_counter_eggs_found(self, client):
+        """Footer parrot counter should register footer_party egg."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'footer_party' in html
+        assert 'eggs_found' in html
+
+    def test_footer_parrot_counter_awards_xp(self, client):
+        """Footer parrot counter should award XP on easter egg trigger."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert "ParrotXP.award(100, 'easter_egg')" in html
+
+    def test_footer_parrot_fly_animation(self):
+        """CSS should contain the footer-parrot-fly keyframes."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '@keyframes footer-parrot-fly' in css
+
+
+class TestMobileFooterSpacing:
+    """Test mobile footer spacing styles."""
+
+    def test_footer_mobile_padding(self):
+        """Footer should have reduced padding on 480px screens."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert 'padding: 1.25rem 1rem' in css
+
+
+class TestPrintStylesCompleteness:
+    """Test that print styles hide all interactive elements."""
+
+    def test_print_hides_mobile_nav(self):
+        """Print styles should hide mobile navigation."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.mobile-nav,' in css or '.mobile-nav\n' in css
+
+    def test_print_hides_toast_container(self):
+        """Print styles should hide toast container."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.toast-container' in css
+
+    def test_print_hides_cmd_palette(self):
+        """Print styles should hide command palette overlay."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.cmd-palette-overlay' in css
+
+    def test_print_hides_footer_parrot_counter(self):
+        """Print styles should hide footer parrot counter."""
+        with open('static/style.css') as f:
+            css = f.read()
+        assert '.footer-parrot-counter' in css
+
+
+class TestDoubleClickCopyCodeBlocks:
+    """Test double-click-to-copy on code blocks in detail pages."""
+
+    def test_detail_page_has_dblclick_copy(self, client):
+        """Detail page should have double-click-to-copy on code snippets."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'dblclick' in html
+        assert 'Double-click to copy' in html
+
+    def test_detail_page_dblclick_uses_clipboard(self, client):
+        """Double-click handler should use navigator.clipboard."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'navigator.clipboard.writeText' in html
+
+    def test_detail_page_dblclick_shows_toast(self, client):
+        """Double-click copy should show a success toast."""
+        resp = client.get('/200')
+        html = resp.data.decode()
+        assert 'Code copied!' in html

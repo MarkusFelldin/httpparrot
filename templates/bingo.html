@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Weekly Bingo - HTTP Parrots{% endblock %}
+{% block subtitle %}Weekly Bingo{% endblock %}
+{% block meta %}
+    <meta name="description" content="HTTP Status Code Bingo! Visit status codes to mark them off your weekly bingo card.">
+{% endblock %}
+{% block content %}
+    <main class="bingo-container" id="main-content" role="main">
+        <div class="bingo-header">
+            <h1>HTTP Bingo</h1>
+            <p class="bingo-subtitle">Visit status codes to mark them off. Get 5 in a row to win!</p>
+            <div class="bingo-meta">
+                <span class="bingo-week">Week {{ week_number }}, {{ year }}</span>
+                <span class="bingo-progress" id="bingo-progress">0/24 marked</span>
+            </div>
+        </div>
+        <div class="bingo-board" id="bingo-board" role="grid" aria-label="Bingo board">
+            {% for cell in bingo_codes %}
+            <div class="bingo-cell{% if cell.code == 'FREE' %} bingo-cell--free bingo-cell--marked{% endif %}"
+                 data-code="{{ cell.code }}" role="gridcell"
+                 {% if cell.code != 'FREE' %}tabindex="0"{% endif %}>
+                {% if cell.code == 'FREE' %}
+                <span class="bingo-cell-code">FREE</span>
+                <span class="bingo-cell-name">Space</span>
+                {% else %}
+                <a href="/{{ cell.code }}" class="bingo-cell-link">
+                    <span class="bingo-cell-code">{{ cell.code }}</span>
+                    <span class="bingo-cell-name">{{ cell.name }}</span>
+                </a>
+                {% endif %}
+                <span class="bingo-cell-check" aria-hidden="true"></span>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="bingo-win-banner" id="bingo-win-banner" role="status" aria-live="polite" hidden>
+            <span class="bingo-win-icon" aria-hidden="true">&#x1F389;</span>
+            <span class="bingo-win-text">BINGO! You got 5 in a row!</span>
+        </div>
+        <div class="bingo-actions">
+            <a href="/" class="btn-back">Browse Parrots</a>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var WEEK = {{ week_number }};
+        var YEAR = {{ year }};
+        var STORAGE_KEY = 'httpparrot_bingo_' + YEAR + '_' + WEEK;
+        var cells = document.querySelectorAll('.bingo-cell');
+        var winBanner = document.getElementById('bingo-win-banner');
+        var progressEl = document.getElementById('bingo-progress');
+
+        function getMarked() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { return []; }
+        }
+
+        function saveMarked(arr) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+        }
+
+        function updateBoard() {
+            var marked = getMarked();
+            var count = 0;
+            cells.forEach(function(cell) {
+                var code = cell.getAttribute('data-code');
+                if (code === 'FREE' || marked.indexOf(code) !== -1) {
+                    cell.classList.add('bingo-cell--marked');
+                    if (code !== 'FREE') count++;
+                }
+            });
+            if (progressEl) progressEl.textContent = count + '/24 marked';
+            checkBingo();
+        }
+
+        /* Also mark codes from parrotdex (already visited codes) */
+        function syncFromParrotdex() {
+            try {
+                var dex = JSON.parse(localStorage.getItem('parrotdex') || '[]');
+                var marked = getMarked();
+                var changed = false;
+                cells.forEach(function(cell) {
+                    var code = cell.getAttribute('data-code');
+                    if (code !== 'FREE' && dex.indexOf(code) !== -1 && marked.indexOf(code) === -1) {
+                        marked.push(code);
+                        changed = true;
+                    }
+                });
+                if (changed) saveMarked(marked);
+            } catch(e) {}
+        }
+
+        function checkBingo() {
+            var grid = [];
+            cells.forEach(function(c) { grid.push(c.classList.contains('bingo-cell--marked')); });
+            var lines = [
+                [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],[15,16,17,18,19],[20,21,22,23,24],
+                [0,5,10,15,20],[1,6,11,16,21],[2,7,12,17,22],[3,8,13,18,23],[4,9,14,19,24],
+                [0,6,12,18,24],[4,8,12,16,20]
+            ];
+            var hasBingo = false;
+            for (var i = 0; i < lines.length; i++) {
+                if (lines[i].every(function(idx) { return grid[idx]; })) {
+                    hasBingo = true;
+                    lines[i].forEach(function(idx) { cells[idx].classList.add('bingo-cell--winning'); });
+                }
+            }
+            if (hasBingo && winBanner) {
+                winBanner.hidden = false;
+                /* Award XP + feather for first bingo */
+                var bingoKey = 'httpparrot_bingo_won_' + YEAR + '_' + WEEK;
+                if (!localStorage.getItem(bingoKey)) {
+                    localStorage.setItem(bingoKey, 'true');
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(75, 'bingo_win');
+                }
+            }
+        }
+
+        syncFromParrotdex();
+        updateBoard();
+    })();
+    </script>
+{% endblock %}

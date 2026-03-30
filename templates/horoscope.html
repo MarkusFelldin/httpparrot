@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Daily Horoscope - HTTP Parrots{% endblock %}
+{% block subtitle %}Daily Horoscope{% endblock %}
+{% block meta %}
+    <meta name="description" content="Your daily HTTP status code horoscope. What does the parrot oracle predict for your requests today?">
+{% endblock %}
+{% block content %}
+    <main class="horoscope-container" id="main-content" role="main">
+        <div class="horoscope-header">
+            <h1>Parrot Oracle</h1>
+            <p class="horoscope-date" id="horoscope-date">{{ date_str }}</p>
+        </div>
+        <div class="horoscope-card" id="horoscope-card">
+            <div class="horoscope-parrot" id="horoscope-parrot">
+                <img id="horoscope-img" src="" alt="Your horoscope parrot" width="200" height="167">
+            </div>
+            <div class="horoscope-code" id="horoscope-code"></div>
+            <div class="horoscope-fortune" id="horoscope-fortune"></div>
+            <div class="horoscope-advice" id="horoscope-advice"></div>
+            <div class="horoscope-lucky">
+                <span class="horoscope-lucky-label">Lucky status code:</span>
+                <a class="horoscope-lucky-code" id="horoscope-lucky-code" href="#"></a>
+            </div>
+        </div>
+        <div class="horoscope-share">
+            <button class="btn-back" id="horoscope-share-btn" type="button">Share Fortune</button>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var allCodes = {{ codes_json | safe }};
+        var dayNum = {{ day_number }};
+
+        var FORTUNES = [
+            "Your requests will all return 200 today. The servers smile upon you.",
+            "Beware the 502 Bad Gateway lurking in your afternoon deploy.",
+            "A mysterious 301 will redirect your career in an unexpected direction.",
+            "The 418 teapot has spoken: take a tea break, you've earned it.",
+            "Your API calls are blessed with low latency and clean JSON.",
+            "A 429 warns you: pace yourself today, or face the rate limit of life.",
+            "The spirits of RFC 2616 bless your caching headers.",
+            "Today's energy is very 204 No Content — sometimes silence is golden.",
+            "An unexpected 307 will take you somewhere wonderful.",
+            "Your load balancer smiles upon you with 200s all day long.",
+            "A 409 Conflict approaches. Choose your merge strategy wisely.",
+            "The parrot foresees a clean git push with zero CI failures.",
+            "Your cookies are secure, your headers are set, and CORS is configured.",
+            "A 201 Created: something new and wonderful begins today.",
+            "The 503 fairy says: even servers need rest. Take yours too.",
+            "Trust the 202 Accepted — patience with async operations will be rewarded.",
+            "A 403 Forbidden blocks your path. But is the obstacle the way?",
+            "Your cache hit ratio will be legendary today. The CDN gods rejoice.",
+            "Careful with that DELETE request — a 410 Gone is forever.",
+            "The redirect chain of destiny leads to a 200 OK. Stay the course.",
+            "Your JWT tokens are fresh, your sessions are valid. Auth is on your side.",
+            "A 206 Partial Content reminds you: progress, not perfection.",
+            "The 404 of lost keys will be found behind the couch.",
+            "Your webhooks will fire on time, your callbacks will all resolve.",
+            "A 304 Not Modified: if it ain't broke, enjoy the cache.",
+            "Today's vibe: 100 Continue. Keep going, you're on the right track.",
+            "The parrot oracle predicts: zero 5xx errors in your next deployment.",
+            "A 226 IM Used whispers: recycle, reuse, refactor.",
+            "Your ETags are strong, your validators are fresh. Conditional requests thrive.",
+            "The cosmic load balancer routes you to the fastest path today."
+        ];
+
+        var ADVICE = [
+            "Check your error handling. The parrot has spoken.",
+            "Add retry logic. Future you will thank present you.",
+            "Document that API endpoint you've been putting off.",
+            "Review your rate limiting configuration.",
+            "Write a test for that edge case you keep ignoring.",
+            "Update your dependencies — security patches await.",
+            "Your monitoring dashboards deserve some love today.",
+            "Consider adding a health check endpoint.",
+            "That TODO comment from 2023? Today's the day.",
+            "Cache invalidation is hard. But you can do hard things.",
+            "Add structured logging. Your on-call self will appreciate it.",
+            "Review your timeout configurations. Are they really right?",
+            "Write that README section you keep skipping.",
+            "Set up those alerts before the next incident.",
+            "Profile that slow endpoint. The bottleneck reveals itself to the patient."
+        ];
+
+        /* Seeded random */
+        function seededRandom(seed) {
+            var x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        }
+
+        /* Get spirit parrot or default */
+        var spirit = localStorage.getItem('httpparrot_spirit') || '200';
+        var spiritSeed = 0;
+        for (var i = 0; i < spirit.length; i++) spiritSeed += spirit.charCodeAt(i);
+
+        var seed = dayNum * 7919 + spiritSeed;
+        var codeIdx = Math.floor(seededRandom(seed) * allCodes.length);
+        var fortuneIdx = Math.floor(seededRandom(seed + 1) * FORTUNES.length);
+        var adviceIdx = Math.floor(seededRandom(seed + 2) * ADVICE.length);
+        var luckyIdx = Math.floor(seededRandom(seed + 3) * allCodes.length);
+
+        var todayCode = allCodes[codeIdx];
+        var luckyCode = allCodes[luckyIdx];
+
+        document.getElementById('horoscope-img').src = '/static/' + todayCode.image;
+        document.getElementById('horoscope-img').alt = todayCode.code + ' ' + todayCode.name;
+        document.getElementById('horoscope-code').textContent = todayCode.code + ' ' + todayCode.name;
+        document.getElementById('horoscope-fortune').textContent = FORTUNES[fortuneIdx];
+        document.getElementById('horoscope-advice').textContent = ADVICE[adviceIdx];
+        var luckyEl = document.getElementById('horoscope-lucky-code');
+        luckyEl.textContent = luckyCode.code + ' ' + luckyCode.name;
+        luckyEl.href = '/' + luckyCode.code;
+
+        /* Award XP for checking horoscope (once per day) */
+        var horoKey = 'httpparrot_horoscope_' + dayNum;
+        if (!localStorage.getItem(horoKey)) {
+            localStorage.setItem(horoKey, 'true');
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'horoscope');
+        }
+
+        /* Share button */
+        var shareBtn = document.getElementById('horoscope-share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', function() {
+                var text = 'My HTTP Horoscope: ' + todayCode.code + ' ' + todayCode.name + ' — "' + FORTUNES[fortuneIdx] + '" Lucky code: ' + luckyCode.code;
+                navigator.clipboard.writeText(text).then(function() {
+                    shareBtn.textContent = 'Copied!';
+                    setTimeout(function() { shareBtn.textContent = 'Share Fortune'; }, 2000);
+                });
+            });
+        }
+
+        /* Easter egg: oracle egg for 30 consecutive horoscope checks */
+        try {
+            var horoStreak = JSON.parse(localStorage.getItem('httpparrot_horoscope_streak') || '{}');
+            var today = new Date().toISOString().slice(0, 10);
+            if (horoStreak.lastDate !== today) {
+                var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+                var yStr = yesterday.toISOString().slice(0, 10);
+                horoStreak.count = (horoStreak.lastDate === yStr) ? (horoStreak.count || 0) + 1 : 1;
+                horoStreak.lastDate = today;
+                localStorage.setItem('httpparrot_horoscope_streak', JSON.stringify(horoStreak));
+            }
+            if (horoStreak.count >= 30) {
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('oracle_devotee') === -1) {
+                    eggs.push('oracle_devotee');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        } catch(e) {}
+    })();
+    </script>
+{% endblock %}

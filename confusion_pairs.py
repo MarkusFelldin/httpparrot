@@ -335,6 +335,28 @@ CONFUSION_PAIRS = [
             {"scenario": "A reverse proxy gives up after waiting for an unresponsive upstream database service.", "correct": "504", "wrong": "503"},
         ],
     },
+    {
+        "slug": "502-vs-503",
+        "codes": ["502", "503"],
+        "title": "502 Bad Gateway vs 503 Service Unavailable",
+        "category": "Server error pairs",
+        "tldr": "502 means the server acting as a gateway got an invalid response from upstream; 503 means the server is temporarily unable to handle the request (overloaded or in maintenance).",
+        "decision_tree": [
+            {"question": "Is the server itself working but got a bad response from upstream?", "yes": "502", "no": "Check 503"},
+            {"question": "Is the server deliberately down for maintenance or overloaded?", "yes": "503", "no": "502"},
+            {"question": "Would retrying in a few minutes likely succeed?", "yes": "503 (add Retry-After)", "no": "502 (check upstream)"},
+        ],
+        "examples": [
+            {"scenario": "A reverse proxy (nginx) forwards a request to a Python app server that crashes and returns garbage.", "code": "502", "explanation": "Nginx received an invalid response from the upstream application server."},
+            {"scenario": "A web service is being deployed and all instances are restarting.", "code": "503", "explanation": "The service is temporarily unavailable during deployment — it will be back soon."},
+            {"scenario": "A load balancer connects to an upstream server that has closed its socket unexpectedly.", "code": "502", "explanation": "The upstream connection was broken, making the response invalid from the gateway's perspective."},
+        ],
+        "quiz": [
+            {"scenario": "Your API returns fine but the CDN in front of it shows an error page saying 'upstream connection reset'.", "correct": "502", "wrong": "503"},
+            {"scenario": "A database migration is running and the app returns a maintenance page.", "correct": "503", "wrong": "502"},
+            {"scenario": "AWS ELB can't connect to any healthy targets in the target group.", "correct": "502", "wrong": "503"},
+        ],
+    },
 ]
 
 # Quick lookup by slug
@@ -349,7 +371,7 @@ for _pair in CONFUSION_PAIRS:
 # Ordered list of category names (display order) and pairs grouped by category
 CONFUSION_PAIR_CATEGORY_ORDER = [
     "Auth pairs", "Redirect pairs", "Success pairs",
-    "Client error pairs", "Error pairs",
+    "Client error pairs", "Error pairs", "Server error pairs",
 ]
 PAIRS_BY_CATEGORY = {}
 for _pair in CONFUSION_PAIRS:

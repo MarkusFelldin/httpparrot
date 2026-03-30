@@ -599,6 +599,24 @@ RELATED_CODES = {
     ],
 }
 
+# HTTP methods that commonly return each status code category
+METHOD_APPLICABILITY = {
+    "GET": ["200", "204", "206", "301", "302", "303", "304", "307", "308",
+            "400", "401", "403", "404", "405", "406", "408", "410", "414",
+            "429", "500", "502", "503", "504"],
+    "POST": ["200", "201", "202", "204", "301", "302", "303", "307", "308",
+             "400", "401", "403", "404", "405", "409", "413", "415", "422",
+             "429", "500", "502", "503"],
+    "PUT": ["200", "201", "204", "301", "307", "308",
+            "400", "401", "403", "404", "405", "409", "412", "413", "415",
+            "422", "428", "429", "500", "502", "503"],
+    "DELETE": ["200", "202", "204", "301", "307", "308",
+               "400", "401", "403", "404", "405", "409", "429", "500", "502", "503"],
+    "PATCH": ["200", "204", "301", "307", "308",
+              "400", "401", "403", "404", "405", "409", "412", "415", "422",
+              "428", "429", "500", "502", "503"],
+}
+
 
 # --- FAQ generation helper ---
 
@@ -664,7 +682,8 @@ def http_parrots():
     return render_template('http_parrots.html', status_code_list=codes, featured=featured,
                            status_info=STATUS_INFO, featured_description=featured_description,
                            featured_image=featured_parrot.image,
-                           featured_fun_fact=featured_fun_fact)
+                           featured_fun_fact=featured_fun_fact,
+                           method_applicability=json.dumps(METHOD_APPLICABILITY))
 
 
 @app.route('/quiz')
@@ -836,6 +855,34 @@ def weekly():
                            week_start=today.isoformat())
 
 
+@app.route('/bingo')
+def bingo():
+    """Render the weekly HTTP Status Code Bingo card."""
+    today = date.today()
+    week_number = today.isocalendar()[1]
+    year = today.isocalendar()[0]
+    codes = pruned_status_codes()
+    rng = random.Random(week_number * 10000 + year)
+    pool = list(codes)
+    rng.shuffle(pool)
+    bingo_codes = [{"code": c.code, "name": c.name, "image": c.image} for c in pool[:25]]
+    # Mark center as free space
+    bingo_codes[12] = {"code": "FREE", "name": "Free Space", "image": None}
+    return render_template('bingo.html', bingo_codes=bingo_codes,
+                           week_number=week_number, year=year)
+
+
+@app.route('/horoscope')
+def horoscope():
+    """Render the daily HTTP horoscope page."""
+    today = date.today()
+    day_number = today.toordinal()
+    codes = pruned_status_codes()
+    return render_template('horoscope.html', codes_json=json.dumps(
+        [{"code": c.code, "name": c.name, "image": c.image} for c in codes]
+    ), day_number=day_number, date_str=today.isoformat())
+
+
 @app.route('/practice')
 def practice():
     """Render the scenario-based practice page for HTTP status code training."""
@@ -969,6 +1016,12 @@ def collection():
 def header_explainer():
     """Render the Header Explainer page for annotating HTTP headers."""
     return render_template('headers.html')
+
+
+@app.route('/content-negotiation')
+def content_negotiation():
+    """Render the Content Negotiation Explainer tool."""
+    return render_template('content_negotiation.html')
 
 
 @app.route('/profile')
@@ -2009,9 +2062,11 @@ def sitemap():
     pages = []
     for rule in ['/', '/quiz', '/personality', '/daily', '/weekly', '/practice', '/debug',
                  '/flowchart', '/compare', '/learn', '/paths', '/tester',
-                 '/cheatsheet', '/headers', '/cors-checker', '/security-audit',
+                 '/cheatsheet', '/headers', '/content-negotiation', '/cors-checker',
+                 '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
-                 '/profile', '/review', '/fault-simulator', '/webhook-inspector']:
+                 '/profile', '/review', '/fault-simulator', '/webhook-inspector',
+                 '/bingo', '/horoscope']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

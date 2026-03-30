@@ -87,7 +87,7 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
                             <a href="/daily" role="menuitem" {% if request.path == '/daily' %}aria-current="page"{% endif %}>Daily Challenge</a>
@@ -98,13 +98,15 @@
                             <a href="/learn" role="menuitem" {% if request.path.startswith('/learn') %}aria-current="page"{% endif %}>Confusion Pairs</a>
                             <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
                             <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
+                            <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/tester','/headers','/content-negotiation','/cors-checker','/security-audit','/trace','/playground','/curl-import','/fault-simulator','/webhook-inspector'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Tools</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/tester" role="menuitem" {% if request.path == '/tester' %}aria-current="page"{% endif %}>URL Tester</a>
                             <a href="/headers" role="menuitem" {% if request.path == '/headers' %}aria-current="page"{% endif %}>Header Explainer</a>
+                            <a href="/content-negotiation" role="menuitem" {% if request.path == '/content-negotiation' %}aria-current="page"{% endif %}>Content Negotiation</a>
                             <a href="/cors-checker" role="menuitem" {% if request.path == '/cors-checker' %}aria-current="page"{% endif %}>CORS Checker</a>
                             <a href="/security-audit" role="menuitem" {% if request.path == '/security-audit' %}aria-current="page"{% endif %}>Security Audit</a>
                             <a href="/trace" role="menuitem" {% if request.path == '/trace' %}aria-current="page"{% endif %}>Redirect Tracer</a>
@@ -115,7 +117,7 @@
                         </div>
                     </div>
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/compare','/personality','/cheatsheet','/collection','/api-docs','/profile','/horoscope'] %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">More</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/compare" role="menuitem" {% if request.path == '/compare' %}aria-current="page"{% endif %}>Compare</a>
                             <a href="/personality" role="menuitem" {% if request.path == '/personality' %}aria-current="page"{% endif %}>Personality Quiz</a>
@@ -123,6 +125,7 @@
                             <a href="/cheatsheet" role="menuitem" {% if request.path == '/cheatsheet' %}aria-current="page"{% endif %}>Cheat Sheet</a>
                             <a href="/api-docs" role="menuitem" {% if request.path == '/api-docs' %}aria-current="page"{% endif %}>API Docs</a>
                             <a href="/profile" role="menuitem" {% if request.path == '/profile' %}aria-current="page"{% endif %}>Profile</a>
+                            <a href="/horoscope" role="menuitem" {% if request.path == '/horoscope' %}aria-current="page"{% endif %}>Horoscope</a>
                         </div>
                     </div>
                 </nav>
@@ -157,9 +160,11 @@
             <a href="/learn" {% if request.path.startswith('/learn') %}class="nav-active" aria-current="page"{% endif %}>Confusion Pairs</a>
             <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
+            <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
+            <a href="/content-negotiation" {% if request.path == '/content-negotiation' %}class="nav-active" aria-current="page"{% endif %}>Content Negotiation</a>
             <a href="/cors-checker" {% if request.path == '/cors-checker' %}class="nav-active" aria-current="page"{% endif %}>CORS Checker</a>
             <a href="/security-audit" {% if request.path == '/security-audit' %}class="nav-active" aria-current="page"{% endif %}>Security Audit</a>
             <a href="/trace" {% if request.path == '/trace' %}class="nav-active" aria-current="page"{% endif %}>Redirect Tracer</a>
@@ -174,6 +179,7 @@
             <a href="/cheatsheet" {% if request.path == '/cheatsheet' %}class="nav-active" aria-current="page"{% endif %}>Cheat Sheet</a>
             <a href="/api-docs" {% if request.path == '/api-docs' %}class="nav-active" aria-current="page"{% endif %}>API Docs</a>
             <a href="/profile" {% if request.path == '/profile' %}class="nav-active" aria-current="page"{% endif %}>Profile</a>
+            <a href="/horoscope" {% if request.path == '/horoscope' %}class="nav-active" aria-current="page"{% endif %}>Horoscope</a>
         </nav>
     </header>
 
@@ -232,7 +238,7 @@
 
     {% block content %}{% endblock %}
 
-    <footer class="site-footer" role="contentinfo">
+    <footer class="site-footer" role="contentinfo" style="view-transition-name: site-footer">
         <div class="footer-inner">
             <span>Made by <a href="https://github.com/MarkusFelldin" class="footer-link" target="_blank" rel="noopener">Markus Felldin</a></span>
             <span class="footer-sep">&middot;</span>
@@ -242,6 +248,45 @@
             </a>
         </div>
     </footer>
+
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <script nonce="{{ csp_nonce }}">
+    /* Global Toast Notification System */
+    (function() {
+        var container = document.getElementById('toast-container');
+        if (!container) return;
+
+        function showToast(message, type, duration) {
+            type = type || 'info';
+            duration = duration || 3000;
+            var icons = { success: '\u2705', error: '\u274C', info: '\u2139\uFE0F' };
+            var toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            var content = document.createElement('div');
+            content.className = 'toast-content';
+            var iconSpan = document.createElement('span');
+            iconSpan.className = 'toast-icon';
+            iconSpan.textContent = icons[type] || '';
+            var msgSpan = document.createElement('span');
+            msgSpan.className = 'toast-message';
+            msgSpan.textContent = message;
+            content.appendChild(iconSpan);
+            content.appendChild(msgSpan);
+            toast.appendChild(content);
+            container.appendChild(toast);
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() { toast.classList.add('toast-visible'); });
+            });
+            setTimeout(function() {
+                toast.classList.remove('toast-visible');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, duration);
+        }
+
+        window.ParrotToast = { show: showToast };
+    })();
+    </script>
 
     <script nonce="{{ csp_nonce }}">
     (function() {
@@ -492,6 +537,48 @@
             return getRankInfo(getTotal()).rank;
         }
 
+        /* Visit streak multiplier */
+        var VISIT_STREAK_KEY = 'httpparrot_visit_streak';
+        function getVisitStreak() {
+            try { return JSON.parse(localStorage.getItem(VISIT_STREAK_KEY) || '{}'); } catch(e) { return {}; }
+        }
+        function updateVisitStreak() {
+            var today = new Date().toISOString().slice(0, 10);
+            var data = getVisitStreak();
+            if (data.lastDate === today) return data.streak || 1;
+            var yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            var yesterdayStr = yesterday.toISOString().slice(0, 10);
+            var streak = (data.lastDate === yesterdayStr) ? Math.min((data.streak || 1) + 1, 7) : 1;
+            localStorage.setItem(VISIT_STREAK_KEY, JSON.stringify({lastDate: today, streak: streak}));
+            return streak;
+        }
+        function getMultiplier() {
+            var streak = updateVisitStreak();
+            if (streak >= 7) return 2.0;
+            if (streak >= 2) return 1 + (streak - 1) * 0.1;
+            return 1.0;
+        }
+
+        function updateMultiplierIndicator() {
+            var mult = getMultiplier();
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            var existing = badge.querySelector('.xp-multiplier-indicator');
+            if (mult > 1.0) {
+                if (!existing) {
+                    var ind = document.createElement('span');
+                    ind.className = 'xp-multiplier-indicator';
+                    ind.setAttribute('aria-label', mult.toFixed(1) + 'x XP multiplier');
+                    badge.appendChild(ind);
+                    existing = ind;
+                }
+                existing.textContent = mult.toFixed(1) + 'x';
+            } else if (existing) {
+                existing.remove();
+            }
+        }
+
         function award(amount, action) {
             if (!amount || amount <= 0) return;
             var total = getTotal() + amount;
@@ -533,7 +620,10 @@
                 var maxXp = 0;
                 for (var c in cats) { if (cats[c] > maxXp) { maxXp = cats[c]; dominant = c; } }
                 var badge = document.getElementById('xp-badge');
-                if (badge) badge.style.setProperty('--mood-color', moodColors[dominant]);
+                if (badge) {
+                    badge.style.setProperty('--mood-color', moodColors[dominant]);
+                    badge.setAttribute('data-mood-cat', String(dominant));
+                }
             } catch(e) {}
         }
 
@@ -991,6 +1081,8 @@
 
         function awardWithFeathers(amount, action) {
             if (!amount || amount <= 0) return;
+            var mult = getMultiplier();
+            amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
             localStorage.setItem('httpparrot_xp', String(total));
@@ -1020,12 +1112,16 @@
             spawnFlockFormation: spawnFlockFormation,
             showRankUpBanner: showRankUpBanner,
             checkXpMilestoneFlash: checkXpMilestoneFlash,
+            getMultiplier: getMultiplier,
+            updateVisitStreak: updateVisitStreak,
+            updateMultiplierIndicator: updateMultiplierIndicator,
             XP_MILESTONES: XP_MILESTONES,
             RANKS: RANKS,
             FEATHERS: FEATHERS
         };
 
         updateBadge();
+        updateMultiplierIndicator();
         /* Check feathers on every page load for time-based badges like Night Owl */
         checkFeathers();
         /* Award pending seasonal egg XP if queued before ParrotXP loaded */
@@ -1536,6 +1632,34 @@
     })();
     </script>
     <script nonce="{{ csp_nonce }}">
+    /* Barrel Roll easter egg */
+    (function() {
+        var buffer = '';
+        var trigger = 'barrelroll';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buffer += e.key.toLowerCase();
+            if (buffer.length > trigger.length) buffer = buffer.slice(-trigger.length);
+            if (buffer === trigger) {
+                buffer = '';
+                document.body.style.transition = 'transform 1s ease-in-out';
+                document.body.style.transform = 'rotate(360deg)';
+                setTimeout(function() {
+                    document.body.style.transition = '';
+                    document.body.style.transform = '';
+                }, 1100);
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('barrel_roll') === -1) {
+                    eggs.push('barrel_roll');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
     /* ParrotSearch — shared fuzzy/typo-tolerant search utility */
     window.ParrotSearch = (function() {
         /**
@@ -1697,6 +1821,7 @@
             {name: 'Flowchart', path: '/flowchart', icon: '\uD83D\uDDFA\uFE0F', desc: 'Which status code should I use?'},
             {name: 'URL Tester', path: '/tester', icon: '\uD83D\uDD17', desc: 'Test any URL\'s response'},
             {name: 'Header Explainer', path: '/headers', icon: '\uD83D\uDCE8', desc: 'Explain HTTP headers'},
+            {name: 'Content Negotiation', path: '/content-negotiation', icon: '\uD83E\uDD1D', desc: 'Explore Accept & Content-Type negotiation'},
             {name: 'CORS Checker', path: '/cors-checker', icon: '\uD83D\uDD12', desc: 'Check CORS configuration'},
             {name: 'Security Audit', path: '/security-audit', icon: '\uD83D\uDEE1\uFE0F', desc: 'Audit HTTP security headers'},
             {name: 'Redirect Tracer', path: '/trace', icon: '\u27A1\uFE0F', desc: 'Trace redirect chains'},
@@ -1929,6 +2054,46 @@
             var badgeIcon = document.getElementById('xp-badge-icon');
             if (badgeIcon) badgeIcon.textContent = avatar;
         }
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Footer parrot counter */
+    (function() {
+        var footer = document.querySelector('.footer-inner');
+        if (!footer) return;
+        var github = footer.querySelector('.footer-github');
+        if (!github) return;
+        var counter = document.createElement('span');
+        counter.className = 'footer-parrot-counter';
+        counter.style.cssText = 'cursor:pointer;margin-left:0.5rem;user-select:none;';
+        counter.textContent = '\uD83E\uDD9C';
+        counter.setAttribute('aria-hidden', 'true');
+        var count = 0;
+        counter.addEventListener('click', function(e) {
+            e.preventDefault();
+            count++;
+            if (count === 1) counter.textContent = '\uD83E\uDD9C';
+            if (count >= 10) {
+                counter.textContent = '\uD83E\uDD9C\u2728';
+                /* Secret parrot party */
+                for (var i = 0; i < 10; i++) {
+                    var p = document.createElement('span');
+                    p.textContent = '\uD83E\uDD9C';
+                    p.style.cssText = 'position:fixed;bottom:' + (20 + Math.random() * 60) + 'px;font-size:' + (14 + Math.random() * 20) + 'px;pointer-events:none;z-index:9999;animation:footer-parrot-fly 2s ease-out forwards;left:' + (Math.random() * 100) + 'vw;';
+                    document.body.appendChild(p);
+                    setTimeout(function(el){ el.remove(); }, 2100, p);
+                }
+                count = 0;
+                /* Register egg */
+                var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                if (eggs.indexOf('footer_party') === -1) {
+                    eggs.push('footer_party');
+                    localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                    if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+                }
+            }
+        });
+        footer.appendChild(counter);
     })();
     </script>
     {% block scripts %}{% endblock %}
