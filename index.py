@@ -893,6 +893,12 @@ def horoscope():
     ), day_number=day_number, date_str=today.isoformat())
 
 
+@app.route('/map')
+def status_map():
+    """Render the status code relationship map."""
+    return render_template('map.html', related_codes=json.dumps(RELATED_CODES))
+
+
 @app.route('/practice')
 def practice():
     """Render the scenario-based practice page for HTTP status code training."""
@@ -2076,7 +2082,7 @@ def sitemap():
                  '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo', '/horoscope']:
+                 '/bingo', '/horoscope', '/map']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

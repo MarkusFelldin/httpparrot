@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Status Code Map - HTTP Parrots{% endblock %}
+{% block subtitle %}Relationship Map{% endblock %}
+{% block meta %}
+    <meta name="description" content="Visual map of HTTP status code relationships. See how codes connect and when to use each one.">
+{% endblock %}
+{% block content %}
+    <main class="map-container" id="main-content" role="main">
+        <h1>Status Code Map</h1>
+        <p class="map-subtitle">Click any code to see its connections. Lines show commonly confused pairs.</p>
+        <div class="map-filter">
+            <button class="cat-pill active" data-cat="all" type="button">All</button>
+            <button class="cat-pill cat-1xx" data-cat="1" type="button">1xx</button>
+            <button class="cat-pill cat-2xx" data-cat="2" type="button">2xx</button>
+            <button class="cat-pill cat-3xx" data-cat="3" type="button">3xx</button>
+            <button class="cat-pill cat-4xx" data-cat="4" type="button">4xx</button>
+            <button class="cat-pill cat-5xx" data-cat="5" type="button">5xx</button>
+        </div>
+        <div class="map-grid" id="map-grid" role="img" aria-label="Status code relationship map"></div>
+        <div class="map-detail" id="map-detail" aria-live="polite">
+            <p class="map-detail-hint">Click a status code to see its relationships</p>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var related = {{ related_codes | safe }};
+        var grid = document.getElementById('map-grid');
+        var detail = document.getElementById('map-detail');
+        var allCodes = Object.keys(related).sort();
+
+        /* Render nodes */
+        allCodes.forEach(function(code) {
+            var node = document.createElement('button');
+            node.className = 'map-node category-' + code[0] + 'xx';
+            node.setAttribute('data-code', code);
+            node.textContent = code;
+            node.type = 'button';
+            node.addEventListener('click', function() {
+                showConnections(code);
+            });
+            grid.appendChild(node);
+        });
+
+        function showConnections(code) {
+            /* Highlight selected and connected nodes */
+            var nodes = grid.querySelectorAll('.map-node');
+            nodes.forEach(function(n) {
+                n.classList.remove('map-node--selected', 'map-node--connected', 'map-node--dimmed');
+                n.classList.add('map-node--dimmed');
+            });
+
+            var selected = grid.querySelector('[data-code="' + code + '"]');
+            if (selected) {
+                selected.classList.remove('map-node--dimmed');
+                selected.classList.add('map-node--selected');
+            }
+
+            var connections = related[code] || [];
+            /* Build detail using DOM methods for safety */
+            detail.textContent = '';
+            var h3 = document.createElement('h3');
+            h3.textContent = code + ' connections:';
+            detail.appendChild(h3);
+            var connDiv = document.createElement('div');
+            connDiv.className = 'map-connections';
+            connections.forEach(function(conn) {
+                var connCode = conn[0];
+                var reason = conn[1];
+                var connNode = grid.querySelector('[data-code="' + connCode + '"]');
+                if (connNode) {
+                    connNode.classList.remove('map-node--dimmed');
+                    connNode.classList.add('map-node--connected');
+                }
+                var row = document.createElement('div');
+                row.className = 'map-conn-row';
+                var link = document.createElement('a');
+                link.href = '/' + connCode;
+                link.className = 'map-conn-code category-' + connCode[0] + 'xx';
+                link.textContent = connCode;
+                var span = document.createElement('span');
+                span.className = 'map-conn-reason';
+                span.textContent = reason;
+                row.appendChild(link);
+                row.appendChild(span);
+                connDiv.appendChild(row);
+            });
+            detail.appendChild(connDiv);
+
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(5, 'map_explore');
+        }
+
+        /* Category filter */
+        document.querySelectorAll('.map-filter .cat-pill').forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                document.querySelectorAll('.map-filter .cat-pill').forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                var cat = pill.getAttribute('data-cat');
+                grid.querySelectorAll('.map-node').forEach(function(node) {
+                    if (cat === 'all' || node.getAttribute('data-code')[0] === cat) {
+                        node.style.display = '';
+                    } else {
+                        node.style.display = 'none';
+                    }
+                });
+                var hint = document.createElement('p');
+                hint.className = 'map-detail-hint';
+                hint.textContent = 'Click a status code to see its relationships';
+                detail.textContent = '';
+                detail.appendChild(hint);
+                grid.querySelectorAll('.map-node').forEach(function(n) {
+                    n.classList.remove('map-node--selected', 'map-node--connected', 'map-node--dimmed');
+                });
+            });
+        });
+    })();
+    </script>
+{% endblock %}

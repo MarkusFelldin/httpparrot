@@ -87,7 +87,7 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
                             <a href="/predict" role="menuitem" {% if request.path == '/predict' %}aria-current="page"{% endif %}>Guess the Response</a>
@@ -100,6 +100,7 @@
                             <a href="/paths" role="menuitem" {% if request.path.startswith('/paths') %}aria-current="page"{% endif %}>Learning Paths</a>
                             <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
                             <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
+                            <a href="/map" role="menuitem" {% if request.path == '/map' %}aria-current="page"{% endif %}>Code Map</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -163,6 +164,7 @@
             <a href="/paths" {% if request.path.startswith('/paths') %}class="nav-active" aria-current="page"{% endif %}>Learning Paths</a>
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
             <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
+            <a href="/map" {% if request.path == '/map' %}class="nav-active" aria-current="page"{% endif %}>Code Map</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>

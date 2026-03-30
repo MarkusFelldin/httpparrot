@@ -3592,6 +3592,7 @@ class TestSitemapCompleteness:
         '/', '/quiz', '/personality', '/daily', '/practice', '/debug', '/flowchart',
         '/compare', '/tester', '/cheatsheet', '/headers', '/cors-checker',
         '/security-audit', '/collection', '/playground', '/api-docs', '/profile',
+        '/map',
     ]
 
     def test_sitemap_returns_xml(self, client):
@@ -7122,15 +7123,16 @@ class TestLearningPathsData:
                     assert step['target'] in debug_ids, \
                         f"Unknown debug id {step['target']} in path {path['id']}"
 
-    def test_three_paths_exist(self):
+    def test_four_paths_exist(self):
         from learning_paths import LEARNING_PATHS
-        assert len(LEARNING_PATHS) == 3
+        assert len(LEARNING_PATHS) == 4
 
     def test_lookup_by_id(self):
         from learning_paths import LEARNING_PATHS_BY_ID
         assert 'http-foundations' in LEARNING_PATHS_BY_ID
         assert 'error-whisperer' in LEARNING_PATHS_BY_ID
         assert 'redirect-master' in LEARNING_PATHS_BY_ID
+        assert 'api-designer' in LEARNING_PATHS_BY_ID
 
     def test_http_foundations_is_beginner(self):
         from learning_paths import LEARNING_PATHS_BY_ID
@@ -7163,6 +7165,7 @@ class TestPathsIndexRoute:
         assert 'HTTP Foundations' in html
         assert 'Error Whisperer' in html
         assert 'Redirect Master' in html
+        assert 'API Designer' in html
 
     def test_paths_index_has_difficulty_badges(self, client):
         resp = client.get('/paths')
@@ -7183,6 +7186,7 @@ class TestPathsIndexRoute:
         assert 'href="/paths/http-foundations"' in html
         assert 'href="/paths/error-whisperer"' in html
         assert 'href="/paths/redirect-master"' in html
+        assert 'href="/paths/api-designer"' in html
 
     def test_paths_index_has_step_counts(self, client):
         resp = client.get('/paths')
@@ -14013,3 +14017,73 @@ class TestMobileSwipeNavigation:
         """Detail pages should include swipe navigation script."""
         resp = client.get('/200')
         assert b'swipe' in resp.data.lower() or b'touchstart' in resp.data
+
+
+class TestStatusCodeMap:
+    """Tests for the /map status code relationship map page."""
+
+    def test_map_page(self, client):
+        resp = client.get('/map')
+        assert resp.status_code == 200
+        assert b'Relationship Map' in resp.data or b'Status Code Map' in resp.data
+
+    def test_map_has_filter_buttons(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'data-cat="all"' in html
+        assert 'data-cat="1"' in html
+        assert 'data-cat="5"' in html
+
+    def test_map_has_grid_container(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'id="map-grid"' in html
+
+    def test_map_has_detail_panel(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'id="map-detail"' in html
+        assert 'map-detail-hint' in html
+
+    def test_map_includes_related_codes_json(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'related' in html
+
+    def test_map_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/map' in resp.data
+
+    def test_map_in_nav(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'href="/map"' in html
+
+    def test_map_has_meta_description(self, client):
+        resp = client.get('/map')
+        html = resp.data.decode()
+        assert 'Visual map of HTTP status code relationships' in html
+
+
+class TestApiDesignerPath:
+    """Tests for the API Designer learning path."""
+
+    def test_paths_index_has_api_designer(self, client):
+        resp = client.get('/paths')
+        assert resp.status_code == 200
+        assert b'API Designer' in resp.data
+
+    def test_api_designer_path_detail(self, client):
+        resp = client.get('/paths/api-designer')
+        assert resp.status_code == 200
+        assert b'API Designer' in resp.data
+
+    def test_api_designer_has_steps(self, client):
+        resp = client.get('/paths/api-designer')
+        html = resp.data.decode()
+        assert 'Visit 200 OK' in html
+        assert 'Quiz: 10 questions' in html
+
+    def test_api_designer_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/paths/api-designer' in resp.data
