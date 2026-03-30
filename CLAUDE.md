@@ -10,7 +10,7 @@ HTTP Parrots -- a Flask web app that explains HTTP status codes with illustrated
 - Run locally: `.venv/bin/python index.py` (serves on http://127.0.0.1:5000)
 - Flask is NOT in debug mode -- restart the server after changing Python files or templates
 - Tests: `.venv/bin/python -m pytest`
-- 1798 tests across test_app.py (1780) and test_cli.py (18)
+- 1835 tests across test_app.py (1817) and test_cli.py (18)
 - Coverage: 97%+ of index.py
 
 ## Architecture
@@ -21,9 +21,9 @@ HTTP Parrots -- a Flask web app that explains HTTP status codes with illustrated
 - `http_examples.py` -- HTTP_EXAMPLES dict with request/response text for each code
 - `scenarios.py` -- 56 practice scenarios (including 5 security category) with difficulty, options, and explanations
 - `debug_exercises.py` -- 36 debug exercises with broken HTTP exchanges and bugs to find
-- `confusion_pairs.py` -- 16 confusion pair lesson definitions with slugs, categories, and content
+- `confusion_pairs.py` -- 18 confusion pair lesson definitions with slugs, categories, and content
 - `learning_paths.py` -- 4 guided learning paths (http-foundations, error-whisperer, redirect-master, api-designer)
-- `templates/` -- 35 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
+- `templates/` -- 36 Jinja2 templates (base.html has XP system, ranks, badge JS, toast system, and XP multiplier)
 - `static/` -- parrot images (72 codes), CSS (design-token-based system), and static assets
 - `cli/` -- standalone CLI tool (no Flask dependency)
 

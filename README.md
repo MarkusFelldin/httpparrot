@@ -25,8 +25,10 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **Embed codes** - Copy HTML, Markdown, or direct image URL for any parrot
 
 **Structured learning**
-- **Confusion Pair Lessons** (`/learn`) - 16 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 301 vs 302, 502 vs 503), grouped by category
-- **Guided Learning Paths** (`/paths`) - 3 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master) with step-by-step checklists mixing visits, practice, quizzes, and lessons; completion certificates on finishing a path
+- **Confusion Pair Lessons** (`/learn`) - 18 in-depth lesson pages explaining commonly confused status code pairs (e.g. 401 vs 403, 301 vs 302, 502 vs 503, 404 vs 410, 429 vs 503), grouped by category
+- **Guided Learning Paths** (`/paths`) - 4 curated tracks (HTTP Foundations, Error Whisperer, Redirect Master, API Designer) with step-by-step checklists mixing visits, practice, quizzes, and lessons; completion certificates on finishing a path
+- **Status Code Map** (`/map`) - Interactive relationship visualization showing how codes connect, with click-to-explore connections and category filters
+- **Guess the Response** (`/predict`) - Reverse quiz where you type in the status code based on a scenario description
 - **Spaced Repetition Review** (`/review`) - Leitner box-based review queue pulling from scenarios, debug exercises, and confusion pairs for long-term retention
 
 **Interactive tools**
@@ -60,8 +62,13 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - **Flock Formation Celebrations** - Animated celebrations when sharing or viewing flock profiles
 - **10 Ranks** - Progress from Fledgling through Nestling, Feathered Apprentice, Wing Cadet, Parrot Scout, Plume Knight, Wing Commander, Sky Captain, Grand Macaw, to Legendary Lorikeet
 - **29 Achievement Badges** ("Feathers") - 23 base feathers (First Flight, Quiz Whiz, Perfect 10, Streak Starter, On Fire, Centurion, Wing Commander, Completionist, Error Expert, Server Sage, Egg Hunter, Scholar, Night Owl, Speed Demon, Frozen Solid, Memory Master, Parrot Petter, Photographic Memory, Loyal Parrot, Theme Master, Explorer 10, Explorer 25, Explorer 50) + 6 meta feathers (Explorer, Polyglot, Streak Lord, Triple Threat, Full Spectrum, Parrot Polymath)
-- **Meta-Feather Unlock Animations** - Golden confetti burst and screen shake when earning meta feathers
+- **Meta-Feather Unlock Animations** - Egg-hatch pre-animation (wobble → crack → pop) then golden confetti burst and screen shake
+- **Prestige System** - After reaching Legendary Lorikeet, reset XP for a permanent +10% XP bonus per prestige level (up to 10 stars)
+- **Weekly Leaderboard Tiers** - Bronze/Silver/Gold/Platinum tiers based on weekly XP with progress bar on profile
+- **Achievement Progress Indicators** - Locked feathers show progress bars (e.g., Quiz Whiz 7/10, Explorer 25 shows 18/25)
+- **Top 3 Rarest Feathers Showcase** - Shareable profile card highlights your rarest achievements
 - **Parrot Mood Ring** - XP badge color shifts with category-specific pulse animations (cyan/teal/gold/coral/purple) based on recent browsing
+- **Parrot Collector Badges** - Green/silver/gold checkmarks on homepage cards for visited status codes
 - **XP Multiplier Chain** - Consecutive daily visits build a 1.0x to 2.0x XP multiplier, shown as a glowing gold badge indicator
 - **Weekly Bingo** (`/bingo`) - 5x5 bingo card of status codes, mark off by visiting pages, auto-syncs with Parrotdex, detects rows/cols/diagonals, 75 XP per weekly bingo
 - **Daily Horoscope** (`/horoscope`) - Personalized HTTP-themed fortune based on spirit parrot, with lucky codes and share button; 30-day streak easter egg
@@ -76,7 +83,7 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Category-themed hover effects: 1xx pulses, 2xx glows, 3xx slides sideways, 4xx shakes, 5xx glitches
 - Interactive parrot clicks with category-specific animations on detail pages
 - Speech bubbles with typewriter effect -- each parrot has a witty one-liner
-- 20+ easter eggs: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code party mode, hidden `/coffee` page, type "barrelroll" for page spin, 100 parrot clicks earns Parrot Whisperer, rapid click frenzy spawns flying parrots, footer parrot party, time-based messages, console API, and more
+- 25+ easter eggs: 204 fades to nothing, 418 has steam, 429 spawns tiny parrots, 508 spins, Konami code, `/coffee` page, barrel roll, parrot whisperer, click frenzy, footer party, midnight insomnia parrot (11PM-4AM with absurdist tips), 200th page visit celebration, time-based messages, console API, and more
 - 404 memory card game -- find matching parrot pairs on the 404 page with replay and best time tracking
 - Procedural sound effects for interactions
 - View transitions between pages
@@ -95,8 +102,13 @@ A fun, interactive reference for HTTP status codes featuring cartoon parrot illu
 - Skeleton loading animations with shimmer effect for async tool results
 - Global toast notification system for copy/action feedback
 - HTTP method filter pills on homepage (GET/POST/PUT/DELETE/PATCH)
-- Button hover lift micro-animations with spring physics
+- Button hover lift micro-animations with unified 3-level depth system and CSS ripple feedback
+- Touch swipe navigation on mobile detail pages (swipe left/right for prev/next code)
+- Page load fade-in animation (translateY + opacity with reduced-motion support)
 - Mobile polish (optimized for 320px-375px, expanded quiz touch targets to 56px)
+- Request history panel on URL Tester with search, replay, cURL/HAR export
+- Cross-tool linking: test a URL then jump to Redirect Tracer, Security Audit, or CORS Checker
+- Empty state patterns for Review and Parrotdex pages
 - Complete light theme support with boosted color saturation and enhanced depth
 - Print stylesheet for cheat sheet and all pages
 - Double-click-to-copy on code example blocks
