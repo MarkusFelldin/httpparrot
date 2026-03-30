@@ -10776,8 +10776,16 @@ select {
   .hchallenge-card { background: rgba(255, 255, 255, 0.9); }
   .quiz-results-card { background: rgba(255, 255, 255, 0.9); }
   .hover-sparkle { background: var(--color-gold); }
-  .lightning-badge { background: rgba(240, 165, 0, 0.1); }
+  .lightning-badge { background: rgba(240, 165, 0, 0.1); color: #b8860b; border-color: #d4a017; }
   .path-card:hover { border-color: #009d82; }
+  .roulette-score .score-item { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 0, 0, 0.1); }
+  .roulette-correct { background: rgba(0, 157, 130, 0.1); color: #009d82; }
+  .roulette-wrong { background: rgba(220, 53, 69, 0.08); color: #c0392b; }
+  .roulette-yes { border-color: #009d82; color: #009d82; }
+  .roulette-yes:hover { background: rgba(0, 157, 130, 0.08); }
+  .roulette-no { border-color: #c0392b; color: #c0392b; }
+  .roulette-no:hover { background: rgba(220, 53, 69, 0.06); }
+  .hchallenge-code { color: var(--text-primary); }
 }
 
 /* ========================================================================
@@ -10785,10 +10793,44 @@ select {
    ======================================================================== */
 .roulette-btn:focus-visible,
 .hchallenge-input input:focus-visible,
+.hchallenge-input .btn-back:focus-visible,
+.hchallenge-next .btn-back:focus-visible,
+.roulette-next .btn-back:focus-visible,
 .quiz-share-btn:focus-visible,
-.quiz-continue-btn:focus-visible {
+.quiz-continue-btn:focus-visible,
+.path-step-check:focus-visible,
+.path-step a:focus-visible {
   outline: 2px solid var(--color-teal);
   outline-offset: 2px;
+}
+
+/* ========================================================================
+   Round 10 Pass 11 -- Mobile Polish for R10 Elements
+   ======================================================================== */
+@media (max-width: 480px) {
+  .roulette-card { padding: 1.25rem; flex-direction: column; }
+  .roulette-method { font-size: var(--text-xl); }
+  .roulette-code { font-size: var(--text-xl); }
+  .roulette-arrow { display: none; }
+  .roulette-buttons { flex-direction: column; }
+  .roulette-btn { width: 100%; }
+  .roulette-score { flex-wrap: wrap; }
+  .hchallenge-card { padding: 1.25rem; }
+  .hchallenge-input { flex-direction: column; }
+  .hchallenge-input .predict-input { max-width: 100%; }
+  .hchallenge-code { font-size: var(--text-xl); }
+}
+
+/* ========================================================================
+   Round 10 Pass 11 -- Reduced Motion for R10 Elements
+   ======================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .hover-sparkle { animation: none !important; display: none !important; }
+  .lightning-badge { animation: none !important; }
+  .parrot-click-hint-hidden .img img { animation: none !important; }
+  .path-step { transition: none !important; }
+  .path-card { transition: none !important; }
+  .collect-progress-fill { transition: none !important; }
 }
 
 /* ========================================================================
@@ -10796,9 +10838,15 @@ select {
    ======================================================================== */
 @media print {
   .roulette-buttons,
+  .roulette-next,
+  .roulette-score,
+  .roulette-feedback,
   .hchallenge-input,
+  .hchallenge-feedback,
+  .hchallenge-next,
   .quiz-results-actions,
-  .lightning-badge {
+  .lightning-badge,
+  .hover-sparkle {
     display: none !important;
   }
 }
