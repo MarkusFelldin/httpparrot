@@ -727,6 +727,13 @@ def predict():
     return render_template('predict.html', scenarios=json.dumps(scenario_data))
 
 
+@app.route('/verb-roulette')
+def verb_roulette():
+    """Render the HTTP Verb Roulette mini-game."""
+    codes = [{"code": c.code, "name": c.name} for c in pruned_status_codes()]
+    return render_template('verb_roulette.html', codes_json=json.dumps(codes))
+
+
 @app.route('/personality')
 def personality():
     """Render the 'Which HTTP Status Code Are You?' personality quiz."""
@@ -2132,7 +2139,7 @@ def sitemap():
                  '/security-audit',
                  '/trace', '/collection', '/playground', '/curl-import', '/api-docs',
                  '/profile', '/review', '/fault-simulator', '/webhook-inspector',
-                 '/bingo', '/horoscope', '/map', '/incidents']:
+                 '/bingo', '/horoscope', '/map', '/incidents', '/verb-roulette']:
         pages.append({'loc': base + rule, 'priority': '1.0' if rule == '/' else '0.7'})
     for sc in pruned_status_codes():
         pages.append({'loc': base + '/' + sc.code, 'priority': '0.8'})

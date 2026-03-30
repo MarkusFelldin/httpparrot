@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Verb Roulette - HTTP Parrots{% endblock %}
+{% block subtitle %}Verb Roulette{% endblock %}
+{% block meta %}
+    <meta name="description" content="Spin the wheel! Get a random HTTP method and status code, then decide if that combination is valid.">
+{% endblock %}
+{% block content %}
+    <main class="roulette-container" id="main-content" role="main">
+        <div class="page-header">
+            <h1>Verb Roulette</h1>
+            <p>Is this method + status code combination valid?</p>
+        </div>
+        <div class="roulette-score" role="region" aria-label="Score">
+            <div class="score-item score-correct"><div class="score-value" id="r-correct">0</div><div class="score-label">Correct</div></div>
+            <div class="score-item score-total"><div class="score-value" id="r-total">0</div><div class="score-label">Total</div></div>
+        </div>
+        <div class="roulette-card" id="roulette-card">
+            <div class="roulette-method" id="r-method">GET</div>
+            <div class="roulette-arrow" aria-hidden="true">&#x2192;</div>
+            <div class="roulette-code" id="r-code">200</div>
+            <div class="roulette-name" id="r-name">OK</div>
+        </div>
+        <div class="roulette-buttons" id="r-buttons">
+            <button class="btn-back roulette-btn roulette-yes" id="r-yes" type="button">Valid</button>
+            <button class="btn-back roulette-btn roulette-no" id="r-no" type="button">Invalid</button>
+        </div>
+        <div class="roulette-feedback" id="r-feedback" aria-live="polite"></div>
+        <div class="roulette-next" id="r-next" style="display:none">
+            <button class="btn-back" id="r-next-btn" type="button">Next Round</button>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        var allCodes = {{ codes_json | safe }};
+        var methods = ['GET','POST','PUT','DELETE','PATCH','HEAD','OPTIONS'];
+        var correct = 0, total = 0, answered = false;
+
+        /* Valid combinations map — method: [codes that make sense] */
+        var validMap = {
+            'GET': ['200','204','206','301','302','303','304','307','308','400','401','403','404','406','410','429','500','502','503','504'],
+            'POST': ['200','201','202','204','301','302','303','307','308','400','401','403','404','405','409','413','415','422','429','500','502','503'],
+            'PUT': ['200','201','204','301','307','308','400','401','403','404','405','409','412','413','415','422','428','429','500','502','503'],
+            'DELETE': ['200','202','204','301','307','308','400','401','403','404','405','409','429','500','502','503'],
+            'PATCH': ['200','204','301','307','308','400','401','403','404','405','409','412','415','422','428','429','500','502','503'],
+            'HEAD': ['200','204','301','302','304','307','308','400','401','403','404','429','500','502','503','504'],
+            'OPTIONS': ['200','204','400','401','403','404','405','500']
+        };
+
+        function spin() {
+            answered = false;
+            var method = methods[Math.floor(Math.random() * methods.length)];
+            var code = allCodes[Math.floor(Math.random() * allCodes.length)];
+            document.getElementById('r-method').textContent = method;
+            document.getElementById('r-method').className = 'roulette-method method-' + method.toLowerCase();
+            document.getElementById('r-code').textContent = code.code;
+            document.getElementById('r-name').textContent = code.name;
+            document.getElementById('r-feedback').textContent = '';
+            document.getElementById('r-feedback').className = 'roulette-feedback';
+            document.getElementById('r-next').style.display = 'none';
+            document.getElementById('r-buttons').style.display = '';
+            /* Store current answer */
+            var valid = validMap[method] && validMap[method].indexOf(code.code) !== -1;
+            document.getElementById('roulette-card').setAttribute('data-valid', valid ? 'true' : 'false');
+        }
+
+        function answer(userSaidValid) {
+            if (answered) return;
+            answered = true;
+            total++;
+            var isValid = document.getElementById('roulette-card').getAttribute('data-valid') === 'true';
+            var isCorrect = userSaidValid === isValid;
+            if (isCorrect) correct++;
+            document.getElementById('r-correct').textContent = correct;
+            document.getElementById('r-total').textContent = total;
+            var fb = document.getElementById('r-feedback');
+            var method = document.getElementById('r-method').textContent;
+            var code = document.getElementById('r-code').textContent;
+            if (isCorrect) {
+                fb.textContent = 'Correct! ' + method + ' ' + code + ' is ' + (isValid ? 'a valid' : 'an unusual') + ' combination.';
+                fb.className = 'roulette-feedback roulette-correct';
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(10, 'roulette_correct');
+            } else {
+                fb.textContent = 'Not quite. ' + method + ' ' + code + ' is actually ' + (isValid ? 'valid' : 'unusual') + '.';
+                fb.className = 'roulette-feedback roulette-wrong';
+            }
+            document.getElementById('r-buttons').style.display = 'none';
+            document.getElementById('r-next').style.display = '';
+        }
+
+        document.getElementById('r-yes').addEventListener('click', function() { answer(true); });
+        document.getElementById('r-no').addEventListener('click', function() { answer(false); });
+        document.getElementById('r-next-btn').addEventListener('click', spin);
+        spin();
+    })();
+    </script>
+{% endblock %}

@@ -12098,6 +12098,47 @@ class TestMobileSwipeNavigation:
         assert b'swipe' in resp.data.lower() or b'touchstart' in resp.data
 
 
+class TestVerbRoulette:
+    """Tests for the /verb-roulette mini-game page."""
+
+    def test_verb_roulette_page(self, client):
+        resp = client.get('/verb-roulette')
+        assert resp.status_code == 200
+        assert b'Verb Roulette' in resp.data
+
+    def test_verb_roulette_has_game_elements(self, client):
+        resp = client.get('/verb-roulette')
+        html = resp.data.decode()
+        assert 'id="r-method"' in html
+        assert 'id="r-code"' in html
+        assert 'id="r-yes"' in html
+        assert 'id="r-no"' in html
+        assert 'id="r-feedback"' in html
+
+    def test_verb_roulette_has_score(self, client):
+        resp = client.get('/verb-roulette')
+        html = resp.data.decode()
+        assert 'id="r-correct"' in html
+        assert 'id="r-total"' in html
+
+    def test_verb_roulette_has_valid_map(self, client):
+        resp = client.get('/verb-roulette')
+        html = resp.data.decode()
+        assert 'validMap' in html
+        assert "'GET'" in html
+        assert "'POST'" in html
+        assert "'DELETE'" in html
+
+    def test_verb_roulette_in_sitemap(self, client):
+        resp = client.get('/sitemap.xml')
+        assert b'/verb-roulette' in resp.data
+
+    def test_verb_roulette_in_nav(self, client):
+        resp = client.get('/verb-roulette')
+        html = resp.data.decode()
+        assert 'href="/verb-roulette"' in html
+
+
 class TestStatusCodeMap:
     """Tests for the /map status code relationship map page."""
 
