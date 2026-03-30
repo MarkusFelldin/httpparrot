@@ -8827,6 +8827,15 @@ body {
     align-items: center;
     justify-content: center;
   }
+
+  /* R11 glossary & onboarding at 375px */
+  .glossary-container { padding: 1.5rem 0.75rem 3rem; }
+  .glossary-term { padding: 0.75rem; }
+  .glossary-term h3 { font-size: var(--text-md); }
+  .glossary-term p { font-size: var(--text-xs); }
+  .onboarding-banner { padding: 1rem; max-width: calc(100% - 1rem); }
+  .onboarding-icon { font-size: 1.5rem; }
+  .onboarding-text strong { font-size: var(--text-sm); }
 }
 
 /* Compare selector stacking at tablet */
@@ -10955,17 +10964,32 @@ select {
 }
 
 /* ========================================================================
-   Round 11 Pass 10 -- Light Theme + Focus + Print Coverage for R11
+   Round 11 Pass 11 -- Light Theme + Focus + Print + Mobile + Reduced Motion
    ======================================================================== */
 
 /* Light theme for R11 elements */
 @media (prefers-color-scheme: light) {
-  .glossary-term { background: rgba(255, 255, 255, 0.9); }
+  /* Glossary */
+  .glossary-term { background: rgba(255, 255, 255, 0.9); border-color: rgba(0, 0, 0, 0.08); }
+  .glossary-term:hover { border-color: #009d82; }
   .glossary-term h3 { color: #009d82; }
-  .onboarding-banner { background: rgba(255, 255, 255, 0.97); }
+  .glossary-term p { color: rgba(26, 26, 31, 0.7); }
+
+  /* Onboarding banner */
+  .onboarding-banner { background: rgba(255, 255, 255, 0.97); border-color: #009d82; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.10); }
+  .onboarding-text strong { color: var(--text-primary); }
+  .onboarding-text p { color: rgba(26, 26, 31, 0.6); }
   .onboarding-text kbd { background: rgba(0, 0, 0, 0.06); border-color: rgba(0, 0, 0, 0.1); }
+  .onboarding-dismiss { background: rgba(0, 157, 130, 0.1); border-color: #009d82; color: #009d82; }
+  .onboarding-dismiss:hover { background: rgba(0, 157, 130, 0.18); }
+
+  /* Theme toggle */
   .theme-toggle-btn { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.12); }
+  .theme-toggle-btn:hover { background: rgba(0, 0, 0, 0.08); border-color: rgba(0, 0, 0, 0.2); }
+
+  /* Profile export */
   .profile-export-btn { color: var(--text-primary); }
+  .profile-export-desc { color: rgba(26, 26, 31, 0.55); }
 }
 
 /* Focus states */
@@ -10991,10 +11015,14 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .onboarding-banner { transition: none !important; }
   .glossary-term { transition: none !important; }
+  .glossary-term:hover { transform: none !important; }
+  .theme-toggle-btn { transition: none !important; }
+  .onboarding-dismiss { transition: none !important; }
 }
 
-/* Mobile */
+/* Mobile -- 480px */
 @media (max-width: 480px) {
   .glossary-grid { grid-template-columns: 1fr; }
   .glossary-term { padding: 1rem; }
 }
+
