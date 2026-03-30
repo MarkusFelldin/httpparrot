@@ -12076,3 +12076,38 @@ class TestRound10Pass10LightTheme:
         resp = client.get('/static/style.css')
         assert b'.roulette-buttons' in resp.data
         assert b'.hchallenge-input' in resp.data
+
+
+class TestRound11Pass3Scenarios:
+    """Tests for Round 11 Pass 3 — 4 new practice scenarios."""
+
+    def test_scenario_count_at_least_68(self):
+        """Scenarios module should have at least 68 entries."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 68
+
+
+class TestRound11Pass4DebugExercises:
+    """Tests for Round 11 Pass 4 — 2 new debug exercises."""
+
+    def test_debug_exercise_403_leak(self, client):
+        resp = client.get('/debug')
+        assert b'403-leaking-existence' in resp.data or b'Leaking Resource' in resp.data
+
+
+class TestRound11Pass5Onboarding:
+    """Tests for Round 11 Pass 5 — First-visit onboarding tooltips."""
+
+    def test_homepage_has_onboarding(self, client):
+        """Homepage should contain onboarding script."""
+        resp = client.get('/')
+        assert b'onboarding' in resp.data.lower()
+
+
+class TestRound11Pass6ProfileExport:
+    """Tests for Round 11 Pass 6 — Profile data export."""
+
+    def test_profile_has_export(self, client):
+        """Profile page should have export data section."""
+        resp = client.get('/profile')
+        assert b'Export Data' in resp.data or b'profile-export' in resp.data

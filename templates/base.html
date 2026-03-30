@@ -2494,6 +2494,52 @@
         });
     })();
     </script>
+    <script nonce="{{ csp_nonce }}">
+    /* First-visit onboarding */
+    (function() {
+        var ONBOARD_KEY = 'httpparrot_onboarded';
+        if (localStorage.getItem(ONBOARD_KEY)) return;
+
+        /* Only show on homepage */
+        if (window.location.pathname !== '/') return;
+
+        setTimeout(function() {
+            var banner = document.createElement('div');
+            banner.className = 'onboarding-banner';
+            banner.setAttribute('role', 'dialog');
+            banner.setAttribute('aria-label', 'Welcome');
+            banner.innerHTML = '<div class="onboarding-content">'
+                + '<span class="onboarding-icon" aria-hidden="true">&#x1F99C;</span>'
+                + '<div class="onboarding-text">'
+                + '<strong>Welcome to HTTP Parrots!</strong>'
+                + '<p>Learn HTTP status codes through quizzes, challenges, and 40+ interactive tools. '
+                + 'Press <kbd>?</kbd> for shortcuts, <kbd>Cmd+K</kbd> for search.</p>'
+                + '</div>'
+                + '<button class="onboarding-dismiss" type="button" aria-label="Dismiss">Got it!</button>'
+                + '</div>';
+            document.body.appendChild(banner);
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() { banner.classList.add('onboarding-visible'); });
+            });
+
+            banner.querySelector('.onboarding-dismiss').addEventListener('click', function() {
+                localStorage.setItem(ONBOARD_KEY, 'true');
+                banner.classList.remove('onboarding-visible');
+                setTimeout(function() { banner.remove(); }, 300);
+                if (typeof ParrotXP !== 'undefined') ParrotXP.award(25, 'welcome_bonus');
+            });
+
+            /* Auto-dismiss after 15 seconds */
+            setTimeout(function() {
+                if (banner.parentNode) {
+                    localStorage.setItem(ONBOARD_KEY, 'true');
+                    banner.classList.remove('onboarding-visible');
+                    setTimeout(function() { if (banner.parentNode) banner.remove(); }, 300);
+                }
+            }, 15000);
+        }, 1500);
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
