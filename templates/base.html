@@ -2482,6 +2482,35 @@
     })();
     </script>
     <script nonce="{{ csp_nonce }}">
+    /* HTTP version easter egg */
+    (function() {
+        var buf = '';
+        var facts = {
+            'http2': 'HTTP/2 was standardized in 2015 (RFC 7540). It introduced multiplexing, header compression, and server push!',
+            'http3': 'HTTP/3 uses QUIC (UDP-based) instead of TCP. Standardized in 2022 (RFC 9114), it eliminates head-of-line blocking!',
+            'http1': 'HTTP/1.1 has been the workhorse of the web since 1997 (RFC 2068). Keep-Alive connections were a game changer!',
+        };
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buf += e.key.toLowerCase();
+            if (buf.length > 10) buf = buf.slice(-10);
+            for (var key in facts) {
+                if (buf.endsWith(key)) {
+                    buf = '';
+                    if (typeof ParrotToast !== 'undefined') ParrotToast.show(facts[key], 'info', 6000);
+                    var eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]');
+                    if (eggs.indexOf('http_version_' + key) === -1) {
+                        eggs.push('http_version_' + key);
+                        localStorage.setItem('eggs_found', JSON.stringify(eggs));
+                        if (typeof ParrotXP !== 'undefined') ParrotXP.award(50, 'easter_egg');
+                    }
+                    break;
+                }
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
     /* Credits page easter egg trigger */
     (function() {
         var buf = '';

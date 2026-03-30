@@ -10953,3 +10953,48 @@ select {
   .onboarding-content { flex-direction: column; align-items: center; text-align: center; }
   .onboarding-dismiss { width: 100%; }
 }
+
+/* ========================================================================
+   Round 11 Pass 10 -- Light Theme + Focus + Print Coverage for R11
+   ======================================================================== */
+
+/* Light theme for R11 elements */
+@media (prefers-color-scheme: light) {
+  .glossary-term { background: rgba(255, 255, 255, 0.9); }
+  .glossary-term h3 { color: #009d82; }
+  .onboarding-banner { background: rgba(255, 255, 255, 0.97); }
+  .onboarding-text kbd { background: rgba(0, 0, 0, 0.06); border-color: rgba(0, 0, 0, 0.1); }
+  .theme-toggle-btn { background: rgba(0, 0, 0, 0.04); border-color: rgba(0, 0, 0, 0.12); }
+  .profile-export-btn { color: var(--text-primary); }
+}
+
+/* Focus states */
+.glossary-search-wrap .search-input:focus-visible,
+.onboarding-dismiss:focus-visible,
+.theme-toggle-btn:focus-visible,
+.profile-export-btn:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .onboarding-banner,
+  .theme-toggle-btn,
+  .profile-export-section,
+  .glossary-search-wrap {
+    display: none !important;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-banner { transition: none !important; }
+  .glossary-term { transition: none !important; }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .glossary-grid { grid-template-columns: 1fr; }
+  .glossary-term { padding: 1rem; }
+}

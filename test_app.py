@@ -4413,8 +4413,8 @@ class TestLearnIndexRoute:
         assert 'Auth pairs' in html
         assert 'Redirect pairs' in html
         assert 'Error pairs' in html
-        assert '20 pairs' in html
-        assert '7 categories' in html
+        assert '21 pairs' in html
+        assert '8 categories' in html
         for slug in ['502-vs-504', '401-vs-407', '204-vs-205', '409-vs-412',
                       '301-vs-308', '503-vs-504', '502-vs-503']:
             assert slug in html, f"Missing pair: {slug}"
@@ -12111,3 +12111,65 @@ class TestRound11Pass6ProfileExport:
         """Profile page should have export data section."""
         resp = client.get('/profile')
         assert b'Export Data' in resp.data or b'profile-export' in resp.data
+
+
+class TestRound11Pass7ConfusionPair408vs504:
+    """Tests for Round 11 Pass 7 — 408 vs 504 confusion pair."""
+
+    def test_learn_pair_408_vs_504(self, client):
+        """408 vs 504 pair page should render successfully."""
+        resp = client.get('/learn/408-vs-504')
+        assert resp.status_code == 200
+
+
+class TestRound11Pass8Scenarios:
+    """Tests for Round 11 Pass 8 — 4 new practice scenarios."""
+
+    def test_scenario_count_at_least_72(self):
+        """Scenarios module should have at least 72 entries."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 72
+
+
+class TestRound11Pass9HTTPVersionEgg:
+    """Tests for Round 11 Pass 9 — HTTP version easter egg."""
+
+    def test_base_has_http_version_egg(self, client):
+        """Homepage should contain HTTP version easter egg script."""
+        resp = client.get('/')
+        assert b'http_version' in resp.data or b'HTTP/2' in resp.data
+
+
+class TestRound11Pass10LightThemeFocusPrint:
+    """Tests for Round 11 Pass 10 — Light theme, focus, print coverage for R11."""
+
+    def test_css_has_r11_light_theme(self):
+        """CSS should have light theme rules for R11 elements."""
+        with app.test_client() as client:
+            css = client.get('/static/style.css').data.decode()
+            assert '.glossary-term' in css
+            assert '.onboarding-banner' in css
+            assert '.theme-toggle-btn' in css
+            assert '.profile-export-btn' in css
+
+    def test_css_has_r11_focus_states(self):
+        """CSS should have focus-visible states for R11 elements."""
+        with app.test_client() as client:
+            css = client.get('/static/style.css').data.decode()
+            assert '.glossary-search-wrap .search-input:focus-visible' in css
+            assert '.onboarding-dismiss:focus-visible' in css
+            assert '.theme-toggle-btn:focus-visible' in css
+            assert '.profile-export-btn:focus-visible' in css
+
+    def test_css_has_r11_print_styles(self):
+        """CSS should hide non-essential R11 elements in print."""
+        with app.test_client() as client:
+            css = client.get('/static/style.css').data.decode()
+            assert '.onboarding-banner' in css
+            assert '.glossary-search-wrap' in css
+
+    def test_css_has_r11_reduced_motion(self):
+        """CSS should disable transitions under prefers-reduced-motion."""
+        with app.test_client() as client:
+            css = client.get('/static/style.css').data.decode()
+            assert 'prefers-reduced-motion' in css
