@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Credits - HTTP Parrots{% endblock %}
+{% block subtitle %}Credits{% endblock %}
+{% block content %}
+    <main class="credits-container" id="main-content" role="main">
+        <div class="credits-scroll" id="credits-scroll">
+            <div class="credits-content">
+                <h1 class="credits-title">HTTP Parrots</h1>
+                <p class="credits-tagline">Every HTTP status code, explained by parrots</p>
+                <div class="credits-section">
+                    <h2>Created by</h2>
+                    <p>Markus Felldin</p>
+                </div>
+                <div class="credits-section">
+                    <h2>Status Codes Covered</h2>
+                    <p>72 illustrated parrots</p>
+                </div>
+                <div class="credits-section">
+                    <h2>Features</h2>
+                    <p>Quiz &middot; Daily Challenge &middot; Weekly Challenge &middot; Bingo</p>
+                    <p>Horoscope &middot; Prediction Game &middot; War Stories</p>
+                    <p>Practice Scenarios &middot; Debug Exercises &middot; Confusion Pairs</p>
+                    <p>Learning Paths &middot; Spaced Repetition &middot; Status Code Map</p>
+                    <p>URL Tester &middot; Playground &middot; Fault Simulator</p>
+                    <p>CORS Checker &middot; Security Audit &middot; Header Explainer</p>
+                    <p>Content Negotiation &middot; Redirect Tracer &middot; Webhook Inspector</p>
+                </div>
+                <div class="credits-section">
+                    <h2>Easter Eggs Found</h2>
+                    <p id="credits-egg-count">0 / ???</p>
+                </div>
+                <div class="credits-section">
+                    <h2>Built With</h2>
+                    <p>Python &middot; Flask &middot; Vanilla JS &middot; CSS Design Tokens</p>
+                </div>
+                <div class="credits-section credits-thanks">
+                    <h2>Thank You</h2>
+                    <p>For learning HTTP with us!</p>
+                    <p class="credits-parrot" aria-hidden="true">&#x1F99C;</p>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}
+{% block scripts %}
+    <script nonce="{{ csp_nonce }}">
+    (function() {
+        /* Show egg count */
+        var eggs = [];
+        try { eggs = JSON.parse(localStorage.getItem('eggs_found') || '[]'); } catch(e) {}
+        var el = document.getElementById('credits-egg-count');
+        if (el) el.textContent = eggs.length + ' / 15+';
+
+        /* Register credits page as easter egg */
+        if (eggs.indexOf('credits_page') === -1) {
+            eggs.push('credits_page');
+            localStorage.setItem('eggs_found', JSON.stringify(eggs));
+            if (typeof ParrotXP !== 'undefined') ParrotXP.award(100, 'easter_egg');
+        }
+    })();
+    </script>
+{% endblock %}

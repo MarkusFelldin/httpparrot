@@ -109,6 +109,25 @@ LEARNING_PATHS = [
             {"type": "quiz", "target": 10, "label": "Quiz: 10 questions"},
         ],
     },
+    {
+        "id": "security-sentinel",
+        "title": "Security Sentinel",
+        "description": "Master HTTP security: authentication, authorization, CORS, and security headers. Learn to build APIs that are secure by default.",
+        "difficulty": "advanced",
+        "steps": [
+            {"type": "visit", "target": "401", "label": "Visit 401 Unauthorized"},
+            {"type": "visit", "target": "403", "label": "Visit 403 Forbidden"},
+            {"type": "learn", "target": "401-vs-403", "label": "Learn: 401 vs 403"},
+            {"type": "debug", "target": "401-no-www-auth", "label": "Debug: 401 missing WWW-Authenticate"},
+            {"type": "debug", "target": "403-instead-of-401", "label": "Debug: 403 used instead of 401"},
+            {"type": "debug", "target": "cors-missing-origin", "label": "Debug: CORS missing Allow-Origin"},
+            {"type": "visit", "target": "451", "label": "Visit 451 Unavailable For Legal Reasons"},
+            {"type": "visit", "target": "511", "label": "Visit 511 Network Authentication Required"},
+            {"type": "practice", "target": 59, "label": "Practice: expired JWT token"},
+            {"type": "practice", "target": 7, "label": "Practice: unauthorized access"},
+            {"type": "quiz", "target": 10, "label": "Quiz: 10 questions"},
+        ],
+    },
 ]
 
 # Quick lookup by path id

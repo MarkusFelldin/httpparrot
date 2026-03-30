@@ -14,6 +14,12 @@
             <div class="daily-date">{{ date_str }}</div>
         </div>
 
+        <div class="daily-countdown" id="daily-countdown" aria-label="Time until next challenge">
+            <span class="countdown-icon" aria-hidden="true">&#x23F3;</span>
+            <span class="countdown-text" id="countdown-text">--:--:--</span>
+            <span class="countdown-label">until next challenge</span>
+        </div>
+
         <div class="daily-streak-display" role="region" aria-label="Streak tracker">
             <div class="score-item score-streak">
                 <div class="score-value" id="streak-count" aria-live="polite">0</div>
@@ -319,6 +325,26 @@
                 if (btns[parseInt(e.key) - 1]) btns[parseInt(e.key) - 1].click();
             }
         });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Countdown timer */
+    (function() {
+        var el = document.getElementById('countdown-text');
+        if (!el) return;
+        function update() {
+            var now = new Date();
+            var tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            var diff = tomorrow - now;
+            var h = Math.floor(diff / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            var s = Math.floor((diff % 60000) / 1000);
+            el.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+        update();
+        setInterval(update, 1000);
     })();
     </script>
 {% endblock %}

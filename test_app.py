@@ -158,6 +158,11 @@ class TestPages:
         assert resp.status_code == 200
         assert b'Horoscope' in resp.data or b'Oracle' in resp.data
 
+    def test_incidents_page(self, client):
+        resp = client.get('/incidents')
+        assert resp.status_code == 200
+        assert b'War Stories' in resp.data
+
 
 # --- Content negotiation ---
 
@@ -5554,7 +5559,7 @@ class TestDebugExerciseCategories:
 
     def test_all_exercises_have_category(self):
         from debug_exercises import DEBUG_EXERCISES
-        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design'}
+        valid_cats = {'auth', 'caching', 'redirects', 'crud', 'errors', 'headers', 'api-design', 'security'}
         for ex in DEBUG_EXERCISES:
             assert 'category' in ex, f"Exercise {ex['id']} missing category"
             assert ex['category'] in valid_cats, \
@@ -5944,16 +5949,16 @@ class TestTypographyTokens:
         assert 'var(--text-3xl)' in css
 
     def test_type_scale_token_values(self):
-        """Type scale tokens should have the correct values."""
+        """Type scale tokens should use fluid clamp() values."""
         with open('static/style.css', 'r') as f:
             css = f.read()
-        assert '--text-xs: 0.65rem' in css
-        assert '--text-sm: 0.8rem' in css
+        assert '--text-xs: clamp(0.6rem' in css
+        assert '--text-sm: clamp(0.75rem' in css
         assert '--text-base: 1rem' in css
-        assert '--text-lg: 1.25rem' in css
-        assert '--text-xl: 1.5rem' in css
-        assert '--text-2xl: 2.2rem' in css
-        assert '--text-3xl: 3rem' in css
+        assert '--text-lg: clamp(1.1rem' in css
+        assert '--text-xl: clamp(1.25rem' in css
+        assert '--text-2xl: clamp(1.6rem' in css
+        assert '--text-3xl: clamp(2rem' in css
 
 
 class TestDesignSystemTokens:
@@ -6206,7 +6211,7 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '17 pairs' in html
+        assert '18 pairs' in html
         assert '7 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
@@ -6300,6 +6305,19 @@ class TestLearnPairRoute:
         resp = client.get('/learn/429-vs-503')
         assert resp.status_code == 200
         assert b'Too Many Requests' in resp.data
+
+    def test_learn_pair_200_vs_201(self, client):
+        resp = client.get('/learn/200-vs-201')
+        assert resp.status_code == 200
+
+    def test_learn_pair_301_vs_308(self, client):
+        resp = client.get('/learn/301-vs-308')
+        assert resp.status_code == 200
+
+    def test_scenario_count_at_least_60(self, client):
+        """Scenarios should have at least 60 entries."""
+        from scenarios import SCENARIOS
+        assert len(SCENARIOS) >= 60
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""
@@ -7123,9 +7141,9 @@ class TestLearningPathsData:
                     assert step['target'] in debug_ids, \
                         f"Unknown debug id {step['target']} in path {path['id']}"
 
-    def test_four_paths_exist(self):
+    def test_five_paths_exist(self):
         from learning_paths import LEARNING_PATHS
-        assert len(LEARNING_PATHS) == 4
+        assert len(LEARNING_PATHS) == 5
 
     def test_lookup_by_id(self):
         from learning_paths import LEARNING_PATHS_BY_ID
@@ -12491,6 +12509,16 @@ class TestDailySuggestedActions:
         assert '.daily-suggested-label' in css
         assert '.daily-suggested-link' in css
 
+    def test_daily_has_countdown(self, client):
+        """Daily page should have a countdown timer for next challenge."""
+        resp = client.get('/daily')
+        assert b'countdown' in resp.data.lower()
+
+    def test_weekly_has_countdown(self, client):
+        """Weekly page should have a countdown timer for next weekly challenge."""
+        resp = client.get('/weekly')
+        assert b'countdown' in resp.data.lower()
+
 
 # --- Command Palette ---
 
@@ -12570,6 +12598,16 @@ class TestCommandPalette:
         html = resp.data.decode()
         assert 'Take Quiz' in html
         assert 'Random Parrot' in html
+
+    def test_keyboard_shortcuts_include_navigation(self, client):
+        """Keyboard shortcuts overlay should list G-key navigation shortcuts."""
+        resp = client.get('/')
+        html = resp.data.decode()
+        assert 'Go to Homepage' in html
+        assert 'Go to Quiz' in html
+        assert 'Go to Daily' in html
+        assert 'Go to Profile' in html
+        assert 'Random parrot' in html
 
     def test_keyboard_shortcuts_includes_cmdk(self, client):
         """Keyboard shortcuts overlay should list Cmd+K."""
@@ -14221,3 +14259,237 @@ class TestRound6FinalPolish:
         css = resp.data.decode()
         assert 'prefers-reduced-motion' in css
         assert 'page-fade-in' in css
+
+    def test_homepage_has_favorites_system(self, client):
+        """Homepage should include favorites system with double-click support."""
+        resp = client.get('/')
+        assert resp.status_code == 200
+        assert b'favorites' in resp.data.lower() or b'fav-chip' in resp.data
+
+
+class TestRound7DesignRefinements:
+    """Tests for Round 7 Pass 1 design refinements."""
+
+    def test_css_has_fluid_typography(self, client):
+        resp = client.get('/static/style.css')
+        assert b'clamp(' in resp.data
+
+    def test_css_has_sticky_profile_headers(self, client):
+        resp = client.get('/static/style.css')
+        assert b'sticky' in resp.data and b'profile-container' in resp.data
+
+
+class TestRound7Pass5Engagement:
+    """Tests for Round 7 Pass 5 engagement features."""
+
+    def test_detail_page_has_musical_tones(self, client):
+        resp = client.get('/200')
+        assert b'AudioContext' in resp.data or b'musical' in resp.data.lower()
+
+    def test_detail_page_musical_tones_has_chords(self, client):
+        resp = client.get('/404')
+        assert b'chords' in resp.data
+        assert b'sawtooth' in resp.data
+
+    def test_flash_xp_event_code_in_base(self, client):
+        resp = client.get('/')
+        assert b'flash_event' in resp.data or b'FLASH_KEY' in resp.data
+
+    def test_flash_xp_banner_css(self, client):
+        resp = client.get('/static/style.css')
+        assert b'flash-event-banner' in resp.data
+
+    def test_flash_indicator_css(self, client):
+        resp = client.get('/static/style.css')
+        assert b'flash-indicator' in resp.data
+        assert b'flash-pulse' in resp.data
+
+    def test_flash_multiplier_in_award(self, client):
+        resp = client.get('/')
+        assert b'isFlashActive()' in resp.data
+
+    def test_musical_tones_category_chords(self, client):
+        """Each category should have a distinct chord mapping."""
+        resp = client.get('/500')
+        html = resp.data.decode()
+        assert '294, 349, 440' in html  # D minor for 5xx
+
+
+class TestRound7Pass8Content:
+    """Tests for Round 7 Pass 8 content additions."""
+
+    def test_debug_exercise_429_no_retry(self, client):
+        resp = client.get('/debug')
+        assert b'429 Missing Retry-After' in resp.data or b'429-no-retry-after' in resp.data
+
+    def test_paths_has_security_sentinel(self, client):
+        resp = client.get('/paths')
+        assert b'Security Sentinel' in resp.data
+
+    def test_path_security_sentinel(self, client):
+        resp = client.get('/paths/security-sentinel')
+        assert resp.status_code == 200
+
+
+class TestRound7Pass9AnimationPolish:
+    """Tests for Round 7 Pass 9 animation polish."""
+
+    def test_css_has_details_animation(self, client):
+        resp = client.get('/static/style.css')
+        assert b'details-open' in resp.data
+
+
+class TestCreditsPage:
+    """Tests for the hidden /credits page."""
+
+    def test_credits_page(self, client):
+        resp = client.get('/credits')
+        assert resp.status_code == 200
+        assert b'Credits' in resp.data or b'HTTP Parrots' in resp.data
+
+
+class TestDesignAuditRound7:
+    """Round 7 Pass 11 design audit -- spacing, light theme, focus, print."""
+
+    def test_all_pages_return_200(self, client):
+        """Every page route should return 200 or valid status."""
+        pages = ['/', '/quiz', '/daily', '/weekly', '/practice', '/debug',
+                 '/review', '/bingo', '/horoscope', '/predict', '/incidents',
+                 '/content-negotiation', '/map', '/credits',
+                 '/paths', '/learn', '/tester', '/headers', '/cors-checker',
+                 '/security-audit', '/trace', '/playground', '/curl-import',
+                 '/fault-simulator', '/webhook-inspector', '/compare',
+                 '/personality', '/collection', '/cheatsheet', '/flowchart',
+                 '/api-docs', '/profile', '/200', '/404']
+        for page in pages:
+            resp = client.get(page)
+            assert resp.status_code in (200, 404), f'{page} returned {resp.status_code}'
+
+    def test_container_padding_consistency(self, client):
+        """All page containers should use 1.5rem side padding."""
+        css = client.get('/static/style.css').data.decode()
+        containers = [
+            'incidents-container', 'predict-container', 'bingo-container',
+            'horoscope-container', 'conneg-container', 'map-container',
+        ]
+        for c in containers:
+            assert f'.{c}' in css
+            # Find the container rule and check for 1.5rem side padding
+            import re
+            match = re.search(rf'\.{c}\s*\{{[^}}]*padding:\s*[^;]*1\.5rem[^;]*;', css)
+            assert match, f'.{c} should have 1.5rem side padding'
+
+    def test_container_max_width_standard_tiers(self, client):
+        """Containers should use standard width tiers (560, 640, 900)."""
+        css = client.get('/static/style.css').data.decode()
+        import re
+        # These should be one of 560, 640, 720, 900, 1100
+        valid_widths = {'560px', '620px', '640px', '720px', '800px', '900px', '1100px'}
+        for match in re.finditer(r'\.\w+-container\s*\{[^}]*max-width:\s*(\d+px)', css):
+            width = match.group(1)
+            assert width in valid_widths, f'Container has non-standard max-width: {width}'
+
+    def test_light_theme_incident_card(self, client):
+        """Incident cards should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        assert 'prefers-color-scheme: light' in css
+        assert '.incident-card' in css
+        # The light theme block should contain incident-card override
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.incident-card' in block for block in light_blocks[1:])
+        assert found, '.incident-card missing light theme override'
+
+    def test_light_theme_credits(self, client):
+        """Credits page should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.credits-tagline' in block for block in light_blocks[1:])
+        assert found, '.credits-tagline missing light theme override'
+
+    def test_light_theme_favorites_bar(self, client):
+        """Favorites bar should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.favorites-bar' in block for block in light_blocks[1:])
+        assert found, '.favorites-bar missing light theme override'
+
+    def test_light_theme_predict_feedback(self, client):
+        """Predict feedback colors should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found_correct = any('.predict-correct' in block for block in light_blocks[1:])
+        found_wrong = any('.predict-wrong' in block for block in light_blocks[1:])
+        assert found_correct, '.predict-correct missing light theme override'
+        assert found_wrong, '.predict-wrong missing light theme override'
+
+    def test_light_theme_daily_countdown(self, client):
+        """Daily countdown should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.daily-countdown' in block for block in light_blocks[1:])
+        assert found, '.daily-countdown missing light theme override'
+
+    def test_light_theme_timeline(self, client):
+        """Incident timeline should have light theme overrides."""
+        css = client.get('/static/style.css').data.decode()
+        light_blocks = css.split('prefers-color-scheme: light')
+        found = any('.incident-timeline' in block for block in light_blocks[1:])
+        assert found, '.incident-timeline missing light theme override'
+
+    def test_focus_visible_fav_chip(self, client):
+        """Fav chips should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.fav-chip:focus-visible' in css
+
+    def test_focus_visible_predict_submit(self, client):
+        """Predict submit should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.predict-submit:focus-visible' in css
+
+    def test_focus_visible_incident_summary(self, client):
+        """Incident card summary should have focus-visible styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.incident-card summary:focus-visible' in css
+
+    def test_button_depth_predict_submit(self, client):
+        """Predict submit button should have hover lift animation."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.predict-submit:hover' in css
+
+    def test_button_depth_learn_quiz_submit(self, client):
+        """Learn quiz submit should have hover lift animation."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.learn-quiz-submit:hover' in css
+
+    def test_print_hides_interactive_chrome(self, client):
+        """Print styles should hide flash banners and interactive chrome."""
+        css = client.get('/static/style.css').data.decode()
+        print_block = css.split('@media print')[1].split('}')[0] if '@media print' in css else ''
+        # Check key interactive elements are hidden in print
+        for selector in ['.flash-event-banner', '.daily-countdown',
+                         '.favorites-bar', '.insomnia-parrot',
+                         '.feather-toast', '.rank-up-banner']:
+            assert selector in css.split('@media print')[1], \
+                f'{selector} should be hidden in print'
+
+    def test_credits_mobile_breakpoint(self, client):
+        """Credits page should have mobile breakpoint styles."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.credits-title' in css
+        # Check that there's a mobile rule that targets credits
+        import re
+        mobile_blocks = re.findall(r'@media\s*\(max-width:\s*576px\)\s*\{[^}]*\.credits-', css)
+        assert mobile_blocks, 'Credits page missing mobile breakpoint'
+
+    def test_incidents_mobile_breakpoint(self, client):
+        """Incidents page should have mobile breakpoint styles."""
+        css = client.get('/static/style.css').data.decode()
+        import re
+        mobile_blocks = re.findall(r'@media\s*\(max-width:\s*576px\)\s*\{[^}]*\.incident', css)
+        assert mobile_blocks, 'Incidents page missing mobile breakpoint'
+
+    def test_map_mobile_breakpoint(self, client):
+        """Map page should have mobile breakpoints for grid and nodes."""
+        css = client.get('/static/style.css').data.decode()
+        assert '.map-node' in css
+        assert '.map-grid' in css

@@ -586,4 +586,38 @@ DEBUG_EXERCISES = [
         ],
         "related_codes": ["409", "412"],
     },
+    {
+        "id": "308-missing-location",
+        "difficulty": "beginner",
+        "category": "redirects",
+        "title": "308 Without Location",
+        "description": "A permanent redirect that doesn't say where to go.",
+        "request": "POST /api/v1/submit HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{\"data\": \"test\"}",
+        "response": "HTTP/1.1 308 Permanent Redirect\nContent-Type: text/html\nContent-Length: 0",
+        "bugs": [
+            {
+                "id": "missing-location-308",
+                "description": "Missing Location header for redirect",
+                "explanation": "A 308 Permanent Redirect without a Location header is useless — the client has no idea where to resend the request. Always include Location with any 3xx redirect.",
+            },
+        ],
+        "related_codes": ["308", "301"],
+    },
+    {
+        "id": "201-missing-body",
+        "difficulty": "intermediate",
+        "category": "crud",
+        "title": "201 Created Without Resource",
+        "description": "A new resource is created but the response doesn't include it or its location.",
+        "request": "POST /api/users HTTP/1.1\nHost: api.example.com\nContent-Type: application/json\n\n{\"name\": \"Alice\", \"email\": \"alice@example.com\"}",
+        "response": "HTTP/1.1 201 Created\nContent-Type: application/json\nContent-Length: 0",
+        "bugs": [
+            {
+                "id": "no-body-or-location",
+                "description": "201 should include the created resource or a Location header",
+                "explanation": "A 201 Created response should either return the created resource in the body OR include a Location header pointing to it. Without either, the client doesn't know the ID or URL of what was created.",
+            },
+        ],
+        "related_codes": ["201", "200"],
+    },
 ]

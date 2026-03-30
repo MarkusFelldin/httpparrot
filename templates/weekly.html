@@ -23,6 +23,12 @@
             </div>
         </div>
 
+        <div class="daily-countdown" id="weekly-countdown" aria-label="Time until next weekly challenge">
+            <span class="countdown-icon" aria-hidden="true">&#x23F3;</span>
+            <span class="countdown-text" id="weekly-countdown-text">--:--:--</span>
+            <span class="countdown-label">until next weekly</span>
+        </div>
+
         <div class="weekly-progress" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" id="weekly-progress-bar">
             <div class="weekly-progress-steps">
                 <span class="weekly-step" id="step-0">1</span>
@@ -414,6 +420,26 @@
         }
 
         renderQuestion(0);
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Weekly countdown */
+    (function() {
+        var el = document.getElementById('weekly-countdown-text');
+        if (!el) return;
+        function update() {
+            var now = new Date();
+            var nextMonday = new Date(now);
+            nextMonday.setDate(nextMonday.getDate() + (7 - nextMonday.getDay() + 1) % 7 || 7);
+            nextMonday.setHours(0, 0, 0, 0);
+            var diff = nextMonday - now;
+            var d = Math.floor(diff / 86400000);
+            var h = Math.floor((diff % 86400000) / 3600000);
+            var m = Math.floor((diff % 3600000) / 60000);
+            el.textContent = d + 'd ' + String(h).padStart(2, '0') + 'h ' + String(m).padStart(2, '0') + 'm';
+        }
+        update();
+        setInterval(update, 60000);
     })();
     </script>
 {% endblock %}

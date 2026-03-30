@@ -87,7 +87,7 @@
                 </button>
                 <nav class="header-nav" id="desktop-nav" aria-label="Site navigation">
                     <div class="nav-dropdown">
-                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
+                        <button class="nav-dropdown-trigger{% if request.path in ['/quiz','/predict','/daily','/weekly','/practice','/debug','/review','/paths','/flowchart','/bingo','/map','/incidents'] or request.path.startswith('/learn') or request.path.startswith('/paths') %} nav-active{% endif %}" aria-expanded="false" aria-haspopup="true">Learn</button>
                         <div class="nav-dropdown-menu" role="menu">
                             <a href="/quiz" role="menuitem" {% if request.path == '/quiz' %}aria-current="page"{% endif %}>Quiz</a>
                             <a href="/predict" role="menuitem" {% if request.path == '/predict' %}aria-current="page"{% endif %}>Guess the Response</a>
@@ -101,6 +101,7 @@
                             <a href="/flowchart" role="menuitem" {% if request.path == '/flowchart' %}aria-current="page"{% endif %}>Flowchart</a>
                             <a href="/bingo" role="menuitem" {% if request.path == '/bingo' %}aria-current="page"{% endif %}>Bingo</a>
                             <a href="/map" role="menuitem" {% if request.path == '/map' %}aria-current="page"{% endif %}>Code Map</a>
+                            <a href="/incidents" role="menuitem" {% if request.path == '/incidents' %}aria-current="page"{% endif %}>War Stories</a>
                         </div>
                     </div>
                     <div class="nav-dropdown">
@@ -165,6 +166,7 @@
             <a href="/flowchart" {% if request.path == '/flowchart' %}class="nav-active" aria-current="page"{% endif %}>Flowchart</a>
             <a href="/bingo" {% if request.path == '/bingo' %}class="nav-active" aria-current="page"{% endif %}>Bingo</a>
             <a href="/map" {% if request.path == '/map' %}class="nav-active" aria-current="page"{% endif %}>Code Map</a>
+            <a href="/incidents" {% if request.path == '/incidents' %}class="nav-active" aria-current="page"{% endif %}>War Stories</a>
             <div class="mobile-nav-group-label">Tools</div>
             <a href="/tester" {% if request.path == '/tester' %}class="nav-active" aria-current="page"{% endif %}>URL Tester</a>
             <a href="/headers" {% if request.path == '/headers' %}class="nav-active" aria-current="page"{% endif %}>Header Explainer</a>
@@ -187,6 +189,22 @@
         </nav>
     </header>
 
+    <script>
+    /* Header scroll shadow */
+    (function() {
+        var header = document.querySelector('.site-header-compact');
+        if (!header) return;
+        var scrolled = false;
+        window.addEventListener('scroll', function() {
+            var isScrolled = window.scrollY > 10;
+            if (isScrolled !== scrolled) {
+                scrolled = isScrolled;
+                header.classList.toggle('header-scrolled', scrolled);
+            }
+        }, {passive: true});
+    })();
+    </script>
+
     <!-- Keyboard Shortcuts Overlay -->
     <div class="kbd-shortcuts-overlay" id="kbd-shortcuts-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
         <div class="kbd-shortcuts-backdrop" id="kbd-shortcuts-backdrop"></div>
@@ -202,6 +220,11 @@
                     <div class="kbd-shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
                     <div class="kbd-shortcut-row"><kbd>&#8984;K</kbd> / <kbd>Ctrl+K</kbd><span>Command palette</span></div>
                     <div class="kbd-shortcut-row"><kbd>Esc</kbd><span>Close overlay / unfocus</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>H</kbd><span>Go to Homepage</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>Q</kbd><span>Go to Quiz</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>D</kbd><span>Go to Daily</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>P</kbd><span>Go to Profile</span></div>
+                    <div class="kbd-shortcut-row"><kbd>G</kbd> then <kbd>R</kbd><span>Random parrot</span></div>
                 </div>
                 <div class="kbd-shortcuts-group" data-context="home">
                     <h3 class="kbd-shortcuts-group-title">Homepage</h3>
@@ -582,6 +605,56 @@
                 existing.remove();
             }
         }
+
+        function updateFlashIndicator() {
+            if (!isFlashActive()) return;
+            var badge = document.getElementById('xp-badge');
+            if (!badge) return;
+            var existing = badge.querySelector('.flash-indicator');
+            if (!existing) {
+                var ind = document.createElement('span');
+                ind.className = 'flash-indicator';
+                ind.textContent = '\u26A1';
+                ind.title = 'Flash Event Active \u2014 2x XP!';
+                badge.appendChild(ind);
+            }
+        }
+
+        /* Flash XP event — random 2x bonus */
+        var FLASH_KEY = 'httpparrot_flash_event';
+        function isFlashActive() {
+            try {
+                var flash = JSON.parse(localStorage.getItem(FLASH_KEY) || '{}');
+                if (flash.expires && Date.now() < flash.expires) return true;
+                if (flash.expires && Date.now() >= flash.expires) localStorage.removeItem(FLASH_KEY);
+            } catch(e) {}
+            return false;
+        }
+
+        function maybeStartFlash() {
+            if (isFlashActive()) return;
+            /* 5% chance per page load */
+            if (Math.random() > 0.05) return;
+            var expires = Date.now() + 30 * 60 * 1000; /* 30 minutes */
+            localStorage.setItem(FLASH_KEY, JSON.stringify({expires: expires}));
+            showFlashBanner();
+        }
+
+        function showFlashBanner() {
+            var banner = document.createElement('div');
+            banner.className = 'flash-event-banner';
+            banner.setAttribute('role', 'status');
+            banner.innerHTML = '<span class="flash-icon" aria-hidden="true">&#x26A1;</span>'
+                + '<span class="flash-text">Flash Event! 2x XP for 30 minutes!</span>';
+            document.body.appendChild(banner);
+            setTimeout(function() { banner.classList.add('flash-visible'); }, 50);
+            setTimeout(function() {
+                banner.classList.remove('flash-visible');
+                setTimeout(function() { banner.remove(); }, 400);
+            }, 5000);
+        }
+
+        maybeStartFlash();
 
         var PRESTIGE_KEY = 'httpparrot_prestige';
         function getPrestige() {
@@ -1110,6 +1183,7 @@
             if (!amount || amount <= 0) return;
             var mult = getMultiplier();
             mult *= (1 + getPrestige() * 0.1);
+            if (isFlashActive()) mult *= 2;
             amount = Math.round(amount * mult);
             var oldTotal = getTotal();
             var total = oldTotal + amount;
@@ -1143,6 +1217,8 @@
             getMultiplier: getMultiplier,
             updateVisitStreak: updateVisitStreak,
             updateMultiplierIndicator: updateMultiplierIndicator,
+            isFlashActive: isFlashActive,
+            updateFlashIndicator: updateFlashIndicator,
             prestige: prestige,
             getPrestige: getPrestige,
             XP_MILESTONES: XP_MILESTONES,
@@ -1152,6 +1228,7 @@
 
         updateBadge();
         updateMultiplierIndicator();
+        updateFlashIndicator();
         /* Check feathers on every page load for time-based badges like Night Owl */
         checkFeathers();
         /* Award pending seasonal egg XP if queued before ParrotXP loaded */
@@ -2197,6 +2274,62 @@
                 }
             }, 1500);
         }
+    })();
+    </script>
+    <script>
+    /* G-key navigation shortcuts */
+    (function() {
+        var gPressed = false;
+        var gTimer = null;
+        var routes = {
+            'h': '/',
+            'q': '/quiz',
+            'd': '/daily',
+            'p': '/profile',
+            'r': '/random',
+            'b': '/bingo',
+            'w': '/weekly',
+            'm': '/map',
+            'i': '/incidents',
+            'c': '/cheatsheet'
+        };
+
+        document.addEventListener('keydown', function(e) {
+            var tag = document.activeElement ? document.activeElement.tagName : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            if (e.key === 'g' || e.key === 'G') {
+                if (!gPressed) {
+                    gPressed = true;
+                    if (gTimer) clearTimeout(gTimer);
+                    gTimer = setTimeout(function() { gPressed = false; }, 1500);
+                    return;
+                }
+            }
+
+            if (gPressed) {
+                gPressed = false;
+                if (gTimer) clearTimeout(gTimer);
+                var route = routes[e.key.toLowerCase()];
+                if (route) {
+                    e.preventDefault();
+                    window.location.href = route;
+                }
+            }
+        });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Credits page easter egg trigger */
+    (function() {
+        var buf = '';
+        var trigger = 'credits';
+        document.addEventListener('keypress', function(e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+            buf += e.key.toLowerCase();
+            if (buf.length > trigger.length) buf = buf.slice(-trigger.length);
+            if (buf === trigger) { buf = ''; window.location.href = '/credits'; }
+        });
     })();
     </script>
     {% block scripts %}{% endblock %}

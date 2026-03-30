@@ -139,6 +139,11 @@
     color: #e879f9;
     border-color: rgba(232, 121, 249, 0.3);
 }
+.debug-filter-btn.active[data-category="security"] {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
 .debug-filter-row-label {
     font-size: 0.7rem;
     color: #888;
@@ -481,6 +486,7 @@
             <button class="debug-filter-btn" data-category="errors" role="tab" aria-selected="false">Errors</button>
             <button class="debug-filter-btn" data-category="headers" role="tab" aria-selected="false">Headers</button>
             <button class="debug-filter-btn" data-category="api-design" role="tab" aria-selected="false">API Design</button>
+            <button class="debug-filter-btn" data-category="security" role="tab" aria-selected="false">Security</button>
         </div>
 
         <div class="debug-cards" role="tabpanel">
