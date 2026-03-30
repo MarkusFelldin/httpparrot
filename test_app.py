@@ -6191,8 +6191,8 @@ class TestLearnIndexRoute:
     def test_learn_index_has_pair_count(self, client):
         resp = client.get('/learn')
         html = resp.data.decode()
-        assert '15 pairs' in html
-        assert '5 categories' in html
+        assert '16 pairs' in html
+        assert '6 categories' in html
 
     def test_learn_index_lists_new_pairs(self, client):
         resp = client.get('/learn')
@@ -6203,6 +6203,7 @@ class TestLearnIndexRoute:
         assert '409-vs-412' in html
         assert '301-vs-308' in html
         assert '503-vs-504' in html
+        assert '502-vs-503' in html
 
 
 class TestLearnPairRoute:
@@ -6269,6 +6270,11 @@ class TestLearnPairRoute:
         html = resp.data.decode()
         assert 'ParrotXP' in html
         assert 'learn_quiz_correct' in html
+
+    def test_learn_pair_502_vs_503(self, client):
+        resp = client.get('/learn/502-vs-503')
+        assert resp.status_code == 200
+        assert b'Bad Gateway' in resp.data
 
     def test_all_pairs_render(self, client):
         """Every configured pair should render without error."""

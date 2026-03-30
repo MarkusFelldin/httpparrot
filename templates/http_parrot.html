@@ -61,6 +61,10 @@
             <span class="breadcrumb-sep" aria-hidden="true">&rsaquo;</span>
             <span aria-current="page">{{ status_code }}</span>
         </nav>
+        <div class="mastery-indicator" id="mastery-indicator" aria-label="Your mastery level for this code">
+            <span class="mastery-stars" id="mastery-stars"></span>
+            <span class="mastery-label" id="mastery-label"></span>
+        </div>
         <div class="parrot detail-parrot detail-cat-{{ status_code[0] }}xx parrot-clickable parrot-click-hint" id="detail-parrot" role="button" tabindex="0" aria-label="Click the parrot for a fun reaction">
             {% if image %}
             <div class="img">
@@ -655,6 +659,36 @@
                 handleClick();
             }
         });
+    })();
+    </script>
+    <script nonce="{{ csp_nonce }}">
+    /* Mastery tracking */
+    (function() {
+        var code = '{{ status_code }}';
+        var KEY = 'httpparrot_mastery';
+        function getMastery() {
+            try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { return {}; }
+        }
+        var m = getMastery();
+        var data = m[code] || {visits: 0, quizCorrect: 0, practiceCorrect: 0};
+        /* Increment visit */
+        data.visits = (data.visits || 0) + 1;
+        m[code] = data;
+        localStorage.setItem(KEY, JSON.stringify(m));
+        /* Calculate mastery level (0-3 stars) */
+        var stars = 0;
+        if (data.visits >= 1) stars = 1;
+        if (data.visits >= 3 && data.quizCorrect >= 1) stars = 2;
+        if (data.visits >= 5 && data.quizCorrect >= 3 && data.practiceCorrect >= 1) stars = 3;
+        var starsEl = document.getElementById('mastery-stars');
+        var labelEl = document.getElementById('mastery-label');
+        if (starsEl && labelEl) {
+            var starText = '';
+            for (var i = 0; i < 3; i++) starText += i < stars ? '\u2B50' : '\u2606';
+            starsEl.textContent = starText;
+            var labels = ['New', 'Familiar', 'Proficient', 'Mastered'];
+            labelEl.textContent = labels[stars];
+        }
     })();
     </script>
 {% endblock %}

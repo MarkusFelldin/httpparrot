@@ -8988,6 +8988,53 @@ body {
 @keyframes mood-pulse-coral { 0%,100% { box-shadow: 0 0 8px rgba(255,107,107,0.2); } 50% { box-shadow: 0 0 16px rgba(255,107,107,0.4); } }
 @keyframes mood-pulse-purple { 0%,100% { box-shadow: 0 0 8px rgba(123,97,255,0.2); } 50% { box-shadow: 0 0 16px rgba(123,97,255,0.4); } }
 
+/* === Speed Run banner === */
+.speedrun-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  background: rgba(249, 199, 79, 0.08);
+  border: 1px solid rgba(249, 199, 79, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.speedrun-icon { font-size: 1.25rem; }
+.speedrun-text { font-weight: 600; color: var(--color-gold); flex: 1; }
+.speedrun-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-gold);
+  background: rgba(249, 199, 79, 0.12);
+  color: var(--color-gold);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+}
+
+.speedrun-btn:hover { background: rgba(249, 199, 79, 0.2); }
+.speedrun-btn:disabled { opacity: 0.5; cursor: default; }
+.speedrun-timer { font-family: var(--font-mono); font-weight: 700; color: var(--color-gold); min-width: 60px; text-align: right; }
+
+/* === Mastery indicator === */
+.mastery-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  width: fit-content;
+}
+
+.mastery-stars { letter-spacing: 2px; }
+.mastery-label { color: var(--text-secondary); font-weight: 500; }
+
 /* === Parrot Frenzy Animation (rapid click easter egg) === */
 @keyframes parrot-frenzy {
   0% { opacity: 1; transform: scale(0) rotate(0deg); }

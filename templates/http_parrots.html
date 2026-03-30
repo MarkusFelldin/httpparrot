@@ -899,6 +899,90 @@
     </script>
 
     <script nonce="{{ csp_nonce }}">
+    /* Category Speed Run */
+    (function() {
+        var SR_KEY = 'httpparrot_speedrun';
+        var banner = document.createElement('div');
+        banner.className = 'speedrun-banner';
+        banner.id = 'speedrun-banner';
+        banner.hidden = true;
+
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'speedrun-icon';
+        iconSpan.setAttribute('aria-hidden', 'true');
+        iconSpan.textContent = '\u23F1';
+        banner.appendChild(iconSpan);
+
+        var textSpan = document.createElement('span');
+        textSpan.className = 'speedrun-text';
+        textSpan.id = 'speedrun-text';
+        textSpan.textContent = 'Speed Run';
+        banner.appendChild(textSpan);
+
+        var startBtn = document.createElement('button');
+        startBtn.className = 'speedrun-btn';
+        startBtn.id = 'speedrun-start';
+        startBtn.type = 'button';
+        startBtn.textContent = 'Start';
+        banner.appendChild(startBtn);
+
+        var timerSpan = document.createElement('span');
+        timerSpan.className = 'speedrun-timer';
+        timerSpan.id = 'speedrun-timer';
+        banner.appendChild(timerSpan);
+
+        var grid = document.getElementById('parrot-grid');
+        if (grid) grid.parentNode.insertBefore(banner, grid);
+
+        var timerInterval = null;
+        var startTime = null;
+        var activeCategory = null;
+
+        function getCatCodes(cat) {
+            var cards = document.querySelectorAll('.parrot-card');
+            var codes = [];
+            cards.forEach(function(c) {
+                if (c.getAttribute('data-code')[0] === cat) codes.push(c.getAttribute('data-code'));
+            });
+            return codes;
+        }
+
+        /* Show speed run option when category filter is active */
+        var catPills = document.querySelectorAll('.cat-pill');
+        catPills.forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                var cat = pill.getAttribute('data-cat');
+                if (cat !== 'all' && cat) {
+                    banner.hidden = false;
+                    activeCategory = cat;
+                    var catNames = {1:'1xx Informational',2:'2xx Success',3:'3xx Redirection',4:'4xx Client Error',5:'5xx Server Error'};
+                    document.getElementById('speedrun-text').textContent = 'Speed Run: ' + (catNames[cat] || cat + 'xx');
+                } else {
+                    banner.hidden = true;
+                    activeCategory = null;
+                    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                }
+            });
+        });
+
+        document.getElementById('speedrun-start').addEventListener('click', function() {
+            if (!activeCategory) return;
+            startTime = Date.now();
+            var codes = getCatCodes(activeCategory);
+            var state = {cat: activeCategory, codes: codes, visited: [], start: startTime};
+            localStorage.setItem(SR_KEY, JSON.stringify(state));
+            this.textContent = 'Running...';
+            this.disabled = true;
+            var timerEl = document.getElementById('speedrun-timer');
+            timerInterval = setInterval(function() {
+                var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                timerEl.textContent = elapsed + 's';
+            }, 100);
+        });
+    })();
+    </script>
+
+    <script nonce="{{ csp_nonce }}">
     /* Method filter */
     (function() {
         var methodMap = {{ method_applicability | safe }};
